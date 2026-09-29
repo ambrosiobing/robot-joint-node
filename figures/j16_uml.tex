@@ -1,0 +1,51 @@
+% The two sides of the contract, and one documentation caution between them.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm,
+  crow/.style={regcell, minimum width=48mm, text width=46mm, minimum height=4.6mm,
+              anchor=north west, align=left, font=\sffamily\tiny, inner sep=2pt}]
+
+\node[chlabel, anchor=west] at (-6.6,3.6) {the host component, the node's task, and the one document that lies};
+
+% ================================================================ the host side
+\node[crow, fill=hwcol] at (-6.6,3.2) {\textbf{on the host: a hardware component}};
+\node[crow, fill=white] at (-6.6,2.7) {derives from one of three interfaces};
+\node[crow, fill=kercol] at (-6.6,2.2) {on\_init \hfill on\_configure};
+\node[crow, fill=kercol] at (-6.6,1.7) {on\_cleanup \hfill on\_activate};
+\node[crow, fill=kercol] at (-6.6,1.2) {on\_deactivate \hfill on\_shutdown};
+\node[crow, fill=kercol] at (-6.6,0.7) {on\_error};
+\node[crow, fill=usrcol] at (-6.6,0.2) {read(time, period) \hfill one frame in};
+\node[crow, fill=usrcol] at (-6.6,-0.3) {write(time, period) \hfill one frame out};
+\node[crow, fill=white] at (-6.6,-0.8) {exported state \hfill position, velocity, error};
+\node[crow, fill=white] at (-6.6,-1.3) {exported command \hfill position, and the gains};
+
+% ================================================================ the node side
+\node[crow, fill=hwcol] at (0.4,3.2) {\textbf{on the node: the task from chapter 2}};
+\node[crow, fill=white] at (0.4,2.7) {read the encoder \hfill once, at a fixed point};
+\node[crow, fill=usrcol] at (0.4,2.2) {error \hfill setpoint minus measurement};
+\node[crow, fill=usrcol] at (0.4,1.7) {proportional \hfill Kp times error};
+\node[crow, fill=usrcol] at (0.4,1.2) {integral \hfill trapezoidal, clamped};
+\node[crow, fill=usrcol] at (0.4,0.7) {derivative \hfill \textbf{on the measurement}, filtered};
+\node[crow, fill=fwcol] at (0.4,0.2) {saturate \hfill then anti-windup};
+\node[crow, fill=white] at (0.4,-0.3) {write the output \hfill at a fixed point};
+\node[crow, fill=white] at (0.4,-0.8) {record the error \hfill peak, r.m.s., violations};
+\node[crow, fill=black!8] at (0.4,-1.3) {no division anywhere \hfill premultiplied at config};
+
+% ================================================================ the caution
+\node[regcell, fill=red!18, minimum width=112mm, text width=110mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.6,-2.2)
+  {\textbf{Read the header, not the rendered documentation.} The published page
+   for those seven callbacks omits the lifecycle state argument that the header
+   requires. A signature typed from the page does not compile, and the hour
+   spent finding out why is avoidable exactly once, by writing this sentence
+   down in the repository.};
+
+\node[umlnote, text width=54mm, anchor=north west] at (-6.6,-4.05)
+  {The published interface names include the three gains, two integral clamp
+   limits and a feedforward term. The framework already expects a joint whose
+   controller can be tuned over the wire, so this node exports them and applies
+   them at a period boundary.};
+\node[umlnote, text width=54mm, anchor=north west] at (0.4,-4.05)
+  {A hardware component for a microcontroller over a serial link is published
+   and is the structural template for the left-hand column. Changing the
+   transport to the bus of chapters 9 to 13 does not change the shape, and
+   knowing that saves a week.};
+\end{tikzpicture}

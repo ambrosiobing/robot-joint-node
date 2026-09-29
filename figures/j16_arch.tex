@@ -1,0 +1,57 @@
+% Two loops, and the published default that separates them.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.6,3.6) {two loops, at rates a published default already decided};
+
+% ================================================================ the outer loop
+\node[layerlabel] at (-6.6,3.1) {the outer loop, on the host, 100 Hz by default};
+\node[ext, text width=26mm] (traj) at (-4.8,2.3) {trajectory and limits};
+\node[ext, text width=26mm] (hw) at (-1.2,2.3) {the hardware component};
+\draw[ctrlline] (traj) -- (hw);
+\node[ext, text width=26mm] (bcast) at (2.4,2.3) {state broadcaster};
+\draw[fbline] (bcast) -- (hw);
+\node[chlabel, anchor=west] at (4.0,2.3) {no real-time kernel here};
+
+% ================================================================ the bus
+\node[busnode, text width=100mm, minimum height=7mm, fill=hwcol] (wire) at (-1.2,1.1)
+  {the bus: a setpoint down, a state frame up, chapters 9 to 13};
+\draw[ctrlline] (hw.south) -- (wire.north);
+
+% ================================================================ the inner loop
+\node[layerlabel] at (-6.6,0.4) {the inner loop, on the node, 1 kHz};
+\sumnode{s}{-56}{-8}{$+$}{$-$}
+\node[ctrlblk, text width=22mm] (ctl) at (-3.4,-0.8) {the controller\\this chapter};
+\node[ctrlblk, text width=22mm, fill=fwcol] (out) at (-0.8,-0.8) {the output stage\\chapter 7};
+\node[modelled, text width=24mm] (plant) at (1.9,-0.8) {the plant model\\chapter 7};
+\node[sensorblk, text width=24mm] (quad) at (4.8,-0.8) {quadrature out\\chapter 5};
+
+\draw[ctrlline] (wire.south -| s) -- (s);
+\node[ctrllabel, anchor=east] at (-5.75,-0.4) {setpoint};
+\draw[ctrlline] (s) -- (ctl);
+\draw[ctrlline] (ctl) -- (out);
+\draw[ctrlline] (out) -- (plant);
+\draw[ctrlline] (plant) -- (quad);
+
+\node[sensorblk, text width=24mm] (enc) at (4.8,-2.3) {encoder input\\chapter 5};
+\draw[ctrlline] (quad) -- node[ctrllabel, right]{real pulses, real pins} (enc);
+\draw[fbline] (enc.west) -- (-5.6,-2.3) -- (s);
+\node[ctrllabel] at (-0.4,-2.15) {the measurement, every period};
+
+\node[chlabel, anchor=north] at (1.9,-1.35) {the only modelled link};
+
+% ================================================================ the arithmetic
+\node[regcell, fill=hwcol, minimum width=112mm, text width=110mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.6,-3.0)
+  {\textbf{The ratio is ten to one, and it is the framework's own parameter
+   rather than a guess.} That is why the host sends positions and not efforts:
+   an effort loop at a tenth of the rate is a slower loop, not a different one.
+   The host owns the trajectory, the coordination and the limits. The node owns
+   the correction, the following error, and the safe state of chapter 18.};
+
+\node[umlnote, text width=112mm, anchor=north west] at (-6.6,-4.9)
+  {Everything in the inner loop is hardware except one block. The controller
+   output drives a model, the model's position drives a real quadrature
+   generator, and its pulses arrive at a real encoder input. The arithmetic, the
+   peripherals and the timing are real; the mechanics are not, and no number in
+   this chapter is a claim about a physical joint.};
+\end{tikzpicture}
