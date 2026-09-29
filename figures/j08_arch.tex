@@ -1,0 +1,56 @@
+% Three routes to a torque figure, and which of them this bench can run.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- route 1: a sensor in the joint
+\node[chlabel, anchor=west] at (-6.6,4.4) {route 1: measure it};
+\node[absentblk, text width=36mm] (sens) at (-4.6,3.4)
+  {a sensing element in the joint\\{\scriptsize strain gauges on a flexure, measuring the transmitted torque}};
+\node[absentblk, text width=36mm] (cond) at (-4.6,1.4)
+  {its conditioning chain\\{\scriptsize excitation, a chopper amplifier, a 24-bit converter, a calibration}};
+\node[chlabel, anchor=north, text width=38mm, align=center] at (-4.6,0.3)
+  {the honest answer, and the expensive one};
+
+% ---------------- route 2: current
+\node[chlabel, anchor=west] at (-1.4,4.4) {route 2: infer it from current};
+\node[absentblk, text width=36mm] (cur) at (0.6,3.4)
+  {current sensing\\{\scriptsize a shunt, an amplifier, and a converter synchronised to the switching}};
+\node[absentblk, text width=36mm] (gear) at (0.6,1.4)
+  {and a gearbox model\\{\scriptsize because what the motor makes is not what the joint delivers}};
+\node[chlabel, anchor=north, text width=38mm, align=center] at (0.6,0.3)
+  {what most drives already have, and wrong by the losses};
+
+% ---------------- route 3: the observer
+\node[chlabel, anchor=west] at (3.6,4.4) {route 3: infer it from motion};
+\node[fw, text width=36mm] (pos) at (5.8,3.4)
+  {position, from the real decode path\\{\scriptsize chapter 5, and the only real input here}};
+\node[modelled, text width=36mm] (obs) at (5.8,1.4)
+  {the observer\\{\scriptsize J times acceleration, minus the commanded torque, plus the friction model}};
+\node[chlabel, anchor=north, text width=38mm, align=center] at (5.8,0.3)
+  {what this chapter builds, and what industrial machines use with no sensor};
+
+% ---------------- what they all feed
+\node[user, text width=34mm] (est) at (0.6,-1.6)
+  {the estimate, with its provenance\\{\scriptsize value, source, model version, filter latency}};
+\node[user, text width=34mm] (det) at (0.6,-3.6)
+  {the contact detector\\{\scriptsize threshold, hold, latch, and a measured false-alarm rate}};
+
+\draw[flow] (sens) -- (cond);
+\draw[flow] (cur) -- (gear);
+\draw[flow] (pos) -- (obs);
+\draw[hiz, ->] (cond.south) -- ++(0,-0.7) -| (est.west);
+\draw[hiz, ->] (gear) -- (est);
+\draw[flow] (obs.south) -- ++(0,-0.7) -| (est.east);
+\draw[flow] (est) -- (det);
+
+% ---------------- the one real measurement in the chapter
+\node[hw, text width=34mm] (imu) at (6.4,-3.6)
+  {the inertial unit\\{\scriptsize chapter 6. Real silicon, and a tap on the bench is a real impulse}};
+\draw[flow] (imu) -- node[lbl, above]{a different question} (det);
+
+\node[umlnote, text width=52mm, anchor=north west] at (-7.4,-1.4)
+  {Two of the three routes need hardware this bench does not have, and the
+   figure says what each would require rather than leaving the reader to
+   imagine it. The third needs no sensor at all, which is why it is what
+   industrial machines fall back on, and why its error budget is the whole of
+   this chapter.};
+\end{tikzpicture}
