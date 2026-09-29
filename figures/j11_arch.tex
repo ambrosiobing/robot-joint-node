@@ -1,0 +1,34 @@
+% The four message types, who sends each, how often, and the priority order.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.4,3.6) {the identifier is the priority: everything higher wins arbitration against everything lower, on every frame};
+
+\foreach \i/\fc/\name/\who/\rate/\sty in {%
+  0/{0x1}/{emergency}/{any node, to everyone}/{on change only}/busoff,
+  1/{0x2}/{command}/{the master, to one joint}/{every period}/busmaster,
+  2/{0x3}/{state}/{each joint, to the master}/{every period}/busnode,
+  3/{0x7}/{diagnostic}/{each joint, to whoever listens}/{at a low rate}/buslistener}{
+  \node[\sty, text width=30mm, minimum height=11mm] (m\i) at (0,{2.6-\i*1.5}) {\name};
+  \node[font=\sffamily\scriptsize, anchor=east] at (-1.8,{2.6-\i*1.5}) {function code \fc};
+  \node[font=\sffamily\scriptsize, anchor=west, text width=44mm] at (1.8,{2.6-\i*1.5})
+    {\who\\{\tiny \rate}};
+}
+
+\draw[-Latex, line width=1.2pt, draw=linecol] (-4.4,3.1) -- (-4.4,-3.1);
+\node[font=\sffamily\scriptsize, anchor=south, rotate=90] at (-4.75,0) {wins arbitration};
+
+% ---------------- the identifier arithmetic
+\node[regcell, minimum width=84mm, text width=82mm, anchor=north west,
+      fill=white, align=left, minimum height=14mm] at (-6.4,-3.7)
+  {\ttfamily\scriptsize
+   identifier = function\_code $<<$ 7 $\;|\;$ node\_id\\[2pt]
+   \normalfont\sffamily
+   Eleven bits: four bits of function code, seven of node number. A hundred and
+   twenty-seven nodes coexist with no central allocation, and a lower-numbered
+   node wins the tie against a higher-numbered one at the same function code.};
+
+\node[umlnote, text width=52mm, anchor=north west] at (3.0,-3.7)
+  {An emergency from any node beats every command and every state frame on the
+   bus, which is what it is for. A diagnostic frame loses to everything, which
+   is also what it is for: it may wait, and on a busy bus it will.};
+\end{tikzpicture}

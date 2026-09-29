@@ -1,0 +1,59 @@
+% Above: one control period on the bus, before and after the fix.
+% Below: the life of a command.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+% ================================================================ the load
+\node[chlabel, anchor=west] at (0,3.5) {one control period of 1.00 ms, four joints, drawn to scale from the arithmetic};
+
+% the period boundary
+\foreach \y in {2.0, 0.6}{ \draw[deadline] (4.8,\y-0.35) -- (4.8,\y+0.5); }
+\node[tlabel, anchor=south, text=red!60!black] at (4.8,2.55) {the period ends here};
+
+% row 1: everything at 1 kHz
+\node[signame] at (-0.3,2.2) {command and state at 1 kHz};
+\foreach \i in {0,...,3}{
+  \node[taskrun, minimum width=10.7mm, anchor=south west, fill=hwcol] at ({\i*2.28},2.0) {cmd};
+  \node[taskrun, minimum width=12.2mm, anchor=south west] at ({\i*2.28+1.07},2.0) {state};
+}
+\node[tlabel, anchor=west, text=red!60!black] at (9.4,2.2) {190 per cent: it does not fit};
+
+% row 2: command at 250 Hz, arbitration at 1 Mbit
+\node[signame] at (-0.3,0.8) {command at 250 Hz, arbitration at 1 Mbit/s};
+\node[taskrun, minimum width=4.3mm, anchor=south west, fill=hwcol] at (0,0.6) {c};
+\foreach \i in {0,...,3}{
+  \node[taskrun, minimum width=7.6mm, anchor=south west] at ({0.5+\i*0.86},0.6) {state};
+}
+\node[tlabel, anchor=west] at (9.4,0.8) {38 per cent, and room to grow};
+
+\node[umlnote, text width=50mm, anchor=north west] at (0,0.1)
+  {The arbitration phase runs at the slow rate on every frame regardless of
+   payload, so it is the expensive part. Raising the arbitration rate helps more
+   than shrinking the layout, and doing both is what this volume would build for
+   a real arm.};
+
+% ================================================================ the command's life
+\node[chlabel, anchor=west] at (0,-3.4) {and the life of one command};
+
+\draw[taxis] (0,-4.8) -- (9.4,-4.8);
+\node[taskrun, minimum width=26mm, anchor=south west] at (0.6,-4.6) {FRESH};
+\node[taskrun, minimum width=26mm, anchor=south west, fill=hwcol] at (3.4,-4.6) {STALE};
+\node[taskrun, minimum width=26mm, anchor=south west, fill=red!20] at (6.2,-4.6) {EXPIRED};
+\node[tlabel, anchor=north, text width=26mm, align=center] at (1.9,-4.95) {the node acts on it};
+\node[tlabel, anchor=north, text width=26mm, align=center] at (4.7,-4.95) {still valid, nothing newer};
+\node[tlabel, anchor=north, text width=26mm, align=center] at (7.5,-4.95) {the named policy runs};
+
+\foreach \x/\lab in {0.6/{received}, 3.4/{no newer frame arrives}, 6.2/{valid\_until passes}}{
+  \draw[busstub] (\x,-4.05) -- (\x,-4.6);
+  \node[tlabel, anchor=south, text width=26mm, align=center] at (\x,-4.0) {\lab};
+}
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-6.0)
+  {A stale command is not an error: the master may simply have nothing new to
+   say. An expired one is different, and the node does not merely stop acting on
+   it, it enters the policy the command itself named, which by default is a
+   controlled stop.};
+\node[umlnote, text width=52mm, anchor=north west] at (5.6,-6.0)
+  {The expiry time comes from the master, so the master chooses how long its own
+   silence is tolerated. A node whose author guessed that number would be wrong
+   for every system but the one it was written on.};
+\end{tikzpicture}
