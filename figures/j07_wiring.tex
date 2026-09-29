@@ -1,0 +1,46 @@
+% Two loopback wires, a button, and the power stage that is not there.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+\node[board, minimum width=52mm, minimum height=30mm] (nucleo) at (0,0) {};
+\node[text=white, font=\sffamily\bfseries\small] at (0,1.0) {NUCLEO-H7A3ZI-Q};
+\node[text=white, font=\sffamily\tiny] at (0,0.62) {advanced timer: three pairs, dead time, break};
+\node[pinrow, minimum width=46mm] at (0,1.38) {};
+
+% the six outputs, as a row
+\foreach \i/\lab in {0/{H1}, 1/{L1}, 2/{H2}, 3/{L2}, 4/{H3}, 5/{L3}}{
+  \node[draw=white, fill=black!45, text=white, minimum width=6mm,
+        minimum height=5mm, font=\sffamily\tiny] at (-1.5+\i*0.6,-0.1) {\lab};
+}
+\node[text=white, font=\sffamily\tiny] at (0,-0.65) {three complementary pairs};
+
+% the loopback
+\draw[cable, draw=red!60!black] (-1.5,-0.35) -- ++(0,-0.75) -- ++(3.9,0) -- ++(0,1.1);
+\draw[cable, draw=blue!55!black] (-0.9,-0.35) -- ++(0,-1.05) -- ++(4.3,0) -- ++(0,1.4);
+\node[text=white, font=\sffamily\tiny] at (0.2,-1.28) {loopback: H1 and L1 to two captures};
+
+% the button as break input
+\node[ledsym, fill=black!30] (btn) at (2.0,0.22) {};
+\node[text=white, font=\sffamily\tiny, anchor=east] at (1.8,0.22) {PC13 as the break input};
+
+% ---------------- what is not there
+\node[absentblk, text width=38mm] (stage) at (6.6,1.9)
+  {gate driver and half bridge, three of each\\{\scriptsize plus a supply, a shunt
+   and an amplifier for current sensing}};
+\node[absentblk, text width=38mm] (motor) at (6.6,-0.9)
+  {a motor, and something for it to turn\\{\scriptsize and a mechanical fixture,
+   which is usually the expensive part}};
+\draw[hiz, ->] (nucleo.east) -- node[lbl, above]{six gate signals} (stage.west);
+\draw[hiz, ->] (stage) -- (motor);
+
+\node[umlnote, text width=54mm, anchor=north west] at (-4.6,-2.1)
+  {\textbf{The rule that applies the moment a bridge is bought.} A half bridge
+   whose two transistors conduct at the same time is a short circuit across the
+   supply, and the dead time is the only thing preventing it. Measure the dead
+   time with the loopback above, with no bridge connected, before the bridge is
+   powered. Then power it with the supply current limited. Never adjust the dead
+   time while the bridge is energised.};
+\node[umlnote, text width=44mm, anchor=north west] at (3.4,-2.1)
+  {The two loopback wires are the whole instrument. Capturing the timer's own
+   output pins gives 3.57 ns resolution on a quantity that is usually measured
+   with an oscilloscope, and this bench has none.};
+\end{tikzpicture}
