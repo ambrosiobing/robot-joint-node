@@ -1,0 +1,50 @@
+% The three modules and what each is allowed to know.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\newcommand{\umlbox}[4]{%
+  \node[umlclass, text width=36mm] (#1) at (#2) {%
+    \begin{minipage}{36mm}
+      \centering\bfseries #3\par\vspace{1pt}
+      \hrule\vspace{2pt}
+      \raggedright\normalfont #4\vspace{1pt}
+    \end{minipage}};}
+
+\umlbox{harn}{0,3.2}{test harness}{%
+  sweep rates, inject faults\\ assert decoded == generated\\[1pt]
+  {\itshape the only module that knows both}}
+
+\umlbox{gen}{-4.6,0.6}{quadgen}{%
+  set(rate, direction)\\ index every N counts\\[1pt]
+  {\itshape the stand-in. Deleted the day\\ an encoder is bought}}
+
+\umlbox{enc}{0,0.6}{encoder}{%
+  position() -> int64 counts\\ index\_seen(), index\_count()\\
+  wraps counted with the\\ direction bit\\[1pt]
+  {\itshape knows nothing about quadgen}}
+
+\umlbox{vel}{4.6,0.6}{velocity}{%
+  counting method\\ timing method\\ crossover, and which one\\ produced this figure}
+
+\umlbox{state}{0,-2.4}{node\_state\_t}{%
+  position, velocity\\[1pt] {\itshape chapter 1's one structure}}
+
+\draw[flow] (harn) -- node[lbl, left]{drives} (gen);
+\draw[flow] (harn) -- node[lbl, right]{reads} (enc);
+\draw[flow] (enc) -- (vel);
+\draw[flow] (enc) -- (state);
+\draw[flow] (vel) -| (state);
+
+% the signal path, which is hardware rather than a call
+\draw[hiz, ->] (gen.south) -- ++(0,-0.9) -- node[lbl, above]{three wires} ++(4.6,0) -- (enc.south);
+
+\node[umlnote, text width=54mm, anchor=north west] at (-6.6,-4.0)
+  {The decoder is written against a quadrature signal, not against the
+   generator. There is no include, no shared variable and no call between them:
+   the only path from one to the other leaves the chip and comes back on three
+   jumper wires.};
+\node[umlnote, text width=54mm, anchor=north west] at (0.4,-4.0)
+  {That is what makes the equality assertion worth something. If the two modules
+   shared a counter, the test would be checking arithmetic against itself. As
+   drawn, it checks a hardware decode path against a hardware signal generator,
+   and the only thing they share is a wire.};
+\end{tikzpicture}
