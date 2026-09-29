@@ -1,0 +1,59 @@
+% The bench as it stands today, and the parts that must arrive before chapter 9.
+% Nothing is wired in this chapter. Positions are explicit so that the cable
+% labels keep their clearance if the text is edited.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the board
+\node[board, minimum width=48mm, minimum height=30mm] (nucleo) at (0,1.2) {};
+\node[text=white, font=\sffamily\bfseries\small] at (0,1.55) {NUCLEO-H7A3ZI-Q};
+\node[text=white, font=\sffamily\scriptsize] at (0,1.15) {STM32H7A3ZI};
+
+% the probe half of the board, and the empty shield footprint
+\draw[draw=white, dashed, line width=0.5pt] (-0.85,-0.3) -- (-0.85,2.7);
+\node[text=white, font=\sffamily\tiny, anchor=north, rotate=90] at (-1.05,1.9) {probe};
+\node[pinrow, minimum width=42mm] at (0,2.45) {};
+\node[chlabel, anchor=south] at (0,2.85) {Arduino header, empty until chapter 6};
+
+% indicators, inside the board with their pins
+\node[ledsym, fill=green!65!black]  (ld1) at (-0.4,0.15) {};
+\node[ledsym, fill=yellow!80!black] (ld2) at ( 0.2,0.15) {};
+\node[ledsym, fill=red!75!black]    (ld3) at ( 0.8,0.15) {};
+\node[text=white, font=\sffamily\tiny] at (-0.4,0.55) {PB0};
+\node[text=white, font=\sffamily\tiny] at ( 0.2,0.55) {PE1};
+\node[text=white, font=\sffamily\tiny] at ( 0.8,0.55) {PB14};
+\node[text=white, font=\sffamily\tiny] at (0.2,-0.13) {node state, chapter 1};
+
+% ---------------- the host side
+\node[ext, text width=26mm] (host) at (-6.9,1.2) {host PC\\{\scriptsize build, flash, terminal}};
+\node[ext, text width=26mm] (pi)   at (-6.9,-0.9) {Raspberry Pi 4\\{\scriptsize the clean-clone build, today}};
+\node[chlabel, below=1mm of pi] {the motion master from chapter 10};
+\draw[usbcable] (host.east) -- node[lbl, above, align=center]{USB, one cable\\{\tiny power, SWD, console}} (nucleo.west);
+\draw[bus, draw=linecol!60] (host) -- node[lbl, right]{network} (pi);
+
+% ---------------- what has to be bought, one column
+\node[absentblk, text width=32mm] (xcvr) at (6.3,2.6)
+  {CAN-FD transceiver module\\{\scriptsize read the suffix: one letter separates
+   the 1 Mbit part from the 5 Mbit part}};
+\node[absentblk, text width=32mm] (term) at (6.3,0.3)
+  {two 120 ohm terminators\\{\scriptsize one at each end of the bus, not one per node}};
+\node[absentblk, text width=32mm] (adapter) at (6.3,-1.9)
+  {host bus adapter\\{\scriptsize it must present the kernel's own socket
+   interface, not a vendor library}};
+\begin{scope}[on background layer]
+\node[layer, fit=(xcvr)(term)(adapter), inner sep=6pt,
+      label={[layerlabel, anchor=south west]north west:not yet on the bench}] {};
+\end{scope}
+
+\draw[hiz, ->] (nucleo.east) -- node[lbl, above]{PD0, PD1}
+                                node[lbl, below]{chapter 9} (xcvr.west);
+
+\node[umlnote, text width=62mm, anchor=north] at (-1.0,-2.2)
+  {Nothing is wired in this chapter. The board carries no bus transceiver, which
+   is the whole electrical gap between this node and a network. A 1 Mbit
+   transceiver still gives full 64-byte frames and the stronger checksum,
+   because the frame format is invisible to it; what it costs is only the faster
+   data phase. The pin pair is confirmed in chapter 9 against the board manual,
+   and the adapter is the purchase to get right: one inexpensive analyser ships
+   a closed library with a frame structure of its own, which the standard
+   command-line tools cannot see at all.};
+\end{tikzpicture}

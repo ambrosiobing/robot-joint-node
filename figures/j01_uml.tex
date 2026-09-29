@@ -1,0 +1,58 @@
+% The node as modules. Three rows, explicit coordinates, and every dependency
+% drawn as a direct edge: no right-angle routing, so no line can pass through a
+% box that is not its target.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\newcommand{\umlbox}[4]{%
+  \node[umlclass, text width=32mm] (#1) at (#2) {%
+    \begin{minipage}{32mm}
+      \centering\bfseries #3\par\vspace{1pt}
+      \hrule\vspace{2pt}
+      \raggedright\normalfont #4\vspace{1pt}
+    \end{minipage}};}
+
+% ---------------- row 1: the three modules this chapter writes
+\umlbox{ident}{-4.6,3.4}{identity}{name, node\_id, version\\ built, uid[3]\\[1pt]
+  print() at boot}
+\umlbox{ind}{0,3.4}{indicator}{set(state)\\[1pt]
+  {\itshape six states, two of them\\ unreachable until chapter 18}}
+\umlbox{selfck}{4.6,3.4}{selfcheck}{clock, pll source\\ flash latency\\[1pt]
+  {\itshape fails loudly, never warns}}
+
+% ---------------- row 2: the one state, and what reads and writes it
+\umlbox{ctrl}{-4.6,0.7}{control}{period, loop, plant\\[1pt]
+  {\itshape chapters 2, 3 and 7}}
+\umlbox{state}{0,0.7}{node\_state\_t}{position, velocity\\ effort\_cmd, effort\_est\\
+  mode, faults, seq\\[1pt] {\itshape one instance, one owner}}
+\umlbox{bus}{4.6,0.7}{bus}{controller, protocol\\ membership\\[1pt]
+  {\itshape chapters 9 to 13}}
+
+% ---------------- row 3: what sits above, and what sits below
+\umlbox{mw}{-4.6,-2.1}{middleware}{client, joint messages\\[1pt] {\itshape chapters 14 and 15}}
+\umlbox{bsp}{0,-2.1}{bsp}{startup, system, uart\\ board.h\\[1pt]
+  {\itshape chapter 4 turns this into\\ a board file to hand over}}
+\umlbox{safety}{4.6,-2.1}{safety}{safe states, latching\\[1pt] {\itshape chapter 18}}
+
+% ---------------- dependencies, every one a direct edge
+\draw[flow] (ident)  -- (state);
+\draw[flow] (ind)    -- (state);
+\draw[flow] (selfck) -- (state);
+\draw[flow] (ctrl)   -- node[lbl]{writes} (state);
+\draw[flow] (bus)    -- node[lbl]{reads} (state);
+\draw[flow] (mw)     -- (ctrl);
+\draw[flow] (state)  -- (bsp);
+\draw[flow] (ctrl)   -- (bsp);
+\draw[flow] (bus)    -- (bsp);
+\draw[faultedge] (safety) -- node[lbl]{may force} (bus);
+
+\node[umlnote, text width=52mm, anchor=north west] at (-6.3,-3.6)
+  {Nothing points upward. The control loop does not know a bus exists: it
+   produces a state and consumes a command, and something above it decides where
+   those go. That is what lets chapter 16 close a loop over the network without
+   touching chapter 2, and what lets the whole node be tested on a host machine
+   in chapter 20.};
+\node[umlnote, text width=40mm, anchor=north east] at (6.3,-3.6)
+  {One state structure, one owner. The most common way a machine like this
+   becomes untrustworthy is two modules each holding a slightly different idea
+   of where the axis is.};
+\end{tikzpicture}

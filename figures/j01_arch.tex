@@ -1,0 +1,67 @@
+% The whole machine, with the chapter that builds each piece.
+% Solid = exists at the end of chapter 1. Faded = a later chapter.
+% Dashed = modelled in software. Dotted grey = absent, explained not built.
+% Positions are explicit: three columns at fixed heights, so the blocks of one
+% column can never drift into another as the text is edited.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the node, bottom up, at x = 0
+\node[hw,        wide] (sil)   at (0,-0.4) {STM32H7A3ZI, Cortex-M7 at 280 MHz\\{\scriptsize\itshape settled from the vendor's own headers}};
+\node[fw,        wide] (bsp)   at (0,1.85) {board support: clocks, pins, console\\{\scriptsize\itshape chapter 1, handed over in chapter 4}};
+\node[laterblk,  wide] (loop)  at (0,3.7) {control period, 1 kHz\\{\scriptsize chapters 2 and 3}};
+\node[laterblk,  wide] (sense) at (0,5.55) {sensing: encoder, inertial unit\\{\scriptsize chapters 5 and 6}};
+\node[laterblk,  wide] (busl)  at (0,7.4) {CAN-FD: timing, protocol, membership\\{\scriptsize chapters 9 to 13}};
+\node[laterblk,  wide] (mw)    at (0,9.25) {middleware client and joint messages\\{\scriptsize chapters 14 and 15}};
+
+\begin{scope}[on background layer]
+\node[layer, fit=(sil)(bsp)(loop)(sense)(busl)(mw), inner ysep=9pt, inner xsep=6pt,
+      label={[layerlabel, anchor=south west]north west:the joint node}] {};
+\end{scope}
+
+% ---------------- what hangs off the node, one column at x = 5.9
+\node[laterblk, text width=30mm] (motor2) at (6.3,0.0) {};
+\node[absentblk, text width=30mm] (motor) at (6.3,0.0) {motor and drive stage\\{\scriptsize not on this bench}};
+\node[modelled, text width=30mm] (torque) at (6.3,1.85) {torque estimate\\{\scriptsize derived, chapter 8}};
+\node[laterblk, text width=30mm] (act)    at (6.3,3.7) {outputs: PWM, dead time, fault in\\{\scriptsize chapter 7}};
+\node[modelled, text width=30mm] (plant)  at (6.3,5.55) {plant model\\{\scriptsize second order, chapter 7}};
+\node[laterblk, text width=30mm] (safe)   at (6.3,7.4) {safe states, latching\\{\scriptsize chapter 18}};
+\node[laterblk, text width=30mm] (upd)    at (6.3,9.25) {update over the bus\\{\scriptsize chapter 19}};
+
+% ---------------- the other machine, one column at x = -6.4
+\node[ext, text width=28mm] (rig)    at (-7.3,1.85) {the rig: faults in, tracking out\\{\scriptsize chapter 20}};
+\node[ext, text width=28mm] (master) at (-7.3,7.4) {motion master\\{\scriptsize Raspberry Pi, chapter 10}};
+\node[ext, text width=28mm] (agent)  at (-7.3,9.25) {middleware agent\\{\scriptsize chapter 14}};
+\begin{scope}[on background layer]
+\node[layer, fit=(rig)(master)(agent), inner ysep=8pt, inner xsep=5pt,
+      label={[layerlabel, anchor=south west]north west:the host}] {};
+\end{scope}
+
+% ---------------- the one electrical gap, in line with the bus it completes
+\node[absentblk, text width=17mm] (xcvr) at (-4.3,7.4) {transceiver\\{\scriptsize to be bought}};
+
+% ---------------- edges up the node
+\draw[flow] (sil)   -- (bsp);
+\draw[flow] (bsp)   -- (loop);
+\draw[flow] (loop)  -- (sense);
+\draw[flow] (sense) -- (busl);
+\draw[flow] (busl)  -- (mw);
+
+% ---------------- edges across, all at matching heights
+\draw[bus]  (loop)   -- node[lbl, above]{command} (act);
+\draw[bus]  (act)    -- node[lbl, right]{drives} (plant);
+\draw[bus]  (act)    -- node[lbl, right]{derives} (torque);
+\draw[dotted, draw=black!55, ->] (motor) -- node[lbl, right]{absent} (torque);
+\draw[bus]  (busl)   -- (safe);
+\draw[flow] (safe)   -- (upd);
+\draw[bus, line width=1.1pt] (busl) -- (xcvr);
+\node[chlabel] at (-3.9,8.15) {CAN-FD, chapter 9};
+\draw[hiz, <->] (xcvr) -- (master);
+\draw[bus]  (mw)     -- (agent);
+\draw[bus]  (rig)    -- node[lbl, above]{under test} (bsp);
+
+\node[umlnote, text width=40mm, anchor=north] at (6.3,-1.1)
+  {Dashed is a model standing in for hardware. Dotted grey is hardware that is
+   absent and explained rather than built. No measurement taken through a dashed
+   block measures anything physical, and the board says so on the console at
+   every boot.};
+\end{tikzpicture}
