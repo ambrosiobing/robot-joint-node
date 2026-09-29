@@ -1086,7 +1086,11 @@ def build_chapter(which):
     its own figures, and it is named after itself rather than after the book.
     """
     if re.fullmatch(r"\d{1,2}", str(which)):
-        path = ROOT / "sections" / f"j{int(which):02d}.tex"
+        # The section file prefix comes from the DOC block, so this works
+        # unchanged in every volume: "sec:j" here, "sec:c" in the firmware
+        # volume, "sec:p" in the Linux one.
+        pfx = DOC["label_pfx"].split(":")[-1]
+        path = SECTIONS / f"{pfx}{int(which):02d}.tex"
     else:
         path = Path(which)
         if not path.is_absolute():
