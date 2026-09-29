@@ -1,0 +1,55 @@
+% The asymmetry: one network card against a chip, a memory and a PHY per port.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.8) {the two ends of the same bus, and what each one needs to exist};
+
+% ================================================================ the controlling end
+\node[layerlabel] at (-6.8,3.3) {the controlling end};
+\node[ext, text width=34mm, minimum height=10mm] (nic) at (-4.8,2.2)
+  {a standard network interface\\100 Mbit/s, full duplex};
+\node[chlabel, anchor=north, text width=40mm, align=center] at (-4.8,1.5)
+  {the guide's entire stated hardware requirement, in one sentence};
+\node[regcell, fill=usrcol, minimum width=48mm, text width=46mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,0.6)
+  {\textbf{The bench already owns this.} The Raspberry Pi's existing Ethernet
+   port meets the requirement as it stands, so the controlling end is a software
+   project and nothing else.};
+
+% ================================================================ the other end
+\node[layerlabel] at (0.4,3.3) {the participant end};
+\node[hw, text width=30mm, minimum height=8mm] (esc) at (2.4,2.3) {a dedicated controller chip};
+\node[hw, text width=22mm, minimum height=7mm] (eep) at (6.0,2.3) {a configuration memory};
+\draw[busstub] (esc) -- (eep);
+
+\node[absentblk, text width=20mm, minimum height=7mm] (p1) at (1.2,0.9) {connector};
+\node[absentblk, text width=20mm, minimum height=7mm] (p2) at (3.4,0.9) {magnetics};
+\node[absentblk, text width=20mm, minimum height=7mm] (p3) at (5.6,0.9) {a PHY};
+\draw[busstub, draw=black!45] (esc.south) -- (2.4,1.45) -- (1.2,1.45) -- (p1.north);
+\draw[busstub, draw=black!45] (2.4,1.45) -- (3.4,1.45) -- (p2.north);
+\draw[busstub, draw=black!45] (2.4,1.45) -- (5.6,1.45) -- (p3.north);
+\node[chlabel, anchor=north, text width=52mm, align=center] at (3.4,0.3)
+  {and all of that \textbf{per port}, with two ports the minimum, plus passives};
+
+\node[regcell, fill=red!18, minimum width=48mm, text width=46mm, inner sep=3pt,
+      anchor=north west, align=left] at (0.4,-0.6)
+  {\textbf{The bench owns none of it}, and this part could not use it anyway: no
+   Ethernet controller here, and \textbf{this silicon vendor sells no subdevice
+   controller at all}.};
+
+% ================================================================ the conclusion
+\node[regcell, fill=hwcol, minimum width=114mm, text width=112mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-2.4)
+  {\textbf{The asymmetry is the chapter.} A personal computer's network card is
+   enough to be the controlling end. Being a participant needs silicon that does
+   not exist in this vendor's catalogue, on a board that has no Ethernet
+   controller, assembled with a soldering iron this bench does not have. That is
+   a structural boundary, not a difficult problem, and the difference is worth
+   being able to state.};
+
+\node[umlnote, text width=114mm, anchor=north west] at (-6.8,-4.7)
+  {Both premises were settled from documents rather than impressions: the absent
+   Ethernet controller from the absence of two interrupt vector slots in the
+   vendor's own header, in chapter 4, and the absent controller product from a
+   text search of the technology group's own overview of July 2025, which returns
+   zero results for either of this vendor's names.};
+\end{tikzpicture}

@@ -1,0 +1,62 @@
+% The two tables this chapter exists to produce.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.4) {the controllers, from the technology group's own overview of July 2025};
+
+\node[regcell, fill=white, minimum width=130mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,3.0)
+  {\begin{tabular}{@{}p{20mm}cccp{46mm}@{}}
+   \textbf{part} & \textbf{ports} & \textbf{memory} & \textbf{sync / map} &
+   \textbf{host interface} \\[1pt]
+   \hline
+   ET1100 & 2 to 4 & 8 kB & 8 / 8 & serial and parallel, 8 and 16 bit \\
+   LAN9252 & 2 + MII & \textbf{4 kB} & \textbf{4 / 3} & host bus, serial, quad serial \\
+   LAN9253, 9254 & 2 + opt & 8 kB & 8 / 8 & as above, with digital I/O on the 9254 \\
+   LAN9255 & 2 + opt & 8 kB & 8 / 8 & \textbf{integrated Cortex-M4F, 1 MB flash, 256 kB memory} \\
+   AX58100 & \textbf{2, PHYs inside} & 9 kB & 8 / 8 & \textbf{serial, parallel, and a joint's peripherals} \\
+   XMC4800 & 2 MII & 8 kB & 8 / 8 & internal, Cortex-M4, external PHYs \\
+   \end{tabular}};
+
+\node[regcell, fill=usrcol, minimum width=130mm, text width=128mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-0.2)
+  {\textbf{The fifth row is the one a joint would want}, and its own feature
+   list says why with no interpretation: three channel pulse width modulation,
+   step and direction control, incremental and Hall encoder interfaces, and an
+   emergency stop input, in an eighty pin package with both physical layer
+   devices integrated. Datasheet version 1.09, Thursday 12 December 2024.
+   \textbf{Two older parts that appear in articles are absent from this overview
+   and one product page returns not found}, so neither belongs in a new design.};
+
+% ================================================================ the stacks
+\node[chlabel, anchor=west] at (-6.8,-2.9) {and the stacks, with what each licence file actually says};
+
+\node[regcell, fill=white, minimum width=130mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,-3.3)
+  {\begin{tabular}{@{}p{26mm}p{34mm}p{62mm}@{}}
+   \textbf{stack} & \textbf{licence, from its file} & \textbf{what that means here} \\[1pt]
+   \hline
+   the portable master & \textbf{GPL-3.0 since version 2.0.0, Friday 11 July 2025}
+   & Previously GPL-2.0 with a linking exception. Its own file offers a
+   commercial option and says a commercial product likely needs one. Automated
+   checks report nothing, because the file has an unexpected extension \\[2pt]
+   the kernel master & GPL-2.0 and LGPL-2.1, both at the root & \textbf{The
+   readme does not say which covers which half.} The conventional split is
+   assumed everywhere and could not be confirmed. Out-of-tree kernel modules \\[2pt]
+   the open participant & GPL-2.0 \textbf{with a linking exception} & It kept
+   the arrangement the master stack left behind in 2025, and that asymmetry
+   belongs in any evaluation \\[2pt]
+   the vendor participant & free of charge, \textbf{membership gated},
+   redistribution restricted & Includes an example drive profile, which is
+   exactly a joint. The gate is membership, not a vendor identifier \\[2pt]
+   the framework bridge & Apache-2.0 & \textbf{On a copyleft out-of-tree kernel
+   module}, with an installation procedure that requires disabling secure boot.
+   The badge describes the wrapper, not what ships \\
+   \end{tabular}};
+
+\node[umlnote, text width=130mm, anchor=north west] at (-6.8,-8.8)
+  {The last row generalises far beyond this bus. A permissive wrapper, actively
+   maintained and well designed, sitting on a dependency whose licence is
+   stronger, with the badge on its page describing only itself. The check is one
+   level deeper than most people look, it takes ten minutes, and the answer
+   belongs in a file rather than in somebody's memory.};
+\end{tikzpicture}

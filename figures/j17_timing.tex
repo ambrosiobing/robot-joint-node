@@ -1,0 +1,55 @@
+% On-the-fly processing, and what the synchronisation costs and buys.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm]
+
+% ================================================================ the frame moving
+\node[chlabel, anchor=west] at (0,40) {one frame, moving downstream, read and written as it passes};
+
+\foreach \x/\n in {6/1, 38/2, 70/3, 102/4}{
+  \node[busnode, text width=20mm, minimum height=9mm, anchor=south west] at (\x,14) {participant \n};
+}
+\draw[busline] (0,10) -- (124,10);
+\foreach \x in {16,48,80,112}{ \draw[busstub] (\x,10) -- (\x,14); }
+
+\node[fieldbox, fill=kercol, minimum width=26mm, text width=24mm, minimum height=6mm,
+      font=\sffamily\tiny] at (4,26) {one frame};
+\draw[flow] (32,29) -- (52,29);
+\node[tlabel, anchor=south] at (42,29.5) {downstream};
+
+\foreach \x in {16,48,80,112}{
+  \draw[flow, draw=blue!55!black] (\x,23.5) -- (\x,20);
+  \draw[flow, draw=blue!55!black] ({\x+4},20) -- ({\x+4},23.5);
+}
+\node[tlabel, anchor=west] at (58,27) {each one reads what is addressed to it and inserts its own, in hardware};
+
+\node[tlabel, anchor=west] at (0,6) {no receive, process, transmit cycle at each hop, which is where the determinism comes from};
+\node[tlabel, anchor=west] at (0,2) {and why the number of participants costs so little};
+
+% ================================================================ synchronisation
+\node[chlabel, anchor=west] at (0,-6) {and the synchronisation, on a scale that has to be logarithmic for both to fit};
+\draw[taxis] (0,-16) -- (124,-16);
+\foreach \x/\lab in {6/{1 ns}, 36/{100 ns}, 66/{1 us}, 96/{100 us}}{
+  \draw[release] (\x,-18) -- (\x,-14);
+  \node[tlabel, anchor=north] at (\x,-18.5) {\lab};
+}
+
+\node[fieldbox, fill=usrcol, minimum width=22mm, text width=20mm, minimum height=5mm,
+      font=\sffamily\tiny] at (12,-12) {claimed: better than 100 ns};
+\node[fieldbox, fill=kercol, minimum width=24mm, text width=22mm, minimum height=5mm,
+      font=\sffamily\tiny] at (40,-12) {guide: much better than 1 us};
+\node[fieldbox, fill=hwcol, minimum width=30mm, text width=28mm, minimum height=5mm,
+      font=\sffamily\tiny] at (68,-12) {chapter 3, measured: single-digit us};
+
+\draw[tspan] (30,-22) -- node[tlabel]{one to two orders} (75,-22);
+
+\node[umlnote, text width=56mm, anchor=north west] at (0,-28)
+  {Chapter 3 built a software synchronisation over the existing bus and reached
+   single-digit microseconds over thirty minutes, with the node's clock never
+   going backwards. That is a good result for software, and it is one to two
+   orders away from a dedicated hardware service. Both halves of that sentence
+   are true and the chapter prints both.};
+\node[umlnote, text width=56mm, anchor=north west] at (66,-28)
+  {The hardware service is 64 bit time in nanosecond units, with propagation
+   delay measured and offset and drift compensated inside the controller. It is
+   not a protocol somebody writes. It is a reason to buy a chip, which is the
+   honest way to describe most of what this chapter is about.};
+\end{tikzpicture}
