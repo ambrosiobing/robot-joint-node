@@ -1,0 +1,46 @@
+% Three independent mechanisms, and the one state they jointly decide.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the three inputs
+\node[busnode, text width=34mm] (hb) at (-5.6,3.2)
+  {heartbeat\\{\scriptsize one frame per interval, each way. Absence is decided after three}};
+\node[busnode, text width=34mm] (cmd) at (-5.6,0.9)
+  {command validity\\{\scriptsize chapter 11: a command expires at a time the master chose}};
+\node[hw, text width=34mm] (err) at (-5.6,-1.4)
+  {the controller's error state\\{\scriptsize changes without software, and stops transmitting on its own}};
+\begin{scope}[on background layer]
+\node[layer, fit=(hb)(cmd)(err), inner sep=6pt,
+      label={[layerlabel, anchor=south west]north west:three independent inputs}] {};
+\end{scope}
+
+% ---------------- the node's state
+\node[fw, text width=32mm] (nmt) at (0.4,0.9)
+  {the node state machine\\{\scriptsize five states, and any one input can take it out of operational}};
+
+% ---------------- the outputs
+\node[user, text width=32mm] (state) at (5.8,3.2)
+  {state frame, every period\\{\scriptsize mode, fault word, error counters: what is true now}};
+\node[user, text width=32mm] (emcy) at (5.8,0.9)
+  {emergency frame, on change\\{\scriptsize once per event, broadcast, high priority: what happened}};
+\node[user, text width=32mm] (pol) at (5.8,-1.4)
+  {the recovery policy\\{\scriptsize written in a file, with the two rejected alternatives}};
+
+\draw[flow] (hb) -- (nmt);
+\draw[flow] (cmd) -- (nmt);
+\draw[flow] (err) -- (nmt);
+\draw[flow] (nmt) -- (state);
+\draw[flow] (nmt) -- (emcy);
+\draw[faultedge] (err.east) -- ++(1.2,0) |- node[lbl, above, pos=0.3]{bus-off} (pol.west);
+
+\node[umlnote, text width=52mm, anchor=north west] at (-8.4,-2.8)
+  {The two reporting shapes answer different questions and a joint node wants
+   both. The state frame says what is true now, so a listener that arrives late
+   still learns the truth. The emergency frame says that something happened,
+   once, at the moment it happened, and it wins arbitration against everything
+   else on the bus.};
+\node[umlnote, text width=52mm, anchor=north west] at (1.0,-2.8)
+  {The third input is the one most projects never read. The controller's error
+   counters rise on errors and fall on successful frames, and the controller
+   changes state and eventually stops transmitting entirely without any code
+   running. Software observes that; it does not perform it.};
+\end{tikzpicture}

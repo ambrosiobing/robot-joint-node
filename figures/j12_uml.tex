@@ -1,0 +1,38 @@
+% The synchronisation protocol from chapter 3, running at last.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\foreach \x/\name/\id in {0/{the master}/m, 3.6/{the bus}/bus,
+                          7.2/{the node}/n, 10.8/{its slew}/sk}{
+  \node[actor, text width=24mm] (\id) at (\x,0) {\name};
+  \draw[lifeline] (\id.south) -- ++(0,-7.8);
+}
+
+\draw[msg] (0,-1.1) -- node[above]{frame A, "mark", no payload at all} (3.6,-1.1);
+\node[activation, minimum height=3mm] at (0,-1.3) {};
+\node[tlabel, anchor=west, text=blue!55!black] at (0.15,-1.85)
+  {the master captures its own transmission, in hardware};
+
+\draw[msg] (3.6,-2.5) -- node[above]{every node captures its reception} (7.2,-2.5);
+\node[activation, minimum height=3mm] at (7.2,-2.7) {};
+\node[tlabel, anchor=west, text=blue!55!black] at (7.35,-3.2)
+  {at the start-of-frame bit, before any interrupt};
+
+\draw[msg] (0,-4.0) -- node[above]{frame B, follow-up: the master's own stamp of frame A} (7.2,-4.0);
+
+\draw[msg] (7.2,-4.9) -- node[above]{offset = the master's stamp minus mine} (10.8,-4.9);
+\node[activation, minimum height=3mm] at (10.8,-5.1) {};
+\draw[reply] (10.8,-5.7) -- node[below]{slewed, never stepped} (7.2,-5.7);
+
+\node[tlabel, anchor=west] at (0.15,-6.6) {fewer than twenty frames a second, and one identifier each};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-8.4)
+  {The protocol works because the master sends its own transmission timestamp,
+   not because its reception timestamps are good. Chapter 10 measured the
+   master's reception stamps at hundreds of microseconds late and occasionally
+   milliseconds late, and this design never depends on them.};
+\node[umlnote, text width=52mm, anchor=north west] at (6.0,-8.4)
+  {The time-critical path is reception to capture, which happens in hardware on
+   both ends. What remains is the master's own transmit stamp quality, and that
+   is what bounds the residual this chapter reports: single-digit microseconds
+   over thirty minutes, with the node's clock never going backwards.};
+\end{tikzpicture}

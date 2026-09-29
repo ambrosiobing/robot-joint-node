@@ -1,0 +1,47 @@
+% Three faults, provoked by hand, and what each one does.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+\foreach \i/\y in {0/0, 1/-3.0, 2/-6.0}{
+  \draw[busline] (0,\y) -- (5.0,\y);
+  \node[busterm] at (0,\y) {120};
+  \node[busnode, text width=18mm, minimum height=7mm] at (1.4,{\y+1.1}) {node};
+  \node[busmaster, text width=18mm, minimum height=7mm] at (3.6,{\y+1.1}) {master};
+  \draw[busstub] (1.4,\y) -- (1.4,{\y+0.75});
+  \draw[busstub] (3.6,\y) -- (3.6,{\y+0.75});
+}
+
+% ---------------- fault 1: one wire disconnected
+\node[busterm] at (5.0,0) {120};
+\draw[faultedge, -] (2.4,0.12) -- (2.8,-0.12);
+\draw[faultedge, -] (2.4,-0.12) -- (2.8,0.12);
+\node[chlabel, anchor=west] at (5.6,0.6) {\textbf{1. one wire disconnected}};
+\node[chlabel, anchor=west, text width=56mm] at (5.6,-0.15)
+  {transmit errors rise to the passive threshold in about fourteen milliseconds,
+   then bus-off. On reconnection both ends recover within one restart interval.};
+
+% ---------------- fault 2: the pair shorted
+\node[busterm] at (5.0,-3.0) {120};
+\draw[cable, draw=red!65!black, line width=1.2pt] (2.6,-2.85) -- (2.6,-3.15);
+\node[chlabel, anchor=west] at (5.6,-2.4) {\textbf{2. the pair shorted, briefly}};
+\node[chlabel, anchor=west, text width=56mm] at (5.6,-3.15)
+  {both ends walk error-active, warning, passive, bus-off in about nine
+   milliseconds. On removal the counters decay rather than reset, and that decay
+   is information.};
+
+% ---------------- fault 3: a terminator removed
+\node[absentblk, minimum width=8mm, minimum height=7mm, text width=6mm] at (5.0,-6.0) {};
+\node[chlabel, anchor=west] at (5.6,-5.4) {\textbf{3. one terminator removed}};
+\node[chlabel, anchor=west, text width=56mm] at (5.6,-6.15)
+  {no errors at all in the arbitration phase, and a few per cent of frames in
+   error once the data phase runs fast. This is the one that looks like a
+   software fault and is not.};
+
+\node[umlnote, text width=58mm, anchor=north west] at (0,-7.6)
+  {The third case is the most useful thing in this chapter. A bus with the wrong
+   termination often works perfectly at the arbitration rate and fails
+   intermittently only when the data phase runs at four times that, which
+   presents in the application as occasional corrupted messages and sends people
+   looking in the wrong place for days. The error counters separate the two
+   explanations in ten minutes: a physical problem shows a receive error count
+   that rises and falls, and a software problem does not.};
+\end{tikzpicture}

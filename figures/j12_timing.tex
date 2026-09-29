@@ -1,0 +1,55 @@
+% Bus-off and recovery, drawn as it happens.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+% ================================================================ the counters
+\node[chlabel, anchor=west] at (0,4.3) {the transmit error counter, during a fault and after it};
+\draw[taxis] (0,0.8) -- (9.6,0.8);
+\draw[taxis] (0,0.8) -- (0,3.9);
+\node[font=\sffamily\tiny, anchor=east, rotate=90] at (-0.35,2.4) {error counter};
+
+% the three thresholds, unnamed by value
+\foreach \y/\lab in {1.9/{warning threshold}, 2.7/{passive threshold}, 3.5/{bus-off condition}}{
+  \draw[deadline] (0,\y) -- (9.6,\y);
+  \node[tlabel, anchor=west] at (9.7,\y) {\lab};
+}
+
+% the counter rising, then the controller stops, then recovery and decay
+\draw[signal, line width=1pt] (0.3,0.85) -- (1.1,0.9) -- (2.2,1.95) -- (3.0,2.75) -- (3.7,3.55);
+\draw[faultedge] (3.7,3.55) -- (3.7,0.85);
+\node[tlabel, anchor=west, text=red!60!black] at (3.85,3.2) {the controller stops transmitting, on its own};
+\draw[hiz] (3.7,0.85) -- (5.2,0.85);
+\draw[tspan] (3.7,0.62) -- node[tlabel]{the restart delay: policy} (5.2,0.62);
+\draw[signal, line width=1pt] (5.2,0.85) -- (6.2,1.6) -- (7.0,1.1) -- (9.3,0.85);
+\node[tlabel, anchor=south] at (7.6,1.15) {counters decay as frames succeed, and the decay is information};
+
+\node[chlabel, anchor=north west] at (0,0.35) {the fault begins here};
+\draw[busstub] (1.1,0.55) -- (1.1,0.95);
+
+% ================================================================ the two extremes
+\node[chlabel, anchor=west] at (0,-1.4) {and the two policies this chapter's decision sits between};
+
+\node[regcell, minimum width=46mm, text width=44mm, anchor=north west,
+      fill=black!6, align=left, minimum height=16mm] at (0,-1.9)
+  {\textbf{recover immediately, forever}\\[2pt]
+   On a bus that is genuinely broken the node retries without limit, contributes
+   to the problem, and never stops. It is the default in many stacks.};
+
+\node[regcell, minimum width=46mm, text width=44mm, anchor=north west,
+      fill=usrcol, align=left, minimum height=16mm] at (5.0,-1.9)
+  {\textbf{this volume: after 100 ms, five times}\\[2pt]
+   Then stay off, keep listening, and report through anything still working. The
+   lifetime count survives a reset, so a unit that has done this before can say
+   so.};
+
+\node[regcell, minimum width=46mm, text width=44mm, anchor=north west,
+      fill=black!6, align=left, minimum height=16mm] at (10.0,-1.9)
+  {\textbf{never recover automatically}\\[2pt]
+   Safest on a bench. On a robot arm it means somebody with physical access, and
+   that is expensive.};
+
+\node[umlnote, text width=58mm, anchor=north west] at (0,-4.4)
+  {The middle column is a decision, not a default, and it is written in a file
+   with both rejected alternatives beside it. A different machine would
+   reasonably choose differently: what this volume insists on is that the choice
+   be made and recorded rather than inherited from whichever stack was copied.};
+\end{tikzpicture}
