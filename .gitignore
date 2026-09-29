@@ -15,3 +15,11 @@ robot-joint-node.html
 # Per-chapter deliverables, built on demand with: python build.py --chapter N
 chapter-*.pdf
 chapter-*.html
+
+# Local virtual environments and editor state
+.venv/
+venv/
+.vscode/
+.idea/
+__pycache__/
+*.pyc
