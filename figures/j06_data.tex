@@ -1,0 +1,63 @@
+% Three frames, one rotation, and how much of it gravity can give you.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\tikzset{
+  axline/.style={-Latex, line width=0.8pt},
+  axlbl/.style={font=\sffamily\tiny, inner sep=1pt},
+}
+
+% ================================================================ the joint frame
+\node[chlabel, anchor=south] at (-4.4,2.9) {the joint's frame};
+\node[linkbody, minimum width=26mm, minimum height=6mm] at (-4.4,0.9) {};
+\node[jointpin] (jp) at (-5.6,0.9) {};
+\draw[axline, draw=linecol]      (-5.6,0.9) -- (-3.4,0.9);
+\node[axlbl, anchor=north] at (-4.5,0.42) {x, along the link};
+\draw[axline, draw=blue!55!black](-5.6,0.9) -- (-5.6,2.4) node[axlbl, anchor=south west]{z, the axis of rotation};
+\draw[jointarc] (-4.7,1.5) arc (0:70:0.9);
+\node[axlbl, anchor=west] at (-4.3,2.05) {the angle the encoder measures};
+
+% ================================================================ the sensor frame
+\node[chlabel, anchor=south] at (0.9,2.9) {the sensor's frame};
+\node[draw=linecol, fill=hwcol, minimum width=14mm, minimum height=10mm,
+      rotate=22, font=\sffamily\tiny] at (0.9,0.9) {shield};
+\draw[axline, draw=linecol]      (0.9,0.9) -- ++(22:1.6) node[axlbl, right]{x'};
+\draw[axline, draw=blue!55!black](0.9,0.9) -- ++(112:1.4) node[axlbl, above]{z'};
+\node[axlbl, anchor=north, text width=32mm, align=center] at (0.9,0.1)
+  {mounted however it fits: its axes are not the joint's};
+
+% ================================================================ the rotation
+\draw[bus, line width=1pt] (-3.0,0.9) -- node[lbl, above]{one rotation}
+                                        node[lbl, below]{three angles} (-0.3,0.9);
+
+% ================================================================ what gravity gives
+\node[chlabel, anchor=south west] at (3.6,2.9) {what three static orientations give};
+\foreach \i/\lab/\ang in {0/{flat}/270, 1/{on edge}/200, 2/{on end}/340}{
+  \node[draw=linecol, fill=hwcol, minimum width=9mm, minimum height=7mm,
+        font=\sffamily\tiny] (o\i) at (4.2+\i*1.7,1.7) {\lab};
+  \draw[axline, draw=red!65!black] (4.2+\i*1.7,1.25) -- ++(\ang:0.85);
+}
+\node[axlbl, anchor=north, text width=54mm, align=center] at (5.9,0.55)
+  {gravity, measured in the sensor's own axes, in three known attitudes};
+
+% ================================================================ the caveat
+\node[umlnote, text width=52mm, anchor=north west] at (-6.4,-0.9)
+  {\textbf{Gravity fixes two angles well and the third one not at all.} Rotating
+   the shield about the gravity vector does not change what gravity looks like,
+   so that angle carries no information in a static measurement. It comes from
+   the joint's own motion instead: turn the joint, and the sensor axis that
+   reports the rate is the one aligned with the axis of rotation.};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0.4,-0.9)
+  {The fitted rotation goes into the board description from chapter 4, with its
+   evidence marked \emph{measured} rather than \emph{documented}, and with its
+   residual stated. A rotation fitted to within half a degree is fine for
+   vibration and contact detection and is not fine for anything that integrates,
+   which is one more reason this volume does not integrate it.};
+
+\node[chlabel, anchor=north west, text width=108mm] at (-6.4,-4.9)
+  {The third frame, the link's, is the same as the joint's frame once the joint
+   angle is known, which is exactly what makes an inertial unit on one link
+   unable to give a joint angle on its own: it reports motion in space, and
+   separating the joint's motion from the whole arm's needs either a second unit
+   on the other side or the encoder that chapter 5 already provides.};
+\end{tikzpicture}
