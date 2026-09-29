@@ -1,0 +1,51 @@
+% One flexible-data frame with the rate switch, against one classic frame of
+% the same payload.
+% Everything here is in millimetres, because \framefield draws at y = 0 in
+% millimetres and mixing it with centimetre coordinates puts the row labels in
+% a different place from their own rows.
+\begin{tikzpicture}[font=\sffamily\scriptsize]
+
+% ================================================================ classic
+\begin{scope}
+  \node[signame] at (-2mm,3mm) {classic, 8 bytes};
+  \framefield{0}{16}{fid}{arbitration\\{\tiny identifier and control}}
+  \framefield{16}{40}{fdata}{data, 8 bytes}
+  \framefield{56}{20}{fcrc}{checksum\\{\tiny and acknowledge}}
+  \node[chlabel, anchor=west] at (80mm,3mm) {one rate throughout};
+\end{scope}
+
+% ================================================================ flexible-data
+\begin{scope}[yshift=-22mm]
+  \node[signame] at (-2mm,3mm) {flexible-data, 8 bytes, rate switch set};
+  \framefield{0}{16}{fid}{arbitration\\{\tiny identifier and control}}
+  \framefield{16}{12}{fdata}{data}
+  \framefield{28}{16}{fcrc}{checksum\\{\tiny stronger}}
+  \node[chlabel, anchor=west] at (48mm,3mm) {the same payload, in less time};
+  \draw[faultedge, <->] (16mm,-3mm) -- (28mm,-3mm);
+  \node[tlabel, anchor=north, text=red!60!black] at (22mm,-3.5mm)
+    {the data phase, four times faster};
+\end{scope}
+
+% ================================================================ the marks
+\draw[busstub] (0mm,-32mm) -- (0mm,10mm);
+\node[tlabel, anchor=north, text width=32mm, align=center] at (0mm,-34mm)
+  {the start-of-frame bit: the controller captures its timestamp here, in
+   hardware, before anything else happens};
+
+\draw[busstub] (16mm,-32mm) -- (16mm,-14mm);
+\node[tlabel, anchor=north, text width=28mm, align=center] at (34mm,-34mm)
+  {the rate switches here, and only here};
+
+% ================================================================ the readings
+\node[umlnote, text width=54mm, anchor=north west] at (0mm,-48mm)
+  {Arbitration runs at the nominal rate in both frames, because every node on
+   the bus has to take part in it. Only the data phase changes speed, and only
+   between the two marked points. That is why a one megabit transceiver still
+   gives the full payload and the stronger checksum: it simply never switches.};
+
+\node[umlnote, text width=54mm, anchor=north west] at (60mm,-48mm)
+  {The measurement in step 7 uses this structure: with the timestamp counter
+   clocked from the bit time, the difference between two captured timestamps is
+   a frame's duration in bit times, which confirms both the frame structure and
+   the ratio between the phases with nothing attached to the board.};
+\end{tikzpicture}

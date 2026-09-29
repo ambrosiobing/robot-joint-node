@@ -1,0 +1,46 @@
+% The bus as it will be, and the two things to get right when it is built.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the trunk
+\draw[busline] (-5.2,0) -- (5.2,0);
+\node[busterm] at (-5.2,0) {120};
+\node[busterm] at (5.2,0) {120};
+\node[chlabel, anchor=south] at (-5.2,0.45) {one terminator};
+\node[chlabel, anchor=south] at (5.2,0.45) {and one at the other end};
+\node[chlabel, anchor=north] at (0,-0.25) {two wires, twisted};
+
+% ---------------- the two nodes
+\node[busnode, text width=30mm] (jn) at (-2.6,2.0)
+  {the joint node\\{\scriptsize board, plus a transceiver that has to be bought}};
+\node[busmaster, text width=30mm] (mm) at (2.6,2.0)
+  {the motion master\\{\scriptsize chapter 10, with an adapter that must present the kernel's own interface}};
+% \busdrop takes millimetres and expects the node below the trunk, so the two
+% stubs are drawn explicitly here.
+\draw[busstub] (-2.6,0) -- (jn.south);
+\draw[busstub] ( 2.6,0) -- (mm.south);
+
+% ---------------- the transceiver, enlarged
+\node[absentblk, text width=44mm] (x) at (-2.6,-2.6)
+  {the transceiver\\{\scriptsize two logic pins on one side, the bus pair on the other}};
+\draw[hiz, <->] (x.north) -- (-2.6,-0.15);
+
+\node[umlnote, text width=54mm, anchor=north west] at (-8.4,-3.6)
+  {\textbf{Read the suffix, not the family name.} One transceiver family carries
+   no format marker in its name at all and is rated five megabit. Another
+   separates one megabit parts from five megabit parts by a single letter inside
+   the same datasheet. A one megabit part still gives full sixty-four byte
+   frames and the stronger checksum, because the frame format is invisible to
+   the transceiver; what it costs is only the faster data phase.};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0.6,-3.6)
+  {\textbf{Termination goes at the ends, not on every node.} Two terminators for
+   the whole bus, whatever the number of nodes. A third one loads the bus enough
+   to stop it working at the data rate, and the symptom is a bus that works at
+   the arbitration rate and fails with the rate switch set.};
+
+\node[chlabel, anchor=north west, text width=112mm] at (-8.4,-7.4)
+  {Until the transceiver arrives, the chapter runs in the controller's loopback
+   modes, which need none of this. A ready-made shield in the right form factor
+   for these boards exists and is permissively licensed, from the same author as
+   the bootloader project chapter 19 discusses.};
+\end{tikzpicture}

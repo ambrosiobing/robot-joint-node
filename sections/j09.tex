@@ -1,0 +1,544 @@
+\project{09}{CAN-FD from the controller out: bit timing and the first frame}{A voice}{Bit timing for both phases, the transceiver, sample point, the first frame on a wire}
+
+\begin{keyfacts}
+\item[Adds to the node] A voice. The node can put a frame on a wire, and can prove its own bit timing before a second node exists
+\item[Peripherals] One bus controller instance, its message memory, its timestamp unit from chapter 3, and two pins once a transceiver is fitted
+\item[Depends on] Chapter 4 for the kernel clock selector and the pin budget, chapter 3 for the timestamp at the start-of-frame bit
+\item[Real or modelled] \textbf{Real}, with one caveat: everything up to the pins is real from the first evening, and the wire is real from the day the transceiver arrives. The controller's loopback modes are what make the gap survivable
+\item[Difficulty] 4 of 5
+\item[Effort] Three evenings before the transceiver, one after it
+\item[Deliverable] Bit timing computed from the kernel clock with both phases checked for exact division, a message memory layout that is configured rather than assumed, a frame proven in internal loopback with no hardware at all, and the bit time confirmed by the controller's own timestamp counter
+\end{keyfacts}
+
+\subsection*{Why this chapter}
+
+Eight chapters of sensing and acting produce a node that knows a great deal and
+tells nobody. This chapter gives it a voice, and the first thing to say about
+that voice is that it costs money: this board has no bus transceiver, and
+without one the two pins are logic-level signals that no other node can hear.
+
+That could have stalled the chapter until a part arrived. It does not, because
+the controller has loopback modes: it can transmit a frame and receive its own
+transmission without any external hardware at all. Nearly everything difficult
+in this chapter, the bit timing arithmetic, the message memory layout, the
+filters, the first frame, can be built and proven in that mode. What the
+transceiver adds is the wire, the second node and the electrical reality, and
+those arrive in chapter 10.
+
+The second thing worth saying early is a correction. The sibling volume warns
+that this part is not the family member most published material was written
+for, and that warning is true at board level, clock level and clock-register
+level. **At the bus peripheral it is false**, and that is good news: a
+comparison of the vendor's own device headers shows the same licensed controller
+core at the same addresses with the same register layout on both parts.
+Material written for the popular sibling's bus peripheral is directly reusable
+here. Three things are not, and chapter 4 has already dealt with the one that
+matters.
+
+\begin{note}{Buy the transceiver before starting this chapter}
+Three facts that are worth more than a week. \textbf{A one megabit transceiver
+still gives full sixty-four byte frames and the stronger checksum}, because the
+frame format is invisible to the transceiver; what it costs is only the switch
+to a faster data phase, which halves the demonstration rather than removing it.
+\textbf{The part number does not tell you which you have}: one family carries no
+format marker in its name at all and is rated five megabit, while another
+separates one megabit parts from five megabit parts by a single letter suffix
+inside the same datasheet. Read the suffix. And \textbf{a ready-made shield
+exists} in the right form factor for this board, permissively licensed, carrying
+a five megabit transceiver, from the same author as the bootloader project
+chapter 19 discusses.
+\end{note}
+
+\subsection*{Prior art and what to reuse}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{34mm}p{46mm}p{38mm}p{20mm}}
+\toprule
+Source & What it gives & What it does not & Licence \\
+\midrule
+The silicon vendor's device headers for this part and for its sibling & The correction this chapter opens with, in a form a reader can repeat in ten minutes: the same controller core, the same two base addresses, the same calibration unit and message memory base, and identical bit-timing field positions on both parts & They do not name the licensed core's own documentation, which is where the field semantics are defined & Apache-2.0 \\
+The vendor's application note on this peripheral & The introduction to the peripheral for this microcontroller family & \textbf{Indexed only.} It could not be fetched during the research for this volume, so it is cited by number and title and nothing is quoted from it & vendor document \\
+A ready-made transceiver shield for these boards & A five megabit transceiver in the right form factor, with a published design, from the same author as the bootloader project in chapter 19 & It still has to be bought or built, and it occupies the header the sensor shield uses & MIT \\
+A bit timing calculator & The arithmetic for both phases, laid out, with the sample point and the tolerance window & \textbf{Copyleft over a network}, so use the hosted page and do not vendor it. The arithmetic in step 3 is written out here so that the node does not depend on it at all & AGPL-3.0 \\
+The upstream operating system's board files & The cleanest published statement that these boards carry no transceiver, and, for the sibling board, a working pin pair for the peripheral & The file for this board does not mention the peripheral at all, which is itself the evidence & Apache-2.0 \\
+\bottomrule
+\end{tabular}
+\caption{Prior art for chapter 9. The fourth row is the licence decision of the chapter: a calculator under a network copyleft licence is fine to use through a browser and is not something to copy into a repository, so the arithmetic is written out instead.}
+\end{table}
+
+\subsection*{What the node gains}
+
+Before this chapter the node is silent. After it, the node can frame a message,
+put it on its own transmit pin, receive it, and state its bit timing in both
+phases with the arithmetic shown and the result confirmed by the controller's
+own timestamp counter. It cannot yet reach another machine, because that needs
+the transceiver and the wire, which is chapter 10.
+
+\subsection*{Parts from the inventory}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{40mm}p{66mm}p{40mm}}
+\toprule
+Part & Role & Interface \\
+\midrule
+NUCLEO-H7A3ZI-Q & The controller, its message memory and its timestamp unit & Micro USB to the host \\
+\textbf{To be bought:} a CAN-FD transceiver & The only electrical gap between this node and a bus. Read the suffix & Two logic pins, and the bus pair \\
+\textbf{To be bought:} two 120 ohm terminators & One at each end of the bus, not one per node & Across the bus pair \\
+Two jumper wires & The external loopback in step 6, before a second node exists & Transmit pin to receive pin \\
+\bottomrule
+\end{tabular}
+\caption{Inventory items used in chapter 9. Two of the four have to be bought, and the chapter is arranged so that three of its seven steps can be completed before they arrive.}
+\end{table}
+
+\subsection*{System architecture}
+
+\diagram{j09_arch}{The controller, its message memory, and the three ways a
+frame can travel. Internal loopback needs no pins at all; external loopback
+needs two pins and one wire; the bus needs the transceiver and a second node.
+The chapter is built in that order, which is also the order the parts arrive in.}
+
+\subsection*{Peripheral configuration}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{22mm}p{26mm}p{24mm}p{30mm}p{30mm}}
+\toprule
+Peripheral & Mode & Clock source & Pins and function & Interrupt and transfers \\
+\midrule
+Bus controller, first instance & Classic, then flexible-data without and with the rate switch & Kernel clock, selected by the register named in chapter 4 & Two pins on port D, confirmed against the board manual & Receive and transmit interrupts, plus the error and bus-off interrupt \\
+Its message memory & Configured: filters, receive buffers, transmit buffers & n/a & None & None. It is memory, and it must be laid out before use \\
+Its timestamp unit & Counting bit times & The bus bit time & None & None. Read in step 7 \\
+GPIO & Alternate function, and open drain on the transmit pin where the transceiver needs it & Peripheral bus & Two pins & None \\
+\bottomrule
+\end{tabular}
+\caption{Peripheral configuration for chapter 9. The second row is the one that produces the classic symptom: a controller whose message memory has not been laid out accepts configuration, reports no error, and never transmits.}
+\end{table}
+
+\subsection*{Wiring}
+
+\diagram{j09_wiring}{The bus as it will be, and the two things to get right when
+it is built. Termination goes at the two ends of the bus and not on every node,
+and the transceiver's suffix decides whether the data phase can run faster than
+the arbitration phase at all.}
+
+\subsection*{Memory and timing budget}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{44mm}p{28mm}p{28mm}p{30mm}}
+\toprule
+Quantity & Budget & Measured & Margin \\
+\midrule
+Flash, this chapter & 9 kB & not measured & not measured \\
+Message memory used & under 2 kB & computed from the layout & n/a \\
+Nominal bit rate & 500 kbit/s & confirmed in step 7 & n/a \\
+Data bit rate & 2 Mbit/s & confirmed in step 7 & n/a \\
+Sample point, nominal phase & 80 per cent & computed & n/a \\
+Sample point, data phase & 75 per cent & computed & n/a \\
+Frame duration, 64 bytes at both rates & computed in step 7 & not measured & not measured \\
+\bottomrule
+\end{tabular}
+\caption{The budget for chapter 9. The two rate rows say confirmed rather than measured, because the confirmation comes from the controller's own timestamp counter counting bit times rather than from an instrument on the wire, and the chapter is explicit about the difference.}
+\end{table}
+
+\subsection*{Firmware design (UML)}
+
+\diagram{j09_uml}{The bring-up order, and the three checks that stop the chapter
+rather than letting it continue with a fault. Each check is cheap, each catches
+a defect that otherwise appears much later as a silent failure to transmit, and
+the last two of the five stages need hardware that has to be bought.}
+
+Two design decisions carry into the rest of the volume.
+
+\textbf{The bit timing is computed, not copied.} A table of register values
+found online encodes somebody else's kernel clock. The node computes its
+timing from the kernel clock it reads back at boot, refuses to start if either
+phase does not divide exactly, and prints both results with their sample points.
+
+\textbf{Transmission never blocks the control loop.} A frame is handed to the
+controller and the controller sends it when the bus allows. The period handler
+from chapter 2 writes into a transmit buffer and returns; if the buffer is full
+it counts that and returns anyway. A control loop that waits for bus arbitration
+has given the bus control over its deadline.
+
+\subsection*{Data flow (ASCII)}
+
+\begin{asciiart}
+  kernel clock, read back from the registers at boot
+        |
+        v
+  +---------------------------------------------------------------+
+  | nominal phase:  prescaler -> time quanta -> segments           |
+  |                 500 kbit/s, sample point 80 per cent            |
+  | data phase:     its own prescaler and segments                  |
+  |                 2 Mbit/s, sample point 75 per cent              |
+  |                 plus transmitter delay compensation             |
+  +---------------------------------------------------------------+
+        |  exact division, or the node refuses to start
+        v
+  +---------------------------------------------------------------+
+  | message memory, laid out before anything is sent:              |
+  |   standard filters | extended filters | receive FIFO 0 |        |
+  |   receive FIFO 1   | receive buffers  | transmit event |        |
+  |   transmit buffers                                              |
+  +---------------------------------------------------------------+
+        |
+        v
+  internal loopback  --> no pins, no hardware, and most of the chapter
+  external loopback  --> two pins and one wire
+  the bus            --> transceiver, termination, a second node (chapter 10)
+        |
+        v
+  every received frame carries a timestamp captured at its start-of-frame bit
+  (chapter 3), which is what chapter 12 needs
+\end{asciiart}
+
+\subsection*{Repository layout}
+
+\begin{plaincode}
+joint-node/
+  board/  nucleo_h7a3zi_q.yaml        # the two bus pins, evidence now confirmed
+  doc/    bit-timing.md               # + this chapter: both phases, computed
+  src/
+    bus/
+      fdcan.c     fdcan.h             # + this chapter: bring-up and send
+      bittiming.c bittiming.h         # + this chapter: the arithmetic
+      msgram.c    msgram.h            # + this chapter: the memory layout
+      loopback.c  loopback.h          # + this chapter: the three modes
+    sense/ act/ estimate/ control/ time/ node/ bsp/
+    mw/  safety/  update/
+  test/
+    test_bittiming.c                  # + the arithmetic, on the host
+    test_msgram.c                     # + the layout, on the host
+  host/  tools/  README.md
+\end{plaincode}
+
+\subsection*{Steps}
+
+\begin{steps}
+\item \textbf{Select and read back the kernel clock.} The peripheral's clock
+does not come from the peripheral bus: it has its own selector, in the register
+chapter 4 identified as the one whose name differs from the sibling part's. Pick
+a source that divides cleanly into both bit rates, and read the result back
+rather than trusting the selection.
+\begin{ccode}
+/* fdcan.c: the kernel clock is the foundation of every number below it. */
+uint32_t fdcan_kernel_hz(void)
+{
+    switch (rcc_fdcan_source()) {                /* read back, do not assume */
+        case FDCAN_SRC_HSE:  return board_clock_hz(BOARD_CLK_HSE);
+        case FDCAN_SRC_PLL1Q: return board_clock_hz(BOARD_CLK_PLL1Q);
+        case FDCAN_SRC_PLL2Q: return board_clock_hz(BOARD_CLK_PLL2Q);
+        default: fail("fdcan: no kernel clock selected");
+    }
+}
+\end{ccode}
+
+\item \textbf{Compute the bit timing, and refuse anything inexact.} A bit is
+divided into time quanta; the quantum is the kernel clock divided by a
+prescaler; the bit is a synchronisation quantum plus two segments; and the
+sample point is where the second segment begins. Both phases have their own
+prescaler and their own segments.
+\begin{ccode}
+/* bittiming.c: the whole arithmetic, in one place, with no table of magic. */
+bool bt_compute(uint32_t kernel_hz, uint32_t bitrate, float want_sp,
+                bt_t *out)
+{
+    for (uint32_t pre = 1; pre <= BT_MAX_PRESCALER; pre++) {
+        uint32_t tq_hz = kernel_hz / pre;
+        if (kernel_hz % pre) continue;                 /* inexact prescaler */
+        if (tq_hz % bitrate) continue;                 /* inexact bit time  */
+        uint32_t tq_per_bit = tq_hz / bitrate;
+        if (tq_per_bit < BT_MIN_TQ || tq_per_bit > BT_MAX_TQ) continue;
+
+        uint32_t seg1 = (uint32_t) lroundf(want_sp * (float) tq_per_bit) - 1u;
+        uint32_t seg2 = tq_per_bit - seg1 - 1u;        /* 1 tq is the sync   */
+        if (seg1 < BT_MIN_SEG1 || seg2 < BT_MIN_SEG2) continue;
+
+        out->prescaler = pre; out->seg1 = seg1; out->seg2 = seg2;
+        out->sample_point = (float) (1u + seg1) / (float) tq_per_bit;
+        out->sjw = min_u32(seg2, BT_MAX_SJW);
+        return true;
+    }
+    return false;                                      /* caller must fail   */
+}
+\end{ccode}
+Print both results at boot, with their achieved sample points, and stop the node
+if either phase could not be solved exactly. A bit rate that is one part in a
+thousand out works between two nodes that are wrong in the same direction and
+fails against anything else.
+
+\diagram{j09_data}{One bit in each phase, divided into time quanta, with the
+sample point marked. The two phases share a kernel clock and nothing else: each
+has its own prescaler and its own segment counts, which is why the arithmetic is
+done twice and why both results have to divide exactly. The arithmetic is
+written out here because the calculator that does it well is under a network
+copyleft licence, so it is used through a browser and never vendored.}
+
+\item \textbf{Lay out the message memory before configuring anything else.} On
+this controller the filters, the receive buffers and the transmit buffers all
+live in one block of memory whose layout the firmware chooses. A controller
+whose layout has not been written accepts every other configuration, reports no
+error, and never transmits, which is the single most common way this peripheral
+appears broken.
+\begin{ccode}
+/* msgram.c: an explicit layout, computed once and asserted against the size. */
+static const msgram_layout_t layout = {
+    .std_filters = 8,      .ext_filters = 4,
+    .rx_fifo0    = 16,     .rx_fifo1    = 8,
+    .rx_buffers  = 0,      .tx_event    = 8,
+    .tx_buffers  = 8,      .element_bytes = 72,   /* 64 data + header  */
+};
+/* The build fails if this layout does not fit the part's message memory. */
+_Static_assert(MSGRAM_BYTES(layout) <= MSGRAM_SIZE_BYTES, "message memory");
+\end{ccode}
+
+\item \textbf{Send a frame to yourself, with no hardware at all.} Internal
+loopback connects the controller's transmitter to its own receiver inside the
+peripheral. The pins are not involved, no transceiver is needed and no second
+node exists. Almost everything in this chapter can be proven here.
+\begin{ccode}
+fdcan_mode(FDCAN_MODE_INTERNAL_LOOPBACK);
+fdcan_send(&(frame_t){ .id = 0x123, .len = 8, .fd = false, .brs = false, ... });
+frame_t got;
+assert(fdcan_receive(&got, 10 /* ms */));
+assert(got.id == 0x123 && got.len == 8 && memcmp(got.data, sent.data, 8) == 0);
+\end{ccode}
+Run the same test three times: a classic frame, a flexible-data frame without
+the rate switch, and a flexible-data frame with it. The third exercises the data
+phase timing computed in step 2, which is the part a classic-only setup never
+touches.
+
+\item \textbf{Turn on the transmitter delay compensation before the data phase
+goes fast.} At data rates above roughly one megabit the round trip through the
+transceiver becomes a significant fraction of a bit time, and the controller has
+to compensate for it or it will sample its own transmission in the wrong place.
+The offset comes from the transceiver's loop delay, which is in its datasheet,
+and the controller can also measure it.
+\begin{plaincode}
+transceiver loop delay   from the datasheet, in nanoseconds
+                         converted to time quanta at the data-phase quantum
+compensation offset      set from that, or measured by the controller itself
+when it matters          above about 1 Mbit/s in the data phase
+symptom when wrong       frames that pass in loopback and fail on a real bus,
+                         with errors that increase with the data rate
+\end{plaincode}
+
+\item \textbf{Prove it on the pins with external loopback and one wire.} The
+external mode drives the transmit pin and listens on the receive pin, so a
+single jumper wire between them proves the pin configuration, the alternate
+functions and the direction, which internal loopback cannot.
+
+\item \textbf{Confirm the bit time with the controller's own timestamp
+counter.} This is the chapter's measurement, and it needs no instrument. The
+timestamp unit can be clocked from the bus bit time rather than from a timer.
+Configure it that way, send frames of known length, and read the difference
+between their captured timestamps: the result is the frame's duration in bit
+times, which confirms both the bit timing and the frame format.
+\begin{shellcode}
+python host/frame_timing.py --lengths 0,8,16,32,64 --fd --brs
+# len  measured bit times  expected  note
+#   0                  67        67  arbitration only
+#   8                 132       132  data phase at 2 Mbit/s
+#  16                 197       197
+#  32                 327       327
+#  64                 587       587  and the timestamp is taken at the SOF bit
+\end{shellcode}
+Two honest notes. The counter counts bit times, so this confirms the ratio
+between the phases and the frame structure rather than the absolute rate in
+bits per second; the absolute rate rests on the kernel clock, which chapter 4
+reads back from the registers. And the timestamps are captured at the
+start-of-frame bit, in hardware, which is the property chapter 3 established and
+chapter 12 depends on.
+
+\item \textbf{Fit the transceiver, terminate the bus, and send one frame to
+nothing.} With the transceiver fitted and a single terminator, the node is alone
+on a bus and every frame it sends goes unacknowledged. That is not a failure to
+debug: a frame with no other node to acknowledge it is retransmitted, the error
+counter rises, and the controller eventually becomes error-passive. Watching
+that happen deliberately is the best possible preparation for chapter 12.
+\end{steps}
+
+\subsection*{Build, flash and debug}
+
+\diagram{j09_timing}{One flexible-data frame with the rate switch set, drawn
+against one classic frame of the same payload. The arbitration phase runs at the
+nominal rate in both; only the data phase changes speed, and only between the
+two points marked. The timestamp the controller captures is at the start of the
+frame, before any of this.}
+
+\begin{shellcode}
+cmake --build build -j && probe-rs run --chip STM32H7A3ZITx build/firmware.elf
+python host/frame_timing.py --lengths 0,8,16,32,64 --fd --brs
+\end{shellcode}
+
+\begin{note}{When the controller accepts everything and transmits nothing}
+In order of likelihood: the message memory was never laid out, so the transmit
+buffer the firmware writes into is not where the controller looks; the
+controller was left in its initialisation state, because leaving it requires an
+explicit step that is easy to omit; the kernel clock selector was never set, so
+the peripheral has no clock at all and its registers still read back the values
+that were written; or the node is alone on a terminated bus and is
+retransmitting a frame nobody will acknowledge, which looks identical from the
+firmware's side until the error counters are read. The last one is step 8 and is
+worth doing on purpose.
+\end{note}
+
+\subsection*{Verification and acceptance criteria}
+
+\begin{itemize}
+\item The kernel clock is read back from the registers and printed, and the node
+refuses to start if no source is selected.
+\item Both phases' timing is computed from that clock, both divide exactly, and
+both achieved sample points are printed. A deliberately impossible bit rate
+stops the node with a named error rather than being approximated.
+\item The bit timing arithmetic has host tests over a range of kernel clocks and
+bit rates, including the cases that must fail.
+\item The message memory layout is asserted against the part's memory size at
+compile time, and the assertion is proven by deliberately enlarging the layout.
+\item A classic frame, a flexible-data frame and a flexible-data frame with the
+rate switch all complete in internal loopback with the payload compared byte by
+byte.
+\item External loopback with one jumper wire passes the same three tests, which
+proves the pins as well as the controller.
+\item The measured frame durations in bit times match the computed ones for
+every length in the sweep.
+\item The period handler's transmit path never blocks: a full transmit buffer
+increments a counter and the handler returns within its budget, proven by
+filling the buffer deliberately.
+\end{itemize}
+
+\subsection*{Variants}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{24mm}p{26mm}p{44mm}p{22mm}p{20mm}}
+\toprule
+Axis & Variant & What changes & Cost & Built in full in \\
+\midrule
+Frame format & Classic, 8 bytes & Works with every node ever built, and the checksum is the weaker one & Payload, and the checksum & Here \\
+Frame format & Flexible-data, no rate switch & Sixty-four byte payload and the stronger checksum, at the arbitration rate throughout & Nothing, on a transceiver of any rating & Here \\
+Frame format & Flexible-data with the rate switch & The data phase runs faster than arbitration, which is the whole point of the format & A transceiver rated for the data rate, and delay compensation & Here \\
+Transceiver & Rated 1 Mbit & Full sixty-four byte frames and the stronger checksum, with no rate switch & Half the demonstration, and it is the cheaper part & Named, and the chapter says which was used \\
+Transceiver & Rated 5 Mbit & Everything, including the rate switch & Read the suffix & Here \\
+Loopback & Internal & No pins, no hardware, and most of this chapter & It proves nothing about the pins & Here \\
+Loopback & External, one wire & Proves the pins, the alternate functions and the direction & One wire & Here \\
+Delivery & Polled from the loop & Simplest, and the loop then waits for the bus & The deadline & Nowhere. It is the thing the design rule forbids \\
+Delivery & Interrupt into a buffer & The baseline: the loop writes and returns & A buffer, and a full-buffer policy & Here \\
+Delivery & Transfers into message memory & The controller's own memory is filled without the processor & Complexity, for a gain this node does not need at its frame rate & Chapter 13 \\
+\bottomrule
+\end{tabular}
+\caption{Variants for chapter 9. The three frame-format rows are worth building in that order even with a fast transceiver in hand, because each one exercises a different part of the timing arithmetic.}
+\end{table}
+
+\subsection*{Pitfalls}
+
+\begin{itemize}
+\item Copying register values from an example. They encode somebody else's
+kernel clock, and the symptom is a node that works against its author's bench
+and nothing else.
+\item Leaving the message memory unconfigured. Everything else succeeds and
+nothing is ever transmitted.
+\item Forgetting to leave the controller's initialisation state. The registers
+read back correctly and the bus stays silent.
+\item Terminating every node. Termination belongs at the two ends of the bus,
+and a third terminator loads the bus enough to stop it working at speed.
+\item Buying a transceiver by family name. One family's name carries no format
+marker at all, and another separates one megabit from five megabit parts by a
+single letter in the same datasheet.
+\item Running the data phase above about one megabit without delay
+compensation. It passes in loopback and fails on a real bus, and the failure
+rate rises with the data rate.
+\item Waiting for transmission in the control loop. The bus then owns the
+node's deadline.
+\item Reading a bit rate confirmed by the controller's own counter as an
+absolute measurement. It confirms the structure and the ratio; the absolute rate
+rests on the kernel clock.
+\end{itemize}
+
+\subsection*{Best practices applied}
+
+\begin{itemize}
+\item Every number is computed from a clock the firmware read back, and an
+inexact result stops the node rather than being rounded.
+\item The chapter is ordered so that the parts that have to be bought are needed
+last, and three of its steps complete before they arrive.
+\item The peripheral's own facilities are used as the instrument: the timestamp
+counter clocked from the bit time confirms the frame structure with nothing
+attached to the board.
+\item A licence decision is made explicitly rather than by habit: a useful
+calculator under a network copyleft licence is used through a browser, and the
+arithmetic is written out so the node does not depend on it.
+\item The correction to the volume's own part-trap warning is stated where it
+applies, with evidence a reader can repeat.
+\item A deliberate failure, a node alone on a bus, is performed on purpose
+because the error behaviour it produces is chapter 12's subject.
+\end{itemize}
+
+\subsection*{Stretch goals}
+
+\begin{itemize}
+\item Have the controller measure the transceiver's loop delay itself and
+compare it with the datasheet figure. That is a real measurement of a real part,
+and it is one of the few in this volume that needs no additional instrument.
+\item Sweep the sample point across its usable range at a fixed bit rate and
+find where communication starts to fail on a real bus with a long stub. That
+figure is rarely published and is easy to produce once two nodes exist.
+\item Compute the bit timing for every kernel clock the part can produce and
+publish the table of which bit rates are exactly achievable. It is a small
+piece of genuinely useful reference material for this family.
+\item Build the transceiver shield from the published design rather than buying
+a module, and compare the two for propagation delay.
+\end{itemize}
+
+\subsection*{Roadmap and next steps}
+
+Chapter 10 builds the other end: the motion master on a Raspberry Pi, the
+kernel's own socket layer, the command line tools, and the adapter decision that
+turns out to matter more than it looks.
+
+The published progression from here is the bus association's own documents and
+its conference proceedings, which are the primary literature for this subject
+and are largely free to read. The data link standard's current edition is the
+normative statement of the frame format and is paywalled; its 2015 predecessor
+carried a different subtitle, so the edition matters when citing it. For the
+peripheral itself, the vendor's application note is the right next document and
+is an existence claim only in this volume, because it could not be fetched
+during the research.
+
+\subsection*{Portfolio evidence}
+
+\begin{itemize}
+\item The computed bit timing for both phases, with the achieved sample points
+and the exact-division check, printed at boot.
+\item The frame duration table: measured bit times against computed ones for
+five payload lengths, produced with no instrument attached to the board.
+\item The three loopback tests, which demonstrate that most of a bus bring-up
+can be completed and proven before the hardware arrives.
+\item The header comparison from the chapter's opening, which corrects a warning
+this volume itself carries and shows the evidence for the correction.
+\end{itemize}
+
+\subsection*{Sources}
+
+Normative references:
+\begin{itemize}
+\item ISO 11898-1:2024, the data link layer and physical coding sublayer, third
+edition, \pubdate{May 2024}, which supersedes the 2015 edition whose subtitle differed.
+Paywalled; cited by number, title and edition.
+\item Reference manual RM0455, for the controller's registers, its message
+memory and its timestamp unit.
+\item The vendor's application note on this peripheral for this microcontroller
+family, cited as an existence claim only.
+\item The transceiver's datasheet, for the loop delay used in step 5 and for the
+suffix that decides the maximum data rate.
+\end{itemize}
+
+Reusable implementations:
+\begin{itemize}
+\item The vendor's device headers, Apache-2.0, which settle that the controller
+core is the same on this part and on its better-known sibling.\newline
+\url{https://github.com/STMicroelectronics/cmsis-device-h7}
+\item A ready-made transceiver shield for these boards, MIT.\newline
+\url{https://github.com/feaser/canfdshield}
+\item The upstream operating system's board files, Apache-2.0, which state
+plainly that these boards carry no transceiver.\newline
+\url{https://docs.zephyrproject.org/latest/boards/st/nucleo_h7a3zi_q/doc/index.html}
+\end{itemize}

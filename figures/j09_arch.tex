@@ -1,0 +1,55 @@
+% The controller, its message memory, and the three ways a frame can travel.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the controller
+\node[fw, text width=34mm] (app) at (-5.6,3.4)
+  {the node\\{\scriptsize a frame handed over, never waited for}};
+\node[hw, text width=34mm] (ctrl) at (-5.6,1.2)
+  {bus controller\\{\scriptsize the same licensed core as on the sibling part, at the same addresses}};
+\node[hw, text width=34mm] (ram) at (-5.6,-1.0)
+  {message memory\\{\scriptsize filters, receive buffers, transmit buffers: laid out, not assumed}};
+\node[hw, text width=34mm] (ts) at (-5.6,-3.2)
+  {timestamp unit\\{\scriptsize captures at the start-of-frame bit, chapter 3}};
+\begin{scope}[on background layer]
+\node[layer, fit=(app)(ctrl)(ram)(ts), inner sep=6pt,
+      label={[layerlabel, anchor=south west]north west:on the part, from the first evening}] {};
+\end{scope}
+
+% ---------------- the three paths
+\node[fw, text width=30mm] (int) at (0.4,2.4)
+  {internal loopback\\{\scriptsize inside the peripheral. No pins, no hardware}};
+\node[fw, text width=30mm] (ext) at (0.4,0.2)
+  {external loopback\\{\scriptsize two pins and one jumper wire}};
+\node[absentblk, text width=30mm] (xcvr) at (0.4,-2.0)
+  {the transceiver\\{\scriptsize to be bought. Read the suffix: it decides whether the data phase can be faster}};
+
+% ---------------- the bus
+\node[absentblk, text width=30mm] (bus) at (5.8,-2.0)
+  {the bus\\{\scriptsize two wires, and a terminator at each end}};
+\node[absentblk, text width=30mm] (other) at (5.8,-4.2)
+  {a second node\\{\scriptsize chapter 10: the motion master}};
+
+\draw[flow] (app) -- (ctrl);
+\draw[flow] (ctrl) -- (ram);
+\draw[flow] (ram) -- (ts);
+\draw[flow] (ctrl.east) -- node[lbl, above]{1} (int);
+\draw[flow] (ctrl.east) -- node[lbl, above, pos=0.7]{2} (ext);
+\draw[flow] (ram.east) -- node[lbl, above, pos=0.7]{3} (xcvr);
+\draw[hiz, ->] (xcvr) -- (bus);
+\draw[hiz, <->] (bus) -- (other);
+
+\node[chlabel, anchor=west] at (3.0,2.4) {most of this chapter};
+\node[chlabel, anchor=west] at (3.0,0.2) {proves the pins as well};
+\node[chlabel, anchor=west] at (3.0,-0.6) {needs hardware that has to be bought};
+
+\node[umlnote, text width=56mm, anchor=north west] at (-8.4,-4.4)
+  {The chapter is built in the order the parts arrive. Internal loopback needs
+   nothing at all and proves the bit timing arithmetic, the message memory
+   layout and all three frame formats. External loopback adds one wire and
+   proves the pins. Only the third path needs a purchase, and by then everything
+   difficult has already been tested.};
+\node[umlnote, text width=44mm, anchor=north west] at (1.6,-5.4)
+  {The correction this chapter opens with: the controller is the same licensed
+   core at the same addresses on this part and on the sibling, so material
+   written for the sibling's bus is directly reusable here.};
+\end{tikzpicture}
