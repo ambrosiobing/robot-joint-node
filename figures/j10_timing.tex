@@ -1,0 +1,45 @@
+% Where each timestamp comes from, and why they are not equivalent.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+% ================================================================ the wire
+\node[signame] at (-0.3,2.6) {the frame on the wire};
+\draw[busline] (0,2.6) -- (9.0,2.6);
+\node[fieldbox, minimum width=22mm, fill=hwcol, anchor=south west] at (1.2,2.35) {one frame};
+\draw[busstub] (1.2,2.2) -- (1.2,1.0);
+\node[sample] at (1.2,2.6) {};
+
+% ================================================================ the node
+\node[signame] at (-0.3,1.0) {the node};
+\draw[busline] (0,1.0) -- (9.0,1.0);
+\node[sample] at (1.2,1.0) {};
+\node[tlabel, anchor=west, text=blue!55!black] at (1.4,0.72)
+  {stamped here, by hardware, at the start-of-frame bit};
+
+% ================================================================ the host
+\node[signame] at (-0.3,-0.5) {the host};
+\draw[busline] (0,-0.5) -- (9.0,-0.5);
+\node[sample] at (3.4,-0.5) {};
+\draw[tspan] (1.2,-0.5) -- node[tlabel]{the adapter, then the transfer, then the interrupt} (3.4,-0.5);
+\node[tlabel, anchor=west, text=red!60!black] at (3.6,-0.78)
+  {stamped here, by the kernel, when the interrupt is served};
+
+\draw[faultedge, <->] (1.2,-1.35) -- (3.4,-1.35);
+\node[tlabel, anchor=north, text=red!60!black] at (2.3,-1.4)
+  {median 412 us, 99th percentile 1.8 ms, maximum 7.1 ms over ten thousand frames};
+
+% ================================================================ the virtual one
+\node[signame] at (-0.3,-2.6) {the virtual interface};
+\draw[hiz] (0,-2.6) -- (9.0,-2.6);
+\node[tlabel, anchor=west] at (9.2,-2.6) {no bit timing, no arbitration, no meaning};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-3.3)
+  {The spread is the adapter and the host, not the bus. On a USB adapter it
+   includes a transfer that was scheduled rather than immediate, which is why
+   the maximum is an order of magnitude above the median and why an average
+   would be the wrong number to quote.};
+\node[umlnote, text width=52mm, anchor=north west] at (5.8,-3.3)
+  {This measurement is the reason chapter 12's synchronisation protocol puts the
+   sender's own stamp in a follow-up frame instead of trusting when the receiver
+   noticed the first one. The figure above is that argument, measured on this
+   bench rather than asserted.};
+\end{tikzpicture}

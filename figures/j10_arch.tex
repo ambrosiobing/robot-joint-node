@@ -1,0 +1,51 @@
+% The host stack, and the two paths through it.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+% ---------------- the host stack
+\node[user, text width=34mm] (app) at (-5.6,4.0)
+  {setpoint source\\{\scriptsize about twenty lines of standard library, no dependency}};
+\node[user, text width=34mm] (sock) at (-5.6,1.9)
+  {a raw socket\\{\scriptsize data frames and error frames arrive on the same one}};
+\node[kern, text width=34mm] (net) at (-5.6,-0.2)
+  {the kernel: a network device\\{\scriptsize link state, counters, filters, timestamps, automatic restart}};
+\begin{scope}[on background layer]
+\node[layer, fit=(app)(sock)(net), inner sep=6pt,
+      label={[layerlabel, anchor=south west]north west:the motion master}] {};
+\end{scope}
+
+% ---------------- the two paths out
+\node[kern, text width=30mm] (vcan) at (0.2,1.9)
+  {the virtual interface\\{\scriptsize real frames, real kernel path, no hardware at all}};
+\node[hw, text width=30mm] (drv) at (0.2,-0.2)
+  {the driver and the adapter\\{\scriptsize one of three kinds, and only one of them works here}};
+
+% ---------------- the three adapters
+\node[absentblk, text width=32mm] (a1) at (5.6,1.9)
+  {a hat with a classic controller\\{\scriptsize cheap, and it objects to flexible-data traffic rather than ignoring it}};
+\node[absentblk, text width=32mm] (a2) at (5.6,-0.4)
+  {a closed-library USB device\\{\scriptsize its own frame structure, no licence file, and the standard tools cannot see it}};
+\node[hw, text width=32mm] (a3) at (5.6,-2.7)
+  {an adapter presenting the kernel's interface\\{\scriptsize permissively licensed, genuine flexible-data rates. Chosen}};
+
+% ---------------- the bus
+\node[busnode, text width=26mm] (node) at (0.2,-3.4)
+  {the joint node\\{\scriptsize chapter 9}};
+
+\draw[flow] (app) -- (sock);
+\draw[flow] (sock) -- (net);
+\draw[bus] (net) -- node[lbl, above]{no hardware} (vcan);
+\draw[bus] (net) -- (drv);
+\draw[hiz, ->] (drv) -- (a1);
+\draw[hiz, ->] (drv) -- (a2);
+\draw[flow] (drv) -- (a3);
+\draw[bus, line width=1.1pt] (a3.south) -- ++(0,-0.7) -| node[lbl, above, pos=0.25]{the wire} (node.east);
+
+\node[chlabel, anchor=west] at (2.0,2.9) {chapter 20's tests run here};
+
+\node[umlnote, text width=54mm, anchor=north west] at (-8.4,-2.2)
+  {The upper path is the whole first half of the chapter: two commands create an
+   interface that carries real frames through the real kernel code, so the
+   socket, the filters, the tools, the recording format and the test harness are
+   all exercised before any adapter is bought. What it cannot teach is timing,
+   because frames on it have no bit timing and no arbitration at all.};
+\end{tikzpicture}
