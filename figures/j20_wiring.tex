@@ -1,0 +1,54 @@
+% The bench as a rig, and the observability that exists because there is no probe.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,4.1) {the bench as a rig, with nothing outside the part to look with};
+
+% ================================================================ the bench
+\node[board, fill=red!35!black!60, minimum width=36mm, minimum height=20mm] (pi) at (-4.8,2.2)
+  {Raspberry Pi 4\\the master \textbf{and} the runner};
+\node[board, minimum width=36mm, minimum height=20mm] (nuc) at (2.4,2.2)
+  {NUCLEO\\H7A3ZI-Q};
+\node[hw, text width=18mm, minimum height=7mm] (tx) at (-1.2,2.5) {the bus};
+\draw[busline] (pi.east) -- (tx.west);
+\draw[busline] (tx.east) -- (nuc.west |- tx);
+\draw[usbcable] (pi.north) -- (-4.8,3.4) -- (2.4,3.4) -- (nuc.north);
+\node[buslabel, anchor=south] at (-1.2,3.45) {the serial log channel};
+
+\node[ext, text width=24mm, minimum height=8mm] (sw) at (-4.8,0.5) {a switchable supply};
+\draw[cable] (sw.north) -- (pi.south);
+\draw[cable] (sw.east) -- (2.4,0.5) -- (nuc.south);
+\node[chlabel, anchor=north] at (-1.2,0.05) {the power cycle tests, and the only thing the rig would like to buy};
+
+% ================================================================ what is absent
+\node[absentblk, text width=24mm, minimum height=7mm] (sc) at (-4.6,-1.1) {an oscilloscope};
+\node[absentblk, text width=24mm, minimum height=7mm] (la) at (-1.4,-1.1) {a logic analyser};
+\node[absentblk, text width=24mm, minimum height=7mm] (pr) at (1.8,-1.1) {an external probe};
+\node[chlabel, anchor=west, text width=30mm] at (3.4,-1.1)
+  {none of these, since chapter 1, and that shapes everything below};
+
+% ================================================================ what replaces them
+\node[chlabel, anchor=west] at (-6.8,-2.1) {so the observability is built from inside the part, and every piece is permissive};
+\node[regcell, fill=usrcol, minimum width=54mm, text width=52mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-2.5)
+  {\textbf{a fault diagnosis library}, covering this core, printing a diagnosed
+   cause and a call stack, \textbf{needing no debugger}, with addresses resolved
+   offline afterwards.\\[2pt]
+   \textbf{a small logger}, under 1.6 kB of code and 0.3 kB of memory, with a
+   flash backend and no file system.};
+
+\node[regcell, fill=kercol, minimum width=54mm, text width=52mm, inner sep=3pt,
+      anchor=north west, align=left] at (0.2,-2.5)
+  {\textbf{a crash region}, excluded from startup initialisation, with a magic
+   number and a checksum, \textbf{so a trace outlives the fault that wrote
+   it}.\\[2pt]
+   \textbf{pre-aggregated counters}, periodic rather than raw, which is the
+   argument behind chapter 11's diagnostic frame.};
+
+\node[umlnote, text width=114mm, anchor=north west] at (-6.8,-5.35)
+  {One refusal is worth stating precisely, because the usual assumption is
+   wrong. A widely used trace recorder's target-side source turns out to be
+   effectively a one clause permissive licence, so \textbf{redistribution is not
+   the obstacle}. The obstacle is hardware: it needs a particular vendor's probe,
+   this bench has none, and reflashing the on-board debug circuit with that
+   vendor's firmware is a probe by another name.};
+\end{tikzpicture}

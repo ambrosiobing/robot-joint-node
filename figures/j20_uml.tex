@@ -1,0 +1,65 @@
+% The assertion set with its provenance, and the three levels of injection.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.6) {six assertions, and where each name comes from};
+
+\node[regcell, fill=white, minimum width=122mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,3.2)
+  {\begin{tabular}{@{}p{42mm}p{24mm}p{48mm}@{}}
+   \textbf{assertion} & \textbf{threshold} & \textbf{provenance} \\[1pt]
+   \hline
+   maximum absolute following error & 8 mrad & chapter 16, and path accuracy in
+   the performance standard \\[2pt]
+   root mean square tracking error & 2 mrad & path accuracy \\[2pt]
+   settling time & 60 ms & \textbf{position stabilisation time}, named in the
+   standard \\[2pt]
+   overshoot & 3 per cent & \textbf{position overshoot}, named in the standard \\[2pt]
+   steady state error & 1 mrad & pose accuracy \\[2pt]
+   \textbf{control loop period jitter} & 99.9th under 40 us &
+   \textbf{no standards backing in either document read. An engineering
+   assertion, and chapter 2's number} \\
+   \end{tabular}};
+
+\node[regcell, fill=hwcol, minimum width=122mm, text width=120mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-1.0)
+  {The last row matters more than it looks. Five of these can be defended by
+   pointing at a document; that one is defended by pointing at chapter 2's
+   measurement method. \textbf{Saying so is what keeps the other five
+   credible}, and it costs one column in a table.};
+
+% ================================================================ injection
+\node[chlabel, anchor=west] at (-6.8,-2.7) {and three levels of fault injection, because they catch different things};
+
+\node[regcell, fill=usrcol, minimum width=38mm, text width=36mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-3.1)
+  {\textbf{unit level}\\[2pt]
+   a header-only fake framework: a driver call fails on the third invocation and
+   only the third, in a host test.\\[2pt]
+   It proves nothing about the wire.};
+
+\node[regcell, fill=kercol, minimum width=38mm, text width=36mm, inner sep=3pt,
+      anchor=north west, align=left] at (-2.6,-3.1)
+  {\textbf{bus level}\\[2pt]
+   a captured real trace replayed onto the virtual interface with the interface
+   remapped, plus generated load and malformed frames.};
+
+\node[regcell, fill=fwcol, minimum width=38mm, text width=36mm, inner sep=3pt,
+      anchor=north west, align=left] at (1.6,-3.1)
+  {\textbf{physical}\\[2pt]
+   power cycles, a missing terminator, a covered sensor, and the old-node
+   adapter chapter 13 bought on purpose.};
+
+\node[regcell, fill=red!18, minimum width=122mm, text width=120mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-5.9)
+  {Two honest notes belong here. \textbf{No dedicated fault injection subsystem
+   was found} in the other major operating system for this class of part:
+   mocking yes, a named framework no. And \textbf{support for injection inside
+   the simulated silicon could not be confirmed}, so stage one injects at the
+   unit and bus levels and not inside the part.};
+
+\node[umlnote, text width=122mm, anchor=north west] at (-6.8,-7.6)
+  {The question of whether injected faults resemble the faults that actually
+   occur has a name in the literature and a paper devoted to it. That is why
+   every entry in this rig's catalogue carries a mark, and why the catalogue was
+   written before the injector rather than derived from it.};
+\end{tikzpicture}
