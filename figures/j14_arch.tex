@@ -1,0 +1,53 @@
+% Two paths out of one node, and the world on the far side that is not here.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+% ================================================================ the node
+\node[layerlabel] at (-6.6,2.6) {the node};
+\node[fw, text width=26mm] (ctrl) at (-5.0,1.9) {control task\\1 kHz, high priority};
+\node[fw, text width=26mm] (st)   at (-5.0,0.5) {the state struct\\chapter 11};
+\node[fw, text width=26mm] (mw)   at (-5.0,-1.3) {middleware task\\50 Hz, low priority};
+
+\draw[flow] (ctrl) -- (st);
+\draw[flow] (st) -- node[right, font=\sffamily\tiny, fill=white, inner sep=1.5pt]{a snapshot, copied} (mw);
+
+% ================================================================ the deterministic path
+\node[blk, fill=usrcol, text width=30mm] (proto) at (-0.4,0.5)
+  {the joint protocol\\fixed frames, every period};
+\draw[flow] (st) -- (proto);
+\node[chlabel, anchor=south] at (-0.4,1.15) {chapters 11 and 12, unchanged};
+
+% ================================================================ the middleware path
+\node[blk, fill=kercol, text width=30mm] (cli) at (-0.4,-1.3)
+  {the client\\publishers, subscription, service};
+\draw[flow] (mw) -- (cli);
+\node[blk, fill=kercol, text width=30mm] (tr) at (-0.4,-2.7)
+  {the transport\\serial first, then the bus};
+\draw[flow] (cli) -- (tr);
+
+% ================================================================ the wire
+\node[busnode, text width=16mm, minimum height=34mm, fill=hwcol] (wire) at (2.9,-0.9) {one pair of wires};
+\draw[flow] (proto) -- (proto -| wire.west);
+\draw[flow] (tr) -- (tr -| wire.west);
+
+% ================================================================ the host
+\node[ext, text width=28mm] (mst) at (6.2,0.5) {the motion master\\chapter 10};
+\node[ext, text width=28mm] (agt) at (6.2,-2.0) {the agent\\a source build, on the host};
+\draw[flow] (wire.east |- mst) -- (mst);
+\draw[flow] (wire.east |- agt) -- (agt);
+
+\node[absentblk, text width=28mm] (graph) at (6.2,-3.9) {the wider graph, tools and recording};
+\draw[flow, draw=black!45] (agt) -- (graph);
+\node[chlabel, anchor=north] at (6.2,-4.6) {not on this bench, and not implied};
+
+% ================================================================ the rule
+\node[umlnote, text width=52mm, anchor=north west] at (-6.6,-4.2)
+  {There is no arrow from the middleware task back into the control task.
+   Configuration arrives as a request, is validated, and is applied by the
+   control task itself at a period boundary. That one missing arrow is the
+   architectural claim of this chapter.};
+\node[umlnote, text width=52mm, anchor=north west] at (-0.6,-4.2)
+  {The upper path is deterministic and the lower one is best effort, and they
+   share a wire. That is allowed only because the middleware sits in a lower
+   priority identifier block, so arbitration resolves every contention in favour
+   of control without any scheduling decision being made in software.};
+\end{tikzpicture}

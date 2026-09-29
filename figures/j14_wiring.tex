@@ -1,0 +1,52 @@
+% The bench for this chapter, and the two transports in build order.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+% ================================================================ the boards
+\node[board, minimum width=40mm, minimum height=24mm] (nuc) at (-4.0,0.6) {NUCLEO\\H7A3ZI-Q};
+\node[board, fill=red!35!black!60, minimum width=36mm, minimum height=24mm] (pi) at (4.0,0.6)
+  {Raspberry Pi 4\\the agent};
+
+% ================================================================ transport 1: the serial port
+\draw[usbcable] (nuc.north) -- (-4.0,3.0) -- (4.0,3.0) -- (pi.north);
+\node[buslabel, anchor=south] at (0,3.05) {1. the probe's serial port, 921600 baud, transfers both ways};
+\node[chlabel, anchor=north] at (0,2.95) {shipped, proven, already wired: the milestone that proves the port};
+
+% ================================================================ transport 2: the bus
+\node[hw, text width=18mm, minimum height=8mm] (tx1) at (-1.6,-1.2) {transceiver};
+\node[hw, text width=18mm, minimum height=8mm] (tx2) at (1.6,-1.2) {adapter};
+\draw[cable] (nuc.south) -- (-4.0,-1.2) -- (tx1.west);
+\draw[busline] (tx1.east) -- (tx2.west);
+\draw[cable] (tx2.east) -- (4.0,-1.2) -- (pi.south);
+\node[buslabel, anchor=north] at (0,-1.75) {2. the joint bus, flexible-data, 64-byte payload};
+\node[chlabel, anchor=north] at (0,-2.15) {not a shipped transport: six functions, written here};
+
+% ================================================================ the build machine
+\node[ext, text width=30mm, minimum height=11mm] (lap) at (-4.6,-3.3)
+  {the authoring laptop:\\the container build};
+\draw[flow, dashed] (lap.west) -- (-6.9,-3.3) -- (-6.9,0.6) -- (nuc.west);
+\node[chlabel, anchor=west, text width=22mm] at (-6.8,-1.4)
+  {a static library, built there and copied here};
+
+% ================================================================ what is not here
+\node[absentblk, text width=28mm, minimum height=11mm] (eth) at (-0.6,-3.3)
+  {no Ethernet controller on this part};
+\node[laterblk, text width=28mm, minimum height=11mm] (usb) at (3.4,-3.3)
+  {a user USB connector, unconfirmed};
+
+% ================================================================ captions
+\node[chlabel, anchor=north, text width=32mm, align=center] at (-4.6,-4.0)
+  {the image does not state which architectures it supports, so the build runs
+   where the answer is certain};
+\node[chlabel, anchor=north, text width=32mm, align=center] at (-0.6,-4.0)
+  {which removes the UDP transport before it is considered, on evidence from
+   chapter 4 rather than from a product page};
+\node[chlabel, anchor=north, text width=32mm, align=center] at (3.4,-4.0)
+  {the USB serial transport depends on reading the silkscreen, so this chapter
+   does not assume it};
+
+\node[umlnote, text width=112mm, anchor=north west] at (-6.4,-5.4)
+  {Two transports, built in that order, for the same reason chapter 9 started in
+   loopback: the first one proves the port with a known-good path, so that when the
+   second one fails the fault can only be in the transport. Reversing the order
+   turns two unknowns into one long evening.};
+\end{tikzpicture}

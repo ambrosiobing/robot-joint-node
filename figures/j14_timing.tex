@@ -1,0 +1,53 @@
+% Two rates on one node, and two priority blocks on one bus.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm]
+
+% ================================================================ the control task
+\node[chlabel, anchor=west] at (0,44) {the control task: one kilohertz, unchanged by anything in this chapter};
+\lane{36}{control}
+\foreach \x in {0,12,24,36,48,60,72,84,96,108}{ \slice{36}{\x}{4}{taskrun}{} }
+\draw[taxis] (0,34) -- (124,34);
+\foreach \x in {0,12,24,36,48,60,72,84,96,108}{ \draw[release] (\x,31) -- (\x,35); }
+\node[tlabel, anchor=west] at (0,29) {one release every millisecond, and the period is the guarantee};
+
+% ================================================================ the middleware task
+\node[chlabel, anchor=west] at (0,24) {the middleware task: fifty hertz, and it runs in whatever is left};
+\lane{16}{middleware}
+\slice{16}{2}{3}{taskisr}{}
+\slice{16}{5}{26}{taskrun}{publish}
+\slice{16}{31}{29}{taskblock}{blocked}
+\slice{16}{60}{3}{taskisr}{}
+\slice{16}{63}{26}{taskrun}{publish}
+\slice{16}{89}{33}{taskblock}{blocked}
+\draw[taxis] (0,14) -- (124,14);
+\node[tlabel, anchor=west] at (2,10.5) {the dark sliver is the snapshot: one struct copy inside a short critical section};
+\node[tlabel, anchor=west] at (2,6.5) {everything slow, including the transport, happens outside it};
+
+% ================================================================ the bus
+\node[chlabel, anchor=west] at (0,0) {and the same twenty milliseconds on the bus, in two identifier blocks};
+\node[signame] at (-2,-7) {high block};
+\foreach \x in {2,26,50,74,98}{
+  \node[fieldbox, fill=usrcol, minimum width=14mm, text width=12mm, minimum height=5mm,
+        font=\sffamily\tiny] at (\x,-9.5) {control};
+}
+\node[signame] at (-2,-18) {low block};
+\foreach \x in {18,66}{
+  \node[fieldbox, fill=kercol, minimum width=20mm, text width=18mm, minimum height=5mm,
+        font=\sffamily\tiny] at (\x,-20.5) {middleware};
+}
+\draw[taxis] (0,-23) -- (124,-23);
+
+\node[tlabel, anchor=west, text width=110mm, align=left] at (0,-27.5)
+  {Nothing in software decides which of these wins a contention. The identifier
+   assignment does, and it was made once, in a table, in chapter 11.};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-31)
+  {Chapter 2's histogram is rerun at the end of this chapter for exactly one
+   reason: to prove that adding all of this changed nothing about the top lane.
+   A claim that something did not change is worth only as much as the
+   measurement behind it.};
+\node[umlnote, text width=52mm, anchor=north west] at (62,-31)
+  {The publication rate is a fiftieth of the control rate because chapter 11's
+   bus arithmetic says so, not because fifty hertz is a round number. Tools,
+   recording and visualisation are all comfortable there, and the wire stays
+   quiet enough for the traffic that matters.};
+\end{tikzpicture}
