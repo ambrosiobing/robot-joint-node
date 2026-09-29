@@ -1066,8 +1066,15 @@ def chapter_slug(text, number):
     m = re.search(r"\\project\{(\d+)\}\{([^}]*)\}", text)
     title = m.group(2) if m else ""
     title = title.split(":")[0].split(",")[0].lower()
+    # Drop apostrophes rather than letting them become separators, so that
+    # "the joint's inner ear" does not slugify to "the-joint-s-inner-ear".
+    title = title.replace("'", "").replace("’", "")
     title = re.sub(r"[^a-z0-9]+", "-", title).strip("-")
-    words = [w for w in title.split("-") if w][:7]
+    words = [w for w in title.split("-") if w][:8]
+    stop = {"a", "an", "and", "as", "at", "by", "for", "in", "of", "on",
+            "or", "the", "to", "with", "you"}
+    while words and words[-1] in stop:
+        words.pop()
     return f"chapter-{number:02d}" + ("-" + "-".join(words) if words else "")
 
 
@@ -1100,7 +1107,7 @@ def build_chapter(which):
     # A chapter handed out on its own still has to know which chapter it is:
     # set the counter so the heading numbers itself correctly, and put the
     # chapter rather than the book in the PDF metadata.
-    meta = re.sub(r"[^ A-Za-z0-9,.:()-]", "", f"{DOC['unit']} {number}. {title}")
+    meta = re.sub(r"[^ A-Za-z0-9,.:()'-]", "", f"{DOC['unit']} {number}. {title}")
     stub = (preamble_of(MAIN.read_text(encoding="utf-8"))
             + "\\hypersetup{pdftitle={" + meta + "}}\n"
             + "\\begin{document}\n"
