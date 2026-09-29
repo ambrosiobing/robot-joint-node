@@ -1061,6 +1061,81 @@ def preamble_of(main_text):
     return main_text.split("\\begin{document}")[0]
 
 
+def chapter_slug(text, number):
+    """chapter-07-the-actuator-you-do-not-have, from the \\project title."""
+    m = re.search(r"\\project\{(\d+)\}\{([^}]*)\}", text)
+    title = m.group(2) if m else ""
+    title = title.split(":")[0].split(",")[0].lower()
+    title = re.sub(r"[^a-z0-9]+", "-", title).strip("-")
+    words = [w for w in title.split("-") if w][:7]
+    return f"chapter-{number:02d}" + ("-" + "-".join(words) if words else "")
+
+
+def build_chapter(which):
+    """Build one chapter as a shareable PDF and one self-contained HTML file.
+
+    The book is handed out a chapter at a time, so a chapter is a deliverable
+    in its own right rather than an excerpt: it carries its own title page and
+    its own figures, and it is named after itself rather than after the book.
+    """
+    if re.fullmatch(r"\d{1,2}", str(which)):
+        path = ROOT / "sections" / f"j{int(which):02d}.tex"
+    else:
+        path = Path(which)
+        if not path.is_absolute():
+            path = (ROOT / path).resolve()
+    if not path.exists():
+        print(f"no such chapter: {path.name}")
+        return False
+    text = path.read_text(encoding="utf-8")
+    m = re.search(r"\\project\{(\d+)\}\{([^}]*)\}", text)
+    if not m:
+        print(f"{path.name} has no \\project line, so it is not a chapter")
+        return False
+    number, title = int(m.group(1)), m.group(2)
+    stem = chapter_slug(text, number)
+    check_ascii_in_code(text, path.name)
+    BUILD.mkdir(exist_ok=True)
+
+    # A chapter handed out on its own still has to know which chapter it is:
+    # set the counter so the heading numbers itself correctly, and put the
+    # chapter rather than the book in the PDF metadata.
+    meta = re.sub(r"[^ A-Za-z0-9,.:()-]", "", f"{DOC['unit']} {number}. {title}")
+    stub = (preamble_of(MAIN.read_text(encoding="utf-8"))
+            + "\\hypersetup{pdftitle={" + meta + "}}\n"
+            + "\\begin{document}\n"
+            + f"\\setcounter{{section}}{{{number - 1}}}\n"
+            + "\\input{" + path.relative_to(ROOT).as_posix() + "}\n\\end{document}\n")
+    (BUILD / f"{stem}.tex").write_text(stub, encoding="utf-8")
+    for _ in range(2):
+        r = run(["pdflatex", "-interaction=nonstopmode", "-file-line-error",
+                 "-output-directory=build", f"build/{stem}.tex"], timeout=600)
+    log = BUILD / f"{stem}.log"
+    logtext = log.read_text(encoding="utf-8", errors="replace") if log.exists() else ""
+    errs = tex_errors(logtext) if logtext else ["no log"]
+    if r.returncode != 0 or errs:
+        print(f"== pdflatex problems in {path.name}:")
+        for e in errs[:8]:
+            print(e)
+        return False
+    shutil.copy2(BUILD / f"{stem}.pdf", ROOT / f"{stem}.pdf")
+    pages = re.search(r"\((\d+) pages?,", logtext)
+    print(f"== chapter {number}: {title}")
+    print(f"   PDF  -> {stem}.pdf  ({pages.group(1) if pages else '?'} pages)")
+
+    names = all_figure_names(text)
+    uris = svg_data_uris(names, force=True)
+    missing = [n for n in names if not uris.get(n)]
+    if missing:
+        print("   figures FAILED:", ", ".join(missing))
+        return False
+    build_html(text, uris, ROOT / f"{stem}.html",
+               title=f"{DOC['unit']} {number}. {title}",
+               subtitle=DOC["title"], standalone_fragment=True)
+    print(f"   HTML -> {stem}.html  ({len(names)} figures inlined)")
+    return True
+
+
 def check_section(path):
     path = Path(path)
     if not path.is_absolute():
@@ -1144,6 +1219,14 @@ def main(argv):
     if "--check" in argv:
         i = argv.index("--check")
         sys.exit(0 if check_section(argv[i + 1]) else 1)
+    if "--chapter" in argv:
+        i = argv.index("--chapter")
+        if i + 1 >= len(argv):
+            sys.exit("--chapter needs a number, for example: --chapter 7")
+        sys.exit(0 if build_chapter(argv[i + 1]) else 1)
+    if "--chapters" in argv:
+        ok = all(build_chapter(n) for n in range(1, 21))
+        sys.exit(0 if ok else 1)
     do_pdf = "--pdf" in argv or not any(a.startswith("--") for a in argv)
     do_html = "--html" in argv or not any(a.startswith("--") for a in argv)
     do_fig = "--figures" in argv or do_html

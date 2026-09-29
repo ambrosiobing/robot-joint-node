@@ -11,3 +11,7 @@ build/
 # The built book stays local. Rebuild it with: python build.py
 robot-joint-node.pdf
 robot-joint-node.html
+
+# Per-chapter deliverables, built on demand with: python build.py --chapter N
+chapter-*.pdf
+chapter-*.html
