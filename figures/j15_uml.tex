@@ -1,0 +1,60 @@
+% The three types this node touches, and what it leaves empty on purpose.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm,
+  fieldrow/.style={regcell, minimum width=52mm, text width=50mm, minimum height=4.6mm,
+                   anchor=north west, align=left, font=\sffamily\tiny, inner sep=2pt}]
+
+\node[chlabel, anchor=west] at (-6.6,3.6) {what this node fills, and the one array it does not};
+
+% ================================================================ the state type
+\node[fieldrow, fill=hwcol] at (-6.6,3.2) {\textbf{the joint state type}\hfill published at 50 Hz};
+\node[fieldrow, fill=white] at (-6.6,2.7) {header.stamp \hfill the SAMPLE instant, chapter 3};
+\node[fieldrow, fill=white] at (-6.6,2.2) {name[1] \hfill filled once at start-up};
+\node[fieldrow, fill=usrcol] at (-6.6,1.7) {position[1] \hfill radians, from counts};
+\node[fieldrow, fill=usrcol] at (-6.6,1.2) {velocity[1] \hfill radians per second};
+\node[fieldrow, fill=red!18] at (-6.6,0.7) {effort[] \hfill \textbf{LENGTH ZERO, on purpose}};
+\node[chlabel, anchor=north west, text width=52mm] at (-6.6,0.1)
+  {The type's own comment gives effort in newton metres, which is a measured
+   unit. This bench has no torque sensor, the arrays are allowed to be empty,
+   and an empty array is a legal statement meaning this node does not measure
+   that quantity.};
+
+% ================================================================ the dynamic type
+\node[fieldrow, fill=hwcol] at (0.4,3.2) {\textbf{the dynamic state type}\hfill where the estimate goes};
+\node[fieldrow, fill=white] at (0.4,2.7) {interface "position" \hfill the same number as the left};
+\node[fieldrow, fill=kercol] at (0.4,2.2) {interface "effort\_estimate" \hfill chapter 8's model};
+\node[fieldrow, fill=kercol] at (0.4,1.7) {interface "effort\_source" \hfill DERIVED or MEASURED};
+\node[fieldrow, fill=kercol] at (0.4,1.2) {interface "model\_version" \hfill which parameters};
+\node[chlabel, anchor=north west, text width=52mm] at (0.4,0.6)
+  {This type names its interfaces as strings, so a derived quantity can travel
+   under a name that says what it is. A consumer that wants effort here has to
+   ask for a field called estimate, which is the entire point of putting it
+   here rather than on the left.};
+
+% ================================================================ the command side
+\node[fieldrow, fill=hwcol] at (-6.6,-1.6) {\textbf{the command side}\hfill what arrives, and what happens};
+\node[fieldrow, fill=usrcol] at (-6.6,-2.1) {a jog command \hfill the direct match: immediate};
+\node[fieldrow, fill=white] at (-6.6,-2.6) {a single point \hfill a jog with a validity time};
+\node[fieldrow, fill=black!8] at (-6.6,-3.1) {a trajectory \hfill \textbf{held elsewhere, not here}};
+
+\node[chlabel, anchor=north west, text width=52mm] at (-6.6,-3.7)
+  {A trajectory is a list of points with times from a start. A joint node at one
+   kilohertz receives one immediate command, and chapter 11 already gave that
+   command a validity time.};
+
+\node[fieldrow, fill=hwcol] at (0.4,-1.6) {\textbf{and what it says when it cannot follow}};
+\node[fieldrow, fill=white] at (0.4,-2.1) {\ \ 0 \hfill SUCCESSFUL};
+\node[fieldrow, fill=white] at (0.4,-2.6) {-1 \hfill INVALID\_GOAL};
+\node[fieldrow, fill=white] at (0.4,-3.1) {-2 \hfill INVALID\_JOINTS};
+\node[fieldrow, fill=white] at (0.4,-3.6) {-3 \hfill OLD\_HEADER\_TIMESTAMP};
+\node[fieldrow, fill=usrcol] at (0.4,-4.1) {-4 \hfill PATH\_TOLERANCE\_VIOLATED};
+\node[fieldrow, fill=white] at (0.4,-4.6) {-5 \hfill GOAL\_TOLERANCE\_VIOLATED};
+
+\node[umlnote, text width=52mm, anchor=north west] at (-6.6,-5.4)
+  {The node does not interpolate a trajectory. That is a design position rather
+   than a limitation, it keeps the profile where the profile belongs, and
+   chapter 16 rests on it.};
+\node[umlnote, text width=52mm, anchor=north west] at (0.4,-5.4)
+  {Six codes, already defined, already acted on by controllers that exist.
+   Chapter 11's fault word maps onto them through a file, so the two cannot
+   drift apart quietly, and chapter 16 uses the fourth one.};
+\end{tikzpicture}

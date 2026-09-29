@@ -1,0 +1,48 @@
+% The sign convention, drawn once so that it can be pointed at.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.6,3.4) {the convention, viewed from the output side of the joint};
+
+% ================================================================ the joint
+\node[linkbody, minimum width=34mm] (base) at (-3.6,1.6) {};
+\node[chlabel, anchor=center] at (-3.6,1.6) {the fixed link};
+\node[jointpin] (pin) at (-1.6,1.6) {};
+\node[linkbody, minimum width=30mm, rotate=28, anchor=west] (arm) at (-1.6,1.6) {};
+\node[chlabel, anchor=west] at (1.7,3.4) {the moving link};
+
+% zero line and the positive direction
+\draw[hiz] (-1.6,1.6) -- (1.55,1.6);
+\node[chlabel, anchor=west] at (1.62,1.45) {zero position};
+\draw[jointarc, line width=0.8pt] (1.6,1.6) arc (0:28:3.2);
+\node[chlabel, anchor=west] at (1.9,2.5) {positive};
+
+\node[tlabel, anchor=north west, text width=48mm, align=left] at (-6.6,0.6)
+  {\textbf{positive rotation} is counter-clockwise seen from the output side.
+   \textbf{Zero} is the mechanical reference mark of chapter 5. Published
+   positions are \textbf{radians}, always, at every layer.};
+
+% ================================================================ the encoder zero
+\node[layerlabel] at (0.4,0.9) {and where the encoder's own zero is};
+\node[hw, text width=30mm, minimum height=9mm] (enc) at (2.2,0.1) {the encoder, chapter 5};
+\node[absentblk, text width=30mm, minimum height=9mm] (idx) at (5.8,0.1) {a hardware index pulse};
+\draw[busstub, draw=black!45] (enc) -- (idx);
+\node[chlabel, anchor=north, text width=34mm, align=center] at (5.8,-0.5)
+  {this part has none, which chapter 5 established from the vendor headers};
+\node[chlabel, anchor=north, text width=34mm, align=center] at (2.2,-0.5)
+  {so zero is established at start-up, by the procedure in chapter 5, and it is
+   never assumed here};
+
+% ================================================================ the rule
+\node[regcell, fill=red!18, minimum width=112mm, text width=110mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.6,-1.8)
+  {\textbf{Degrees appear nowhere in this repository}, including in log strings,
+   because a unit that exists in two forms is eventually converted twice or not
+   at all. A host test asserts the absence, which is the only way a rule like
+   this survives a year.};
+
+\node[umlnote, text width=112mm, anchor=north west] at (-6.6,-3.4)
+  {None of this is discoverable from the code, all of it is assumed by every
+   consumer of the messages, and the entire cost of recording it is this figure
+   and half a page of a file called conventions. It is the cheapest work in the
+   chapter and the most likely to save somebody a day.};
+\end{tikzpicture}

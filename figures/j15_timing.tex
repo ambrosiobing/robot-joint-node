@@ -1,0 +1,51 @@
+% The timestamp contract, and the two ways to break it.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm]
+
+% ================================================================ correct
+\node[chlabel, anchor=west] at (0,40) {what the type requires: one instant, shared by every quantity in the message};
+\draw[taxis] (0,28) -- (124,28);
+\foreach \x in {10,52,94}{
+  \draw[release] (\x,24) -- (\x,32);
+  \node[sample] at (\x,32) {};
+  \node[sample] at (\x,35) {};
+  \node[sample] at (\x,38) {};
+}
+\node[tlabel, anchor=west] at (13,35) {position, velocity and the clock read together};
+\foreach \x in {10,52,94}{
+  \node[fieldbox, fill=usrcol, minimum width=16mm, text width=14mm, minimum height=5mm,
+        font=\sffamily\tiny] at ({\x+2},18) {stamp = here};
+}
+\node[tlabel, anchor=west] at (0,14) {and the message may be assembled and sent whenever it likes afterwards};
+
+% ================================================================ broken, way one
+\node[chlabel, anchor=west] at (0,8) {broken, way one: three quantities sampled at three instants, stamped as one};
+\draw[taxis] (0,-2) -- (124,-2);
+\foreach \x/\lab in {10/position, 18/velocity, 27/clock}{
+  \draw[release, draw=red!70!black] (\x,-6) -- (\x,2);
+  \node[tlabel, anchor=south, rotate=90] at (\x,3) {\lab};
+}
+\draw[faultedge, -] (8,-7.5) -- (29,-7.5);
+\node[tlabel, anchor=west, text=red!60!black] at (32,-7.5)
+  {the type says in one sentence that this is not allowed};
+
+% ================================================================ broken, way two
+\node[chlabel, anchor=west] at (0,-14) {broken, way two: sampled correctly, stamped at publication};
+\draw[taxis] (0,-24) -- (124,-24);
+\node[sample] at (10,-20) {};
+\draw[release] (10,-28) -- (10,-20);
+\node[tlabel, anchor=west] at (13,-20) {sampled here};
+\node[fieldbox, fill=red!25, minimum width=20mm, text width=18mm, minimum height=5mm,
+      font=\sffamily\tiny] at (54,-22) {stamp = here};
+\draw[faultedge] (30,-20) -- (52,-20);
+\node[tlabel, anchor=south] at (41,-19.5) {an error nothing will ever report};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-32)
+  {The bottom row produces a plot that is correct in shape and wrong in time. No
+   consumer can detect it, no test in the graph will fail, and the size of the
+   error is whatever the middleware and the transport happened to take that
+   period.};
+\node[umlnote, text width=52mm, anchor=north west] at (62,-32)
+  {Chapter 3 built one monotonic clock with a hardware capture, and chapter 6
+   reconstructed per-sample instants from a single capture, precisely so that
+   the top row would be achievable. This is where that work is spent.};
+\end{tikzpicture}
