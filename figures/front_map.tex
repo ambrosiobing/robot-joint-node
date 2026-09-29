@@ -1,0 +1,73 @@
+% The dependencies that are real, and nothing else.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm,
+  ch/.style={blk, text width=30mm, minimum height=8mm, inner sep=2pt,
+             font=\sffamily\tiny},
+  dep/.style={-Latex, draw=linecol, line width=0.6pt}]
+
+% ================================================================ part I
+\node[chlabel, anchor=west, fill=white] at (-7.4,3.9) {the node comes up};
+\node[ch, fill=hwcol] (c1) at (-6.0,3.2) {1 what a joint node is};
+\node[ch, fill=hwcol] (c2) at (-2.4,3.2) {2 the control period};
+\node[ch, fill=hwcol] (c3) at (1.2,3.2) {3 one clock};
+\node[ch, fill=hwcol] (c4) at (4.8,3.2) {4 the board support package};
+\draw[dep] (c1) -- (c2);
+\draw[dep] (c2) -- (c3);
+\draw[dep] (c3) -- (c4);
+
+% ================================================================ part II
+\node[chlabel, anchor=west, fill=white] at (-7.4,2.3) {sensing and acting};
+\node[ch, fill=usrcol] (c5) at (-6.0,1.6) {5 the encoder};
+\node[ch, fill=usrcol] (c6) at (-2.4,1.6) {6 the inertial unit};
+\node[ch, fill=usrcol] (c7) at (1.2,1.6) {7 the actuator you do not have};
+\node[ch, fill=usrcol] (c8) at (4.8,1.6) {8 force and torque};
+\draw[dep] (c4.south) -- (c8.north);
+
+% ================================================================ part III
+\node[chlabel, anchor=west, fill=white] at (-7.4,0.7) {the bus};
+\node[ch, fill=kercol] (c9)  at (-6.0,0.0) {9 CAN-FD from the controller out};
+\node[ch, fill=kercol] (c10) at (-2.4,0.0) {10 the motion master};
+\node[ch, fill=kercol] (c11) at (1.2,0.0) {11 a joint protocol};
+\node[ch, fill=kercol] (c12) at (4.8,0.0) {12 network management};
+\node[ch, fill=kercol] (c13) at (4.8,-1.2) {13 two speeds on one wire};
+\draw[dep] (c5.south) -- (c9.north);
+\draw[dep] (c9) -- (c10);
+\draw[dep] (c10) -- (c11);
+\draw[dep] (c11) -- (c12);
+\draw[dep] (c12) -- (c13);
+
+% ================================================================ part IV
+\node[ch, fill=fwcol] (c14) at (-6.0,-2.6) {14 a middleware participant};
+\node[ch, fill=fwcol] (c15) at (-2.4,-2.6) {15 state and command as messages};
+\node[ch, fill=fwcol] (c16) at (1.2,-2.6) {16 the loop closed over the bus};
+\node[ch, fill=extcol] (c17) at (4.8,-2.6) {17 a real-time fieldbus, refused};
+\draw[dep] (c9.south) -- (c14.north);
+\draw[dep] (c13.south) -- (c17.north);
+\draw[dep] (c14) -- (c15);
+\draw[dep] (c15) -- (c16);
+% drawn after its arrows so the label sits on top of them rather than under
+\node[chlabel, anchor=west, fill=white] at (-7.4,-1.9) {the system above};
+
+% the two that make chapter 16 possible
+\draw[dep, draw=blue!55!black] (c7.east) -- (3.0,1.6) -- (3.0,-2.6) -- (c16.east);
+\draw[dep, draw=blue!55!black] (c5.west) -- (-7.8,1.6) -- (-7.8,-3.6) -- (1.2,-3.6) -- (c16.south);
+\node[chlabel, anchor=west, text=blue!55!black] at (-7.3,-3.95)
+  {chapter 5's encoder and chapter 7's plant model are what make chapter 16's loop close at all};
+
+% ================================================================ part V
+\node[chlabel, anchor=west, fill=white] at (-7.4,-4.5) {making it trustworthy};
+\node[ch, fill=red!18] (c18) at (-6.0,-5.2) {18 safe states};
+\node[ch, fill=red!18] (c19) at (-2.4,-5.2) {19 update over the bus};
+\node[ch, fill=red!18] (c20) at (1.2,-5.2) {20 the rig};
+\draw[dep] (c18) -- (c19);
+\draw[dep] (c19) -- (c20);
+\draw[dep] (c16.south) -- (1.2,-4.2) -- (2.4,-4.2) -- (2.4,-5.2) -- (c20.east);
+
+\node[umlnote, text width=52mm, anchor=north west] at (-7.4,-6.1)
+  {Chapter 1 gates everything. Chapter 2's period and chapter 3's clock are
+   assumed by every chapter after them and are not drawn again. Chapter 9's bus
+   gates chapters 10 to 14 and 19.};
+\node[umlnote, text width=52mm, anchor=north west] at (-1.4,-6.1)
+  {Chapters 17 and 20 depend on almost everything and are the two that step back
+   and look at the whole. Everything not drawn here is a preference rather than a
+   requirement, which is most of the order.};
+\end{tikzpicture}
