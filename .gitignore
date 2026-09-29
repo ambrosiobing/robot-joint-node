@@ -7,3 +7,7 @@ build/
 *.fls
 *.fdb_latexmk
 *.synctex.gz
+
+# The built book stays local. Rebuild it with: python build.py
+robot-joint-node.pdf
+robot-joint-node.html
