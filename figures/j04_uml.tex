@@ -1,0 +1,62 @@
+% The board layer as a contract, and the generator that keeps it honest.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\newcommand{\umlbox}[4]{%
+  \node[umlclass, text width=36mm] (#1) at (#2) {%
+    \begin{minipage}{36mm}
+      \centering\bfseries #3\par\vspace{1pt}
+      \hrule\vspace{2pt}
+      \raggedright\normalfont #4\vspace{1pt}
+    \end{minipage}};}
+
+% ---------------- the description and its generator
+\umlbox{desc}{-5.0,3.4}{nucleo\_h7a3zi\_q.yaml}{%
+  pins, clocks, absences\\ one evidence field per row\\[1pt]
+  {\itshape the source of truth}}
+\umlbox{gen}{-5.0,0.9}{gen\_board.py}{%
+  emits three headers\\ refuses any row whose\\ evidence is unconfirmed}
+
+% ---------------- the generated headers
+\umlbox{pins}{0.0,3.4}{board\_pins.h}{generated, never edited}
+\umlbox{clocks}{0.0,1.7}{board\_clocks.h}{generated, never edited}
+\umlbox{caps}{0.0,0.0}{board\_caps.h}{%
+  {\tiny BOARD\_HAS\_ETHERNET 0}\\ {\tiny BOARD\_HAS\_CAN\_TRANSCEIVER 0}\\[1pt]
+  {\itshape absence, with proof}}
+
+% ---------------- the contract
+\umlbox{board}{5.2,1.7}{board.h}{%
+  board\_init()\\ board\_led(), board\_button()\\ board\_console\_putc()\\
+  board\_clock\_hz()\\[1pt] {\itshape no vendor type in any signature}}
+
+% ---------------- what implements it, and what uses it
+\umlbox{impl}{5.2,-1.6}{src/bsp/*.c}{%
+  board.c clock.c gpio.c uart.c\\ startup.c system.c\\[1pt]
+  {\itshape the only files in the tree that include a vendor header}}
+\umlbox{above}{5.2,5.3}{everything above}{%
+  control, time, sense, act,\\ bus, mw, safety, update}
+
+\draw[flow] (desc) -- (gen);
+\draw[flow] (gen) -- (pins);
+\draw[flow] (gen) -- (clocks);
+\draw[flow] (gen) -- (caps);
+\draw[flow] (pins) -- (board);
+\draw[flow] (clocks) -- (board);
+\draw[flow] (caps) -- (board);
+\draw[flow] (board) -- (above);
+\draw[flow] (impl) -- node[lbl, right]{implements} (board);
+
+% the rule, checked rather than trusted
+\draw[line width=1.1pt, draw=red!60!black] (2.9,3.7) -- (7.6,3.7);
+\node[font=\sffamily\tiny, text=red!60!black, fill=white, inner sep=1.5pt]
+  at (5.2,3.7) {check\_layering.py: zero vendor includes above this line};
+
+\node[umlnote, text width=46mm, anchor=north west] at (-7.2,-1.0)
+  {A pin number that appears in two places will eventually appear in two
+   different forms. Writing the board as data and generating the header removes
+   that possibility, and it makes the documentation and the code the same
+   artefact rather than two that agree for a while.};
+\node[umlnote, text width=46mm, anchor=north west] at (-7.2,-4.0)
+  {The layering rule is the reason chapter 20 can build most of this node on a
+   host machine with no hardware at all. It is trivial to keep from chapter 4
+   onward and expensive to retrofit at chapter 19.};
+\end{tikzpicture}
