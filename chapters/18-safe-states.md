@@ -1,0 +1,487 @@
+# Chapter 18. Safe states, and the workspace sensor that triggers one
+
+> **What the node gains:** A way to stop  
+> **Theme:** Safe-state machine, latching, entry actions, a presence sensor as a trigger
+
+> **Key facts**
+>
+> - **Adds to the node:** A way to stop. The node gains a latched safe state reachable from everywhere, three independent triggers, and a written answer to the question a joint has to answer before it goes near anybody
+> - **Peripherals:** The ranging shield as the workspace trigger, both on-die watchdogs, and one output that asserts the safe state without software
+> - **Depends on:** Chapter 5 for position, chapter 7 for the output stage, chapter 12 for bus loss, chapter 16 for following error
+> - **Real or modelled:** **Real trigger, modelled reaction.** The sensor, the latch, the watchdogs and the output are real. **There is no motor and no brake**, so the reaction is asserted and logged rather than felt, and the chapter never implies otherwise
+> - **Difficulty:** 4 of 5
+> - **Effort:** Three evenings, one of which is reading standards and finding out what may and may not be claimed from them
+> - **Deliverable:** Two safe states rather than one, a latch that meets a published clause by clause list, a trigger with a measured reaction time, and a document that says exactly what this node is and is not
+
+## Why this chapter
+
+A joint that can move is a joint that has to be able to stop, and the word for what it stops into has a definition. That definition is the first surprise of this chapter, because it contains no engineering content at all.
+
+The definitions part of the general functional safety standard gives it in seven words: the state of the equipment under control when safety is achieved. It does not say power removed. It does not say brake applied. **What counts as the safe state is an output of the risk assessment, not of the firmware.** And the note attached to the definition is the load-bearing sentence for a robot joint: for some situations a safe state exists only so long as the equipment is continuously controlled.
+
+> [!NOTE]
+> **A joint has two safe states and they are not interchangeable**
+>
+> For a horizontal joint, or one whose gearing will not back-drive, removing torque is a safe state and it persists with no energy at all. **For a vertical joint carrying a payload, removing torque is not a safe state**, because the axis then descends. There the safe state is the brake engaged with torque removed, and it is reached through a controlled deceleration rather than instantly. Torque removed and brake held are two different safe states, the drive standard names them and the definitions standard names neither, and a design that has only one of them has only solved half of the problem. This chapter builds the machine for both and says which one this bench can demonstrate.
+
+## Prior art and what to reuse
+
+| Source | What it gives | What it does not | Licence |
+| --- | --- | --- | --- |
+| The definitions part of the general standard, edition 2.0, Friday 30 April 2010 | The safe state definition itself, **read from the official preview at printed page 11**, with the note about continuous control that this chapter is built around. Also the tool classification into three types, read directly | Paywalled beyond the preview. It says nothing about how to implement anything, deliberately | paid |
+| The emergency stop standard, third edition, 2015 | **Clause 4.1.1, read directly**: six requirements the latch in this chapter is written against, and clause 4.1.1.3, which says plainly that it is a complementary measure and does not substitute for safeguarding | **Its clause on stop categories sits beyond the end of the free preview**, so that part is cited by clause number and attributed. **Its own normative references point at an edition of the electrical equipment standard that is now two editions behind** | paid |
+| One silicon vendor's free industrial functional safety guide | The distinction firmware engineers most often miss, in a per-device table: **random hardware capability against systematic capability**, and the architecture arithmetic in a line each. Then the list of mechanisms that are actually firmware | It is about a different vendor's parts, so the arithmetic transfers and the device table does not | free, no registration |
+| The performance level calculator from an institute | Models the control structure and computes the attained level, free of charge, version 3.0.4 of Friday 31 October 2025, supporting the 2023 edition | **Free to use and to pass on, but modification and re-hosting are not permitted.** Link it, never vendor it | free, restricted |
+| The space agency's software assurance handbook, topic 8.5 | An eight step analysis method, **a catalogue of software failure modes that reads as if written for a bus-connected joint node**, criticality categories, and four downloadable worksheet templates | Nothing certifiable. **It is a United States government work with no copyright notice, which makes it the safest material in this volume to adapt into a public repository** | public domain |
+| A permissively licensed bus stack | A working implementation of the safety data object wire format: a periodic broadcast of two frames, the second carrying the data bit-wise inverted on a different identifier | **It claims coding standard conformance with documented exceptions, which is not a functional safety certification**, and it makes no certification claim anywhere | Apache-2.0 |
+| A maintained hierarchical state machine library | Entry, run and exit actions, history, timers, parallel states, a kernel dispatcher, and coding standard checks in its own continuous integration | C++ where this node is C, which is a real mismatch to state rather than to paper over | MIT |
+
+*Table 18.1. Prior art for chapter 18. The fifth row is the most useful thing in the table for a reader building a portfolio: a complete, free, quotable analysis method with worksheets, from a source whose material carries no copyright restriction at all.*
+
+## What the node gains
+
+A latched safe state that is reachable from every other state, three independent ways into it, an entry action that does not depend on the scheduler still running, and a written statement of what this node is. That last item is the one that matters most in a portfolio: a node that says clearly that it implements a safe-state machine and makes no integrity claim is more credible than one that implies a claim it cannot support.
+
+## Parts from the inventory
+
+| Part | Role | Interface |
+| --- | --- | --- |
+| X-NUCLEO-53L8A1, 8 by 8 ranging | **The workspace trigger, and it is real.** Multizone ranging means a region rather than a point, which is what a workspace is | The shield header |
+| NUCLEO-H7A3ZI-Q | The machine, the latch and the entry action | Its own outputs |
+| The independent watchdog | Clocked from the low speed internal oscillator, so it survives a stopped main clock | On-die |
+| The window watchdog | Faults on a refresh that is **too early** as well as too late, which catches a loop running at the wrong rate | On-die |
+| An external watchdog | **Not on the bench, and named as absent.** Both on-die watchdogs share the chip's fate, so a genuinely independent one is external | n/a |
+| A brake, and a motor | **Neither exists here.** The reaction is asserted on a pin and logged, and no figure in this chapter implies a mechanism moved | n/a |
+
+*Table 18.2. Inventory items used in chapter 18. Two rows are absences and both are load-bearing. The missing external watchdog limits what may be claimed about diagnostic independence; the missing brake means the second of this chapter's two safe states is designed, tested in logic, and never demonstrated physically.*
+
+## System architecture
+
+![Figure 18.1. The safe-state machine, its three independent triggers and the latch.](../figures/j18_arch.svg)
+
+*Figure 18.1. The safe-state machine, its three independent triggers and the latch. Two rules shape it, and neither has a citable source, so both are presented as engineering practice rather than dressed up as requirements: the safe state is reachable from every other state, and once entered it is held until an intentional reset. The published clause list that the reset is written against is in the figure beside it.*
+
+## Peripheral configuration
+
+| Peripheral | Mode | Clock source | Pins and function | Interrupt and transfers |
+| --- | --- | --- | --- | --- |
+| Ranging sensor | Multizone, continuous, with its own interrupt | Its own | The shield's bus pins plus one interrupt line | Interrupt on a new frame, never polled |
+| Independent watchdog | Enabled before anything else, and never disabled | The low speed internal oscillator | None | Survives a stopped main clock |
+| Window watchdog | Refreshed once per control period, inside the window | From the bus clock | None | **Faults on an early refresh too** |
+| Output stage | **Break input already proven in chapter 7** | Unchanged | Unchanged | **Asserts with interrupts disabled**, which chapter 7 measured |
+| Safe-state output | One pin, asserted by the same hardware path | n/a | One pin, plus its indicator | No software in the assertion path |
+
+*Table 18.3. Peripheral configuration for chapter 18. The fourth row is chapter 7's work being spent: the break input was proven there to remove the outputs with interrupts disabled, which means the entry action into the safe state does not depend on the scheduler, on a task, or on anything continuing to run.*
+
+## Wiring
+
+![Figure 18.2. What is on the bench, and what a real safety chain has that this one does not.](../figures/j18_wiring.svg)
+
+*Figure 18.2. What is on the bench, and what a real safety chain has that this one does not. The trigger, the latch and the output are real and single channel. A chain that could support an integrity claim is dual channel with diagnostics, and both the second channel and the external watchdog are drawn as absent rather than implied. The figure is the honest picture, and it is also the reason the chapter's own claim is carefully worded.*
+
+## Memory and timing budget
+
+| Quantity | Budget | Measured | Margin |
+| --- | --- | --- | --- |
+| Flash, this chapter | 7 kB | not measured | not measured |
+| Static memory, this chapter | 2 kB, mostly the ranging frame | not measured | not measured |
+| Trigger to output asserted | under 2 ms | not measured | not measured |
+| Ranging frame period | 15 Hz, which bounds the first term above | not measured | not measured |
+| Controlled deceleration, in logic | 200 ms, then torque removed | not measured | not measured |
+| Latch, once set | **forever, until an intentional reset** | n/a | n/a |
+| Reset to running | one full self-check, never immediate | not measured | not measured |
+
+*Table 18.4. The budget for chapter 18. The third row is the whole reaction time and most of it is the sensor: a trigger cannot be acted on before it arrives, and a 15 hertz frame rate puts a floor under the reaction that no amount of firmware speed removes. Stating that is more useful than reporting the microseconds the software takes.*
+
+## Firmware design (UML)
+
+![Figure 18.3. Two safe states, and what each one costs to reach.](../figures/j18_uml.svg)
+
+*Figure 18.3. Two safe states, and what each one costs to reach. Removing torque is immediate and persists with no energy, and it is not a safe state at all for an axis that would descend. Brake held is reached through a controlled deceleration with power still available, and only then is power removed. The three columns on the right are how those map onto the published stop categories and the drive standard's sub-functions.*
+
+Three rules, and the first two have no citable source.
+
+**The safe state is reachable from every other state.** No state may be a place from which the safe state cannot be entered. This is real and widely practised, and this volume could find no published source stating it, so it is presented as engineering practice with the standards cited for the surrounding requirements and never attributed to a document nobody has read.
+
+**A fault latches.** The condition that caused entry is recorded, the state is held, and neither clears because the condition went away. The same applies: practised everywhere, named in no source this volume could obtain.
+
+**The entry action does not depend on software continuing to run.** Chapter 7 proved the break input removes the outputs with interrupts disabled. That proof is what makes the entry action trustworthy, and a design whose safe state is entered by a task is a design whose safe state depends on the scheduler.
+
+## Data flow (ASCII)
+
+```text
+  three independent triggers, and none of them can be disabled by the others
+  ---------------------------------------------------------------------
+        |                      |                       |
+  workspace violated     following error         bus loss or bus-off
+  (the ranging shield,   outside tolerance       (chapters 12 and 13)
+   15 Hz, real)          (chapter 16)
+        |                      |                       |
+        +----------------------+-----------------------+
+                               |
+                               v
+                      ENTER THE SAFE STATE
+                               |
+        +----------------------+-----------------------+
+        |                                              |
+   torque removed                              controlled deceleration
+   immediate, and it PERSISTS                  power still available
+   with no energy                              then power removed, and
+        |                                      THE BRAKE HOLDS
+        |                                              |
+   for a horizontal or non-backdrivable          for a vertical axis
+   joint, this IS the safe state                 carrying a payload,
+        |                                        the one above is NOT
+        v                                              v
+                      LATCHED, and recorded with its cause
+                               |
+                               v
+             reset only by an intentional human action, and
+             THE RESET ITSELF DOES NOT START ANYTHING
+                               |
+                               v
+                     a full self-check, then running
+
+  on this bench: the trigger is real, the latch is real, the output pin is
+  real, and there is no motor and no brake, so the reaction is asserted and
+  logged rather than felt
+```
+
+## Repository layout
+
+```text
+joint-node/
+  src/
+    safety/
+      safe_state.c safe_state.h   # + the machine, the latch, the entry action
+      triggers.c                  # + three, independent, none maskable
+      workspace.c                 # + the ranging shield as a region, not a point
+      selftest.c                  # + what must pass before a reset takes effect
+      wdg.c                       # + both on-die watchdogs, and a liveness mask
+    control/ sense/ act/ bus/ mw/ estimate/ time/ node/ bsp/  update/
+  doc/
+    safe-states.md                # + BOTH of them, and which one applies when
+    what-this-node-is-not.md      # + the claim, carefully worded
+    fmea/                         # + the agency's worksheets, filled in
+  test/
+    test_safe_state.c             # + reachability from every state, on the host
+    test_latch.c                  # + it does not clear when the cause clears
+  host/  third_party/  tools/  proto/  README.md
+```
+
+## Steps
+
+**Step 1.** **Write down which safe state applies, before writing the machine.** This is a risk assessment output and firmware cannot decide it. Two lines of honesty here save a design.
+
+```text
+doc/safe-states.md
+
+  horizontal or non-backdrivable axis
+      safe state      torque removed
+      persists        yes, with no energy at all
+      reached         immediately
+  vertical axis carrying a payload
+      safe state      BRAKE ENGAGED with torque removed
+      persists        as long as the brake holds
+      reached         controlled deceleration FIRST, then power removed
+      why             removing torque alone is not a safe state here: the
+                      axis descends
+  on this bench       the first, demonstrated. The second, designed and
+                      tested in logic only, because there is no brake
+```
+
+**Step 2.** **Keep the three axes apart, because most requirements that arrive have them tangled.** They answer different questions and they come from different documents.
+
+```text
+axis                what it specifies                        values
+stop CATEGORY       what the stopping action does to
+                    actuator power                           0, 1, 2
+performance LEVEL   how RELIABLY the function is performed   a to e
+integrity LEVEL     the same question, other document        1 to 3 (4)
+
+a well formed requirement names ONE from the first and ONE from the others:
+  "emergency stop shall be stop category 1, achieved with PL d"
+
+THERE IS NO STOP CATEGORY 3 AND NO PL 1.
+A category 0 stop implemented with a single undiagnosed contactor is still
+a category 0 stop, at a poor performance level. The two are independent.
+```
+
+**This volume prints no cross-map between the reliability scales.** Such tables circulate widely, they are a convenience rather than a normative equivalence, and no primary verified mapping was obtained during this volume's research. Printing one would be repeating something rather than knowing it.
+
+**Step 3.** **Get the mapping to the drive standard right, because it is the cleanest single fact in this area.** Stop category 0 corresponds to safe torque off, category 1 to safe stop 1, and category 2 to safe stop 2. The drive standard's second edition replaced the phrase safety function by **safety sub-function** throughout, which is why drive documentation reads oddly to somebody who learned the older wording.
+
+**Step 4.** **Write the latch against the published clause, line by line.** The emergency stop standard's clause 4.1.1 gives six requirements and they are worth copying into the code as comments.
+
+```c
+/* safe_state.c: each line below is a requirement, not a preference. */
+/* 1. initiated by a single human action                                */
+/* 2. available and operational at all times, in every mode             */
+/* 3. overrides all other functions without impairing other protections */
+/* 4. maintained until manually reset                                   */
+/* 5. no start command is effective on the stopped operations           */
+/* 6. reset by intentional action, and THE RESET SHALL NOT RESTART      */
+void safe_state_enter(trigger_t why)
+{
+    act_break_assert();            /* chapter 7: with interrupts disabled */
+    g_safe.latched = true;
+    g_safe.cause   = why;          /* recorded, and it survives the state */
+    g_safe.count++;                /* lifetime, and it survives a reset   */
+}
+```
+
+The same clause adds, in 4.1.1.3, that this is a **complementary protective measure** and does not substitute for safeguarding or for other safety functions. That sentence belongs in the documentation of any node that implements one, because it is the sentence that stops a stop function from being treated as the whole safety case.
+
+**Step 5.** **Make the workspace sensor a region rather than a point.** An eight by eight ranging frame is sixty-four distances, and the useful question is not what any one of them says.
+
+```c
+/* workspace.c: a zone policy with hysteresis, and a minimum valid count. */
+unsigned close = 0, valid = 0;
+for (unsigned z = 0; z < 64; z++) {
+    if (frame.status[z] != RANGE_VALID) continue;
+    valid++;
+    if (frame.mm[z] < g_ws.enter_mm) close++;
+}
+if (valid < g_ws.min_valid) { workspace_unknown(); return; }   /* not safe */
+if (close >= g_ws.enter_zones) workspace_violated();
+else if (close == 0 && g_ws.state == VIOLATED &&
+         all_beyond(&frame, g_ws.exit_mm)) workspace_clear();  /* hysteresis */
+```
+
+**Too few valid zones is not the same as nothing being there.** A sensor that cannot see is a sensor whose output must not be read as all clear, and that distinction is one line of code and the difference between a safety function and a decoration.
+
+**Step 6.** **Prove reachability on the host, from every state.** This is the rule with no source behind it, and a test is the only thing that keeps it true as the machine grows.
+
+```c
+/* test_safe_state.c: for every state, the safe state must be reachable. */
+for (state_t s = 0; s < STATE_COUNT; s++) {
+    machine_force_state(s);
+    safe_state_enter(TRIGGER_TEST);
+    TEST_ASSERT_EQUAL(STATE_SAFE, machine_state());
+}
+```
+
+**Step 7.** **Prove the latch does not clear when the cause clears.** This is the second unsourced rule and the second one-line test.
+
+```bash
+python host/provoke.py --workspace-violate --hold 0.5 --then-clear
+# expected: safe state entered at t0, and STILL entered at t0 + 30 s
+# expected: cause reads WORKSPACE, not NONE, after the sensor reads clear
+```
+
+**Step 8.** **Use both watchdogs, for different reasons, and say what neither of them proves.** The independent one is clocked from the low speed oscillator and survives a stopped main clock. The window one faults on a refresh that arrives too early, which catches a loop running faster than it should rather than one that has stopped.
+
+```c
+/* wdg.c: a liveness mask, because refreshing from a timer proves nothing. */
+void wdg_service_from_supervisor(void)
+{
+    if (g_live.mask == LIVE_ALL_TASKS) {    /* every task checked in */
+        wdg_refresh();                      /* inside the window, not early */
+        g_live.mask = 0;
+    }                                       /* otherwise: let it fault */
+}
+```
+
+**Both watchdogs are on-die and share the chip's fate.** A genuinely independent watchdog for a safety argument is an external component, this bench does not have one, and the chapter says so rather than letting two on-chip timers stand in for independence.
+
+**Step 9.** **Read the vendor's safety package claim correctly, and do not repeat the garbled version.** The architecture claim is specific and it is frequently misquoted.
+
+```text
+what the vendor's page says
+  "SIL2 safety functions can be implemented with a single MCU;
+   SIL3 safety functions implementation requires two MCUs in a 1oo2 scheme."
+what several write-ups say instead
+  the same sentence with the redundancy scheme changed, which reverses the
+  meaning of the second half
+what the package contains
+  a safety manual, a qualitative analysis, a static failure rate report,
+  and a self test library delivered AS OBJECT CODE
+what could NOT be verified for this volume
+  the licence text, the distribution mechanism, the current version, and
+  WHETHER THIS EXACT PART IS COVERED AT ALL
+```
+
+That last line is why nothing from that package is used here. An object-code library bound by conditions of use is not something a book can tell a reader to drop into a repository they intend to publish.
+
+**Step 10.** **Be equally careful about the kernel.** The kernel this volume uses is permissively licensed and its own documentation makes no safety certification claim. A separate, certified product shares a functional foundation with it and is a **completely redesigned product** rather than a certified edition of the same code. Writing the certified product's name next to the free one, or calling either a certified version of the other, is the single most common error in this area.
+
+**Step 11.** **Do the failure analysis with free material and a spreadsheet.** The open tooling for this is immature and none of it is worth the dependency.
+
+```text
+method        the space agency's handbook, topic 8.5: eight steps, and it is
+              explicitly based on the cancelled military standard that
+              everything else descends from
+worksheets    four templates, downloadable, no copyright notice, United
+              States government work: adapt them and attribute
+failure modes its catalogue reads as if written for this node: out of range
+              values, missing inputs, overwritten memory, data collisions,
+              command omission, incorrect sequence, illegal commands,
+              timing issues, and hardware and software interaction failures
+tooling       none. A spreadsheet under version control beats every open
+              tool this volume could find, and two of those carry six or
+              seven commits in total
+```
+
+One contrast is worth knowing about before somebody argues with you: the international standard keeps the risk priority number and adds an alternative beside it, while the automotive sector handbook is widely reported to have dropped it for a lookup table. **Two engineers working to different sector standards are told opposite things about the same number**, and neither is wrong.
+
+**Step 12.** **Write down what this node is not.** One page, and it is the deliverable that makes the rest credible.
+
+```text
+doc/what-this-node-is-not.md
+
+  it IS        a node with a latched safe state, three independent
+               triggers, an entry action proven to run with interrupts
+               disabled, and a documented reaction time
+  it is NOT    a safety-rated device. Single channel, no diagnostic
+               coverage figure, no external watchdog, no assessment, no
+               certificate, and no integrity level claimed
+  the gap      dual channel with fault tolerance 1 reaches the higher
+               levels; single channel with fault tolerance 0 does not, and
+               that is architecture rather than effort
+  and note     random hardware capability and systematic capability are
+               different things. Systematic capability is about the
+               development process; random hardware capability is about
+               diagnostic coverage and failure rates. A part may be rated
+               differently on each, and most are
+```
+
+![Figure 18.4. Two stop categories drawn in time, and the latch that follows both.](../figures/j18_timing.svg)
+
+*Figure 18.4. Two stop categories drawn in time, and the latch that follows both. Above, power removed immediately, which is a safe state for one mounting and the opposite of one for another. Below, a controlled deceleration with power still available, then power removed once stopped, which is what a gravity-loaded axis needs. The bar at the bottom is the latch: it outlasts its cause by design, and the reset that ends it starts nothing.*
+
+## Build, flash and debug
+
+![Figure 18.5. Three scales that get tangled in almost every requirement document, kept apart, with what each one comes from and what values it actually has.](../figures/j18_data.svg)
+
+*Figure 18.5. Three scales that get tangled in almost every requirement document, kept apart, with what each one comes from and what values it actually has. Below them, this volume's evidence marking for the clauses in this chapter: what was read from a primary document, what was attested by agreeing secondary sources, and what is presented as engineering practice with no source at all.*
+
+```bash
+cmake --build build -j && ctest --test-dir build/host
+probe-rs run --chip STM32H7A3ZITx build/firmware.elf
+python host/provoke.py --workspace-violate --measure-reaction --runs 200
+python host/provoke.py --sensor-blind --expect workspace_unknown
+```
+
+> [!NOTE]
+> **When a stop function looks like a safety case**
+>
+> It is not one, and the standard says so in a clause of its own: an emergency stop is a complementary protective measure and does not substitute for safeguarding or for other safety functions. A node with a good stop function and no assessment has a good stop function. The temptation in a portfolio is to let the reader infer more than that, and the correction is a single page saying plainly what the node is not, which costs nothing and is the most credible thing in the repository.
+
+## Verification and acceptance criteria
+
+- Both safe states are written down with the condition under which each applies, and the bench says which one it can demonstrate.
+- The safe state is reachable from every other state, proven by a host test that iterates over the state list rather than over a remembered subset.
+- The latch does not clear when its cause clears, proven by a thirty second hold after the sensor reads clear.
+- The cause is recorded, and a lifetime count survives a reset.
+- The entry action asserts the output with interrupts disabled, which chapter 7 already measured.
+- Three triggers are independent and none can be masked by the others.
+- A sensor that cannot see produces an unknown state, not a clear one, proven by covering it.
+- Reaction time from trigger to output is measured over two hundred runs and reported as median, 99.9th percentile and maximum.
+- The reset requires an intentional action, runs a full self-check, and does not itself start anything.
+- The window watchdog is refreshed from a liveness mask rather than from a timer, and a deliberately stalled task causes a fault.
+- The document saying what the node is not exists, and names single channel, the absent external watchdog and the absent assessment.
+- No cross-map between the reliability scales is printed anywhere in the repository.
+
+## Variants
+
+| Axis | Variant | What changes | Cost | Built in full in |
+| --- | --- | --- | --- | --- |
+| Safe state | Torque removed | Immediate, and persists with no energy | **Not a safe state at all for an axis that would descend** | Here, demonstrated |
+| Safe state | Brake held after a controlled deceleration | The only correct answer for a gravity-loaded axis | A brake, its release circuit, and a deceleration that must complete | Here, in logic only |
+| Trigger | Workspace sensor | A region, with hysteresis and a blind-sensor state | 15 Hz, which is most of the reaction time | Here |
+| Trigger | Following error | Free: chapter 16 already computes it | Choosing a tolerance that is neither deaf nor twitchy | Here |
+| Trigger | Bus loss | Free: chapter 12 already detects it | A policy decision about how long is too long | Here |
+| Watchdog | From a timer | One line, and it proves the scheduler runs | **It refreshes happily while a task is stalled** | Nowhere |
+| Watchdog | From a liveness mask | Every task checks in, or the fault happens | A bit per task and one supervisor | Here |
+| Watchdog | External | The only kind that does not share the chip's fate | A component this bench does not have | Nowhere, and named |
+| Architecture | Single channel | What this bench is | Reaches the lower integrity levels at best, by architecture | Here |
+| Architecture | Dual channel with diagnostics | What an integrity claim needs | A second channel, comparison, and an assessment | Nowhere |
+| Bus safety | A safety layer over the bus | Two frames, the second bit-wise inverted, so small parts can participate | **The published layer is for classic frames, and no equivalent for the flexible-data format was established** | Nowhere, and the gap is named |
+| State machine | Hand written, flat | What this node has: small, auditable, testable | It will not scale to a hierarchy | Here |
+| State machine | A library | History, parallel states, a kernel dispatcher, coding standard checks | C++ where this node is C | Nowhere, and the mismatch is stated |
+
+*Table 18.5. Variants for chapter 18. The two safe-state rows at the top are the chapter in miniature: the same design decision is correct in one mounting orientation and incorrect in another, and nothing in the firmware can tell which one it is in.*
+
+## Pitfalls
+
+- Assuming the safe state is power removed. The definition says nothing of the kind, and for a gravity-loaded axis power removed is the opposite of safe.
+- Having one safe state where a joint needs two.
+- Tangling the stop category with a reliability scale. They answer different questions and come from different documents.
+- Printing a cross-map between the reliability scales as though it were normative.
+- Writing stop category 3, or performance level 1. Neither exists.
+- Refreshing a watchdog from a timer, which proves only that the scheduler runs while a task is stalled.
+- Treating two on-die watchdogs as independent. They share the chip's fate.
+- Reading too few valid ranging zones as all clear.
+- Letting a reset restart the machine. The standard says the reset shall not initiate a restart, in the same clause that requires the reset.
+- Repeating the garbled version of a vendor's architecture claim, which circulates widely and reverses the meaning of its second half.
+- Calling a certified kernel product a certified version of the free one. They share a functional foundation and are separate, redesigned products.
+- Implying an integrity claim by silence. The cure is one page saying what the node is not.
+- Citing the robot safety series by its old title. It is now titled Robotics, and getting that wrong dates a document at a glance.
+- Writing that the collaborative robot technical specification is withdrawn. It is published, was confirmed in 2022, and remains current until its replacement appears. Several secondary sources say otherwise and they are wrong.
+- Citing the electrical equipment standard or the machinery functional safety standard without their amendments. A bare citation is incomplete in 2026.
+- Citing the coding guidelines as the 2012 edition with amendments. A consolidated edition superseded that arrangement, and a further edition is current as of March 2025.
+
+## Best practices applied
+
+- A definition is read from its own document rather than from what everybody knows it says.
+- A design decision that firmware cannot make is identified as such and sent back to the risk assessment.
+- Two practices with no citable source are named as engineering practice rather than attributed to documents nobody has read.
+- Each claim carries its evidence class: read directly, attested by agreeing sources, or practice.
+- An entry action is made independent of the scheduler and that independence is proven, not assumed.
+- A sensor's inability to see is a distinct state from its seeing nothing.
+- A vendor claim is quoted exactly, and the widely circulating garbled version is named.
+- What the node is not is written down, which is what makes what it is believable.
+- Free, unrestricted public material is preferred over paid material wherever it is adequate, and the analysis method chosen here is both.
+
+## Stretch goals
+
+- Add an external watchdog and measure what it catches that the on-die pair does not. It is a small component and it changes what may be claimed.
+- Implement the two-frame safety layer over the bus with the inverted second frame, then write down honestly what it does and does not give a node with no assessment behind it.
+- Fill in the agency's worksheets completely for this node and publish them. Complete, honest analyses of small systems are rare in public and cost nothing but care.
+- Model this node's single channel in the free performance level calculator and find out precisely where the architecture stops, rather than asserting it.
+- Build the second safe state for real: a brake, its release circuit, and a deceleration that completes before power is removed. It is the half of this chapter the bench could not demonstrate.
+
+## Roadmap and next steps
+
+Chapter 19 takes the node out of reach. Once a joint is inside a machine, the only way to change its firmware is over the wire it already has, and a bootloader that stays addressable is a different problem from one that runs on a desk.
+
+The published progression from here starts with the free material, because it is better than its price suggests: the space agency's assurance handbook for analysis method and worksheets, one silicon vendor's industrial functional safety guide for the architecture arithmetic and the mechanism list, and the free performance level calculator for modelling a structure. After that, the type-C standard for robotics is the one that takes precedence for a joint, and the emergency stop standard is short, cheap and the most directly useful of the paid ones.
+
+## Portfolio evidence
+
+- The two safe states with the condition for each, which demonstrates understanding the difference between an implementation and a risk assessment output.
+- The document saying what the node is not.
+- The reachability and latch tests, which are short and make an unsourced rule enforceable.
+- The filled-in failure analysis worksheets, from material that may be published freely.
+- The evidence table, showing which claims were read from primary documents and which were not.
+
+## Sources
+
+Normative references, with the correct current editions:
+
+- IEC 61508-4:2010, edition 2.0, Friday 30 April 2010, "Functional safety of electrical/electronic/programmable electronic safety-related systems, Part 4: Definitions and abbreviations". Clause 3.1.13 for the safe state definition and clause 3.2.11 for the tool classification, **both read from the official preview**.
+- ISO 13850:2015, third edition, "Safety of machinery, Emergency stop function, Principles for design", 11 pages. **Clause 4.1.1 read directly**; clause 4.1.3 on stop categories lies beyond the free preview and is cited by clause number. **Its own normative references point at IEC 60204-1:2005**, which is two editions behind.
+- IEC 60204-1:2016 + AMD1:2021, edition 6.0, "Safety of machinery, Electrical equipment of machines, Part 1: General requirements", clause 9.2.2 for the stop categories. **The category wording in this chapter is attested by agreeing secondary sources, not primary verified.**
+- ISO 13849-1:2023, fourth edition, April 2023, for performance levels. It covers software design and **applies to high demand and continuous modes only**.
+- IEC 62061:2021 + AMD1:2024, edition 2.0. **The 2021 edition did not gain non-electrical coverage, it lost the restriction to electrical**: the older title named electrical, electronic and programmable electronic systems and the current one does not.
+- ISO 10218-1:2025 and ISO 10218-2:2025, February 2025. **The series is now titled "Robotics"**, not the older wording. For a joint this is the type-C standard and **where a type-C standard differs, its provisions take precedence**.
+- ISO/TS 15066:2016 on collaborative robots. **It is not withdrawn**: published, confirmed in 2022, and current until its replacement appears.
+- IEC 61800-5-2:2016, edition 2.0, for the drive sub-functions. Edition 2 replaced safety function by **safety sub-function** throughout. **Two brake-related sub-functions could not be confirmed on the page read, and they are exactly what a gravity-loaded joint needs.**
+- IEC 60812:2018, edition 3.0, Friday 10 August 2018, for failure modes and effects analysis. **Annex B.4 keeps the risk priority number** and adds an alternative method beside it.
+- The coding guidelines: the March 2025 edition is current, the 2023 edition consolidated the 2012 edition with its amendments and corrigendum, and the compliance framework is mandatory from the 2023 edition onward.
+
+Free and reusable material:
+
+- The space agency's software engineering and assurance handbook, topic 8.5, with four worksheet templates. **A United States government work with no copyright notice: the safest material in this volume to adapt and publish.** Attribute it.
+- The cancelled military standard that the method descends from, a United States government work and quotable freely.
+- One silicon vendor's free industrial functional safety guide, for the distinction between random hardware and systematic capability, the architecture arithmetic, and the list of mechanisms implemented in firmware.
+- The free performance level calculator from an institute, version 3.0.4 of Friday 31 October 2025. **Free to use and pass on; modification and re-hosting are not permitted.**
+- A permissively licensed bus stack implementing the safety data object wire format, Apache-2.0, which claims coding standard conformance with documented exceptions and **makes no certification claim**.  
+  <https://github.com/CANopenNode/CANopenNode>
+- Stolte and co-authors, "A Taxonomy to Unify Fault Tolerance Regimes for Automotive Systems", IEEE Transactions on Intelligent Vehicles volume 7 number 2, pages 251 to 262, 2022, which documents that the literature is inconsistent and then repairs it. Cite and link; do not bundle.
+
+Two gaps are recorded rather than glossed over. **The published safety communication layer for this family of buses is written for the classic frame format**, and this volume's research established no equivalent for the flexible-data format. And the general framework for a safety layer over an untrusted transport, in which the layer detects corruption, loss, repetition, resequencing, delay and masquerade, is exactly the right frame for a host to joint link; **the standard family's number, title and edition could not be verified and are therefore not printed here.**
+
+---
+
+[Previous](17-what-a-real-time-fieldbus-would-change.md) &nbsp;&nbsp;|&nbsp;&nbsp; [Contents](../README.md) &nbsp;&nbsp;|&nbsp;&nbsp; [Next](19-update-over-the-bus.md)

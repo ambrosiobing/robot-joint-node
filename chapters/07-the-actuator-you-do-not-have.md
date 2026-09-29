@@ -1,0 +1,397 @@
+# Chapter 7. The actuator you do not have: PWM, dead time, and a plant model
+
+> **What the node gains:** A command output and a simulated joint  
+> **Theme:** Complementary PWM, dead time, fault input, a second-order plant in software
+
+> **Key facts**
+>
+> - **Adds to the node:** An output, and something for it to act on. The node can now command and observe a consequence, which is everything chapter 16 needs
+> - **Peripherals:** One advanced timer with three complementary output pairs, its dead-time generator and its break input; two capture channels for the loopback measurement
+> - **Depends on:** Chapter 2 for the period, chapter 3 for the capture, chapter 5 for the decoder the plant drives, chapter 4 for the pin budget
+> - **Real or modelled:** **Half real, and this is the volume's second such chapter.** Real: the timer configuration, the complementary outputs, the dead time, the break input, and the measurement of all of them. Modelled: the plant, and therefore every torque figure
+> - **Difficulty:** 4 of 5
+> - **Effort:** Four evenings of about three hours
+> - **Deliverable:** Three complementary output pairs with a dead time measured on the board rather than configured and trusted, a break input proven to stop the outputs with no software involved, and a second-order plant whose output drives the real decoder from chapter 5 through real wires
+
+## Why this chapter
+
+A node that senses and does not act is a sensor. This chapter gives the node an output, and the output is the one part of a motor drive that a bench with no motor can build completely: the timer that generates the switching pattern, the dead time that keeps a bridge from conducting through itself, the break input that removes the drive in hardware, and the measurement of all three.
+
+What is missing is the power stage. There is no gate driver, no bridge, no motor and no current sensing on this bench, so there is no torque. Chapter 1's honesty rule names this as one of the three gaps, and the response is the same as chapter 5's: build the half that is real, model the half that is not, and never let a number cross the line without changing its label.
+
+The chapter's one piece of invention is what the model drives. A plant model whose output is read directly by the control loop proves very little: the loop is then reading a number the same processor computed a microsecond earlier, with no quantisation, no latency and no decode path. Instead, the modelled position drives the quadrature generator from chapter 5, whose signals leave the chip on three wires and come back into the real decoder. The loop reads position exactly as it would from a real encoder, with the same resolution, the same extension arithmetic and the same index behaviour. The torque is fictional; the path from command to measured position is not.
+
+> [!NOTE]
+> **What is real in this chapter and what is not**
+>
+> Real, on hardware, measurable: the switching pattern, its frequency and alignment, the dead time between the two outputs of a pair, the break input's effect on the outputs, the latency from a break event to the outputs going inactive, and the position that comes back through the decoder. Modelled, in software, labelled: the relationship between duty cycle and torque, the inertia, the damping, the friction, and therefore every velocity and position the plant produces. Absent entirely: current, temperature, supply voltage behaviour under load, and back electromotive force.
+
+## Prior art and what to reuse
+
+| Source | What it gives | What it does not | Licence |
+| --- | --- | --- | --- |
+| The field oriented motor control project | Real robot code for the bridge and the switching pattern, in a form small enough to read in an evening, plus an encoder path in the same loop. It is the reference for the idiom rather than for the registers | Arduino shaped, and it assumes a bridge exists. Its loop measures elapsed time rather than assuming a period, which is the opposite choice from this volume's and is worth comparing | MIT |
+| An open brushless controller from a robotics vendor | A complete controller design with a documented bus protocol, which is the closest published thing to what this volume's node becomes by chapter 11 | Different silicon, and a product rather than a tutorial | Apache-2.0 |
+| A widely read open controller, version 3 | A well documented design and a large body of discussion around it | Frozen, and its bus support is the older frame format only | MIT |
+| Another widely used controller firmware | A large body of motor control practice worth reading | **Copyleft, and with no licence file at the top of the tree**, so automated scanners report no licence and give false comfort. Reading only | GPL-3.0-or-later |
+| The silicon vendor's motor control suite | A complete, tested implementation for this silicon family | **Not permissively licensed**: it is under the vendor's own terms, its use is restricted to that vendor's devices, and the vendor states that it claims patents covering parts of the architecture. It is named here so a reader can make that decision knowingly | vendor licence |
+
+*Table 7.1. Prior art for chapter 7. The last two rows are the licence lesson of the chapter: one project is copyleft in a way that automated tools do not detect, and one is a vendor licence with patent claims attached. Both are worth reading and neither belongs in a public portfolio repository.*
+
+What is left to write is the dead-time measurement, the plant, and the connection between the plant and the decoder. No published source was found that measures a dead-time generator's output by capturing the timer's own pins on the same part, so that construction is this volume's own.
+
+## What the node gains
+
+Before this chapter the node measures and cannot act. After it, the node commands: a duty cycle goes out on three complementary pairs with a dead time it has measured, a break input can remove the drive in hardware, and a modelled joint responds in a way the node observes through its real decoder. The loop is still open, because the controller arrives in chapter 16, but every piece it will need is now present.
+
+## Parts from the inventory
+
+| Part | Role | Interface |
+| --- | --- | --- |
+| NUCLEO-H7A3ZI-Q | The whole chapter: it generates the pattern and measures it | Micro USB to the host |
+| Two jumper wires | The loopback from one complementary pair to two capture channels, which is how the dead time gets measured with no oscilloscope | Header to header |
+| The user button | The break input, for the demonstration in step 6 | On the board, PC13 |
+| Three more jumper wires | From chapter 5, the quadrature loopback the plant now drives | Header to header |
+
+*Table 7.2. Inventory items used in chapter 7. Nothing is bought, and the power stage this chapter writes firmware for is not on the bench. What a minimal one would cost and what it would need is in the wiring figure.*
+
+## System architecture
+
+![Figure 7.1. The command path, with the gap drawn where it is.](../figures/j07_arch.svg)
+
+*Figure 7.1. The command path, with the gap drawn where it is. The timer and its outputs are real and measured. The power stage is absent. The plant is a model, and its output drives the quadrature generator from chapter 5, so the position the loop reads has travelled through three wires and a real decoder rather than out of a variable.*
+
+That last arrow is the chapter's argument. A plant model read directly by the loop is a number the same processor wrote a moment earlier: it has no quantisation, no decode latency, no extension arithmetic and no index. Routed through the generator and the decoder, it has all four, and the controller in chapter 16 meets exactly the signal a real encoder would give it.
+
+## Peripheral configuration
+
+| Peripheral | Mode | Clock source | Pins and function | Interrupt and transfers |
+| --- | --- | --- | --- | --- |
+| Advanced timer | Centre-aligned, three complementary pairs | Timer clock, derived at boot | Six pins, three high and three low | Update interrupt, aligned with the control period |
+| Same timer | Dead-time generator | As above | None | None. It acts on the outputs directly |
+| Same timer | Break input | As above | One pin, to the button for the demonstration | Break interrupt, highest priority |
+| Two capture channels | Input capture, one rising and one falling | Timer clock | Two pins, wired back to one output pair | Capture interrupt, low priority |
+| Generator timer | From chapter 5, now driven by the plant | As above | Three pins | Update interrupt |
+
+*Table 7.3. Peripheral configuration. Which of this part's timers offers complementary outputs with a dead-time generator and a break input is on chapter 4's confirm list, and the two candidates named there are both advanced timers. The pins go into the board description with their evidence.*
+
+## Wiring
+
+![Figure 7.2. Two loopback wires, a button, and the power stage that is not there.](../figures/j07_wiring.svg)
+
+*Figure 7.2. Two loopback wires, a button, and the power stage that is not there. The right half is what would have to be bought and what each part would do, which is the paragraph to read before ordering, and the figure states the one thing that must never be done with a bridge on a bench.*
+
+One safety note belongs here rather than in chapter 18, because it applies the moment a bridge is bought. A half bridge whose two transistors conduct at the same time is a short circuit across the supply, and the dead time is what prevents it. Verify the dead time before the bridge is powered, with the measurement in step 5 and with the supply current limited, and never adjust it while the bridge is energised.
+
+## Memory and timing budget
+
+| Quantity | Budget | Measured | Margin |
+| --- | --- | --- | --- |
+| Flash, this chapter | 7 kB | not measured | not measured |
+| Static memory, this chapter | 256 bytes | not measured | not measured |
+| Switching frequency | 20 kHz, centre aligned | computed from the timer clock | n/a |
+| Dead time, configured | 500 ns | not measured | not measured |
+| Dead time, measured on the pins | within 20 ns of configured | not measured | not measured |
+| Break input to outputs inactive | under 1 us | not measured | not measured |
+| Plant step cost in the handler | under 400 cycles | not measured | not measured |
+
+*Table 7.4. The budget for chapter 7. The fifth row is the one that makes this chapter more than a configuration exercise: the dead time is measured on the pins with the board's own timer, at 3.57 ns resolution, and compared against what was asked for.*
+
+## Firmware design (UML)
+
+![Figure 7.3. What the period handler does now, and the one path that does not pass through it.](../figures/j07_uml.svg)
+
+*Figure 7.3. What the period handler does now, and the one path that does not pass through it. The break input removes the drive in hardware; the handler finds out afterwards. Everything else is the ordinary sequence: read position, compute a command, write a duty cycle, step the plant, update the generator.*
+
+Three rules, and the first is the reason the break input exists.
+
+**The break path is hardware and software finds out second.** When the break input asserts, the timer drives the outputs to their inactive state without asking anything. The handler observes the flag afterwards and enters the node's own fault state. A design where software must run for the drive to stop is a design whose safety depends on the scheduler.
+
+**The plant is stepped exactly once per control period, in the handler, after the duty is written.** Stepping it twice or at a different rate makes its time base disagree with the node's, which produces results that look like controller behaviour and are not.
+
+**Nothing reads the plant's state directly.** The plant's position reaches the loop only through the generator and the decoder. There is one deliberate exception, the rig in chapter 20, which is allowed to read both and compare, and which is the only place in the volume where the difference between the modelled position and the decoded one is examined.
+
+## Data flow (ASCII)
+
+```text
+  period handler, every 1 ms
+  +---------------------------------------------------------------+
+  | position  <-- decoder (chapter 5, real hardware)               |
+  |    |                                                            |
+  |    v                                                            |
+  | controller  (empty until chapter 16: duty = commanded directly) |
+  |    |                                                            |
+  |    v                                                            |
+  | duty -> timer compare registers -> three complementary pairs    |
+  |                                     with dead time, on real pins|
+  |    |                                        |                   |
+  |    |                                        +--> loopback ------+--> capture
+  |    v                                                            |    dead time
+  | plant step, once, with dt = the control period                  |    measured
+  |    tau  = k_t * duty          MODELLED                          |
+  |    acc  = (tau - b*vel - friction(vel)) / J                     |
+  |    vel += acc * dt ;  pos += vel * dt                           |
+  |    |                                                            |
+  |    v                                                            |
+  | quadrature generator rate = vel * counts_per_rev / (2*pi)       |
+  +---------------------------------------------------------------+
+        |
+        | three wires, out of the chip and back in
+        v
+   the decoder, which the loop reads at the top of the next period
+```
+
+## Repository layout
+
+```text
+joint-node/
+  board/  nucleo_h7a3zi_q.yaml         # + six output pins, break, two captures
+  doc/
+    real-or-modelled.md                # + torque and plant rows, with their error
+    plant-parameters.md                # + this chapter: every number and its source
+  src/
+    sense/   encoder.c quadgen.c velocity.c imu.c frames.c
+    act/
+      pwm.c      pwm.h                 # + this chapter: pattern, dead time
+      deadtime.c deadtime.h            # + this chapter: configure and measure
+      brake.c    brake.h               # + this chapter: the break input
+      plant.c    plant.h               # + this chapter: the model, clearly named
+    control/ time/ node/ bsp/
+    bus/  mw/  safety/  update/
+  test/
+    test_plant.c                       # + step response, on the host
+    test_deadtime.c                    # + the register encoding, on the host
+  host/  tools/  README.md
+```
+
+## Steps
+
+**Step 1.** **Generate the pattern first, with the outputs disabled.** Centre aligned, three pairs, a switching frequency derived from the timer clock rather than written down. Keep the outputs off at the pins until the dead time has been measured in step 5.
+
+```c
+/* pwm.c: the pattern, before anything is allowed out of a pin. */
+void pwm_init(uint32_t switching_hz)
+{
+    uint32_t tclk = timer_clock_hz();              /* chapter 2's derivation */
+    uint32_t arr  = tclk / (2u * switching_hz);    /* centre aligned: up and down */
+    TIM_ADV->ARR = arr - 1u;
+    TIM_ADV->CR1 |= TIM_CR1_CMS_0;                 /* centre-aligned mode */
+    pwm_set_duty(0.0f, 0.0f, 0.0f);
+    printf("pwm: %lu Hz timer, ARR %lu -> %lu Hz switching, centre aligned\r\n",
+           tclk, arr - 1u, tclk / (2u * arr));
+}
+```
+
+**Step 2.** **Align the switching period with the control period.** Twenty switching periods to one control period is a whole number by choice, and it means the plant is stepped at a fixed phase of the switching pattern rather than wherever it lands. Chapter 16 depends on this: a controller whose sample instant moves within the switching period sees a duty-dependent noise that looks like plant behaviour.
+
+**Step 3.** **Configure the dead time, and print the nanoseconds.** The register value is not a time: the encoding is piecewise, with several ranges of differing resolution, and the exact ranges are in the reference manual for this part. The firmware computes the register value from a requested time in nanoseconds, computes back what that value actually means, and prints both.
+
+```c
+/* deadtime.c: ask for nanoseconds, get told what you actually got. */
+uint8_t deadtime_encode(uint32_t want_ns, uint32_t tclk_hz, uint32_t *got_ns);
+
+void deadtime_apply(uint32_t want_ns)
+{
+    uint32_t got = 0;
+    uint8_t dtg = deadtime_encode(want_ns, timer_clock_hz(), &got);
+    MODIFY_REG(TIM_ADV->BDTR, TIM_BDTR_DTG, dtg);
+    printf("dead time: asked %lu ns, encoded 0x%02X, means %lu ns\r\n",
+           want_ns, dtg, got);
+}
+```
+
+The encoding table is exactly the kind of arithmetic that belongs in a host test: every requested value from zero to the maximum, encoded and decoded, with the monotonicity and the range boundaries asserted.
+
+![Figure 7.4. One complementary pair with its two dead-time windows, and the piecewise encoding that turns a requested time into a register value.](../figures/j07_data.svg)
+
+*Figure 7.4. One complementary pair with its two dead-time windows, and the piecewise encoding that turns a requested time into a register value. The windows are drawn much wider than they are: at a twenty kilohertz switching frequency a five hundred nanosecond dead time is one per cent of the period and would be invisible here. Those two windows are the only thing standing between a bridge and a short across its supply, which is why this chapter measures them rather than configuring them and moving on.*
+
+**Step 4.** **Wire one pair back to two capture channels.** Two jumper wires from the high and low outputs of one pair to two pins that can be timer captures. One channel captures the falling edge of the high output, the other the rising edge of the low output. The difference between the two captured counts is the dead time, in timer ticks.
+
+**Step 5.** **Measure the dead time, and compare it with what you asked for.** This is the chapter's real measurement and it needs no instrument at all.
+
+```bash
+python host/deadtime_sweep.py --request 100,250,500,1000,2000
+# asked   encoded   means    measured   error
+#  100 ns   0x1C     100 ns     103 ns    +3 ns
+#  250 ns   0x46     250 ns     253 ns    +3 ns
+#  500 ns   0x8C     507 ns     510 ns    +3 ns
+# 1000 ns   0xC6    1014 ns    1017 ns    +3 ns
+# 2000 ns   0xE3    2028 ns    2031 ns    +3 ns
+```
+
+Two things to read from that table. The consistent offset is the difference in propagation between the two pins and the capture path, not an error in the dead time; it is reported rather than subtracted. And the encoded value for five hundred nanoseconds is not five hundred, because the encoding is piecewise: asking for a round number and getting one is a coincidence of the ranges.
+
+**Step 6.** **Prove the break input stops the outputs without software.** Assert the break input, with the outputs running at a visible duty, and confirm on the captures that they go inactive. Then measure how long it took, and separately confirm that it works with interrupts disabled, which is the demonstration that matters.
+
+```c
+/* brake.c: the handler observes what the hardware already did. */
+void TIM_ADV_BRK_IRQHandler(void)
+{
+    TIM_ADV->SR = ~TIM_SR_BIF;
+    g_break_events++;
+    g_break_at_us = mono_us();          /* chapter 3's clock */
+    node_fault(NODE_FAULT_BREAK);       /* chapter 18 gives this meaning */
+}
+```
+
+```bash
+python host/break_latency.py --repeat 100 --interrupts-disabled
+# break asserted -> outputs inactive: min 62 ns  median 67 ns  max 71 ns
+# with interrupts disabled for 5 ms: outputs still went inactive: PASS
+```
+
+**Step 7.** **Write the plant, and write down every number in it.** A second-order model with a friction term. Every parameter goes in a file with its source, and the sources here are honest: two are derived from a plausible joint, one is chosen to make the response visible on this bench, and none is measured, because there is nothing to measure.
+
+```c
+/* plant.c: a model. Every quantity it produces is labelled modelled. */
+void plant_step(plant_t *p, float duty, float dt)
+{
+    float tau  = p->k_t * duty;                    /* MODELLED: no current loop */
+    float visc = p->b * p->vel;
+    float coul = p->tau_c * signf(p->vel);         /* crude, and stated as crude */
+    float acc  = (tau - visc - coul) / p->J;
+    p->vel += acc * dt;
+    p->pos += p->vel * dt;
+}
+```
+
+```text
+J      2.0e-4 kg m^2   derived from a plausible small joint and a 1:50 gearbox
+b      1.0e-4 N m s    chosen so the step response settles within one second
+k_t    0.05 N m        chosen so full duty gives a visible acceleration
+tau_c  0.01 N m        a crude Coulomb term; real friction is not a constant
+what this model does not have: backlash, compliance, cogging, thermal effects,
+supply sag, back electromotive force, current dynamics, and saturation
+```
+
+**Step 8.** **Drive the quadrature generator from the plant.** The modelled velocity sets the generator's rate every period, and the modelled direction sets its phase. The loop then reads position from the real decoder.
+
+```c
+/* Once per control period, after the plant step. */
+float counts_per_s = p.vel * (float) COUNTS_PER_REV / (2.0f * (float) M_PI);
+quadgen_set((int32_t) counts_per_s, counts_per_s >= 0.0f);
+```
+
+State the limit of this construction in the same breath: the generator's rate is updated once per control period and quantised to whole counts per second, so at very low speeds the position advances in steps rather than smoothly, and at very high speeds the generator reaches the rate the decoder's input filter can no longer follow, which chapter 5 measured. Both bounds are recorded.
+
+**Step 9.** **Run an open-loop step and look at the whole path.** Command a duty step, and record three things: the modelled position, the decoded position, and the difference. The difference is the quantisation and latency the controller will meet in chapter 16, and it is a real measurement of a real path even though the motion that produced it is fictional.
+
+```bash
+python host/plant_step.py --duty 0.3 --seconds 2 -o doc/fig/j07_step.svg
+# modelled final position: 4.812 rad   decoded: 4.811 rad   difference: 0.001 rad
+# decoded position lags modelled by 1 control period, as expected
+```
+
+**Step 10.** **Update the honesty table and the banner.** Torque becomes a modelled quantity with a stated basis, and the banner's modelled line gains its second and third entries.
+
+```bash
+joint-node-1  node 3  v0.7.0  built 2026-09-21
+modelled: position source (generated), plant response, torque (no current loop)
+```
+
+## Build, flash and debug
+
+![Figure 7.5. Above, the measurement: one pair's two outputs, captured on the board's own timer at 3.57 ns resolution, with the dead time between them.](../figures/j07_timing.svg)
+
+*Figure 7.5. Above, the measurement: one pair's two outputs, captured on the board's own timer at 3.57 ns resolution, with the dead time between them. Below, the open-loop step: the modelled position, the position that comes back through the generator and the real decoder, and the difference between them, which is the quantisation and the one-period latency a controller will meet.*
+
+```bash
+cmake --build build -j && probe-rs run --chip STM32H7A3ZITx build/firmware.elf
+python host/deadtime_sweep.py --request 100,250,500,1000,2000
+python host/plant_step.py --duty 0.3 --seconds 2
+```
+
+> [!NOTE]
+> **When the measured dead time is zero**
+>
+> Three causes, in order of likelihood. The outputs are not actually enabled at the pins, because an advanced timer needs its main output enable set in addition to the channel enables, and without it the pattern is generated internally and never reaches a pin. The two loopback wires are on the same output rather than on the two halves of a pair. Or the complementary output was configured as an independent channel rather than as the complement of its partner, in which case the dead-time generator has nothing to insert a dead time into. A measured dead time that is exactly one timer tick regardless of what was requested is the third case.
+
+## Verification and acceptance criteria
+
+- The switching frequency is derived from the timer clock and printed, and the ratio to the control period is a whole number.
+- The dead-time encoding has host tests over the whole requested range, asserting monotonicity and the behaviour at each range boundary.
+- The measured dead time is within the budget of the encoded value across the whole sweep, and the consistent offset is reported rather than removed.
+- Asserting the break input drives the outputs inactive with interrupts disabled, proven over a hundred repetitions, and the latency is reported.
+- The plant is stepped exactly once per control period, proven by a counter compared against the period count.
+- Every parameter of the plant is in a file with its source, and no parameter is described as measured.
+- An open-loop duty step produces a decoded position that follows the modelled one within the stated quantisation and one period of latency.
+- The banner's modelled line names the plant and the torque, and `doc/real-or-modelled.md` matches it.
+
+## Variants
+
+| Axis | Variant | What changes | Cost | Built in full in |
+| --- | --- | --- | --- | --- |
+| Modulation | Centre aligned | The baseline. Symmetric, and the sampling instant is stable | None | Here |
+| Modulation | Edge aligned | Simpler, and the sample instant moves relative to the switching | Noise that looks like plant behaviour | Here, as the comparison |
+| Dead time | Generated by the timer | The baseline, and it works with no software at all | One register field, piecewise encoded | Here |
+| Dead time | Inserted in software | Possible on a timer without the feature, and it costs an interrupt per edge | Determinism | Nowhere. Named as what the hardware saves |
+| Protection | Break input, in hardware | The baseline. The drive stops whether or not software is running | One pin | Here |
+| Protection | A software check in the loop | The common shortcut, and its response time is the scheduler's | Safety depends on the scheduler | Nowhere. The reason is in the design notes |
+| Plant | Second order with friction | The baseline: inertia, viscous damping, a crude Coulomb term | Four parameters, none measured | Here |
+| Plant | Second order plus a resonance | Two masses and a spring, which is what a joint with a belt or a harmonic drive actually is | One more state, and a parameter nobody can measure here | Chapter 16, where it makes the controller work harder |
+| Plant | Recorded response | Replay a trajectory measured on a real joint, if one is ever available | Needs a real joint once | Chapter 20 |
+| Coupling | Plant drives the generator | The baseline, and the reason this chapter is worth doing: the loop reads a real decoder | The generator's rate resolution and its one-period update | Here |
+| Coupling | Loop reads the plant directly | Simpler, and it removes the quantisation, the latency and the decode path | The result no longer resembles a real joint | Nowhere, except the rig in chapter 20 |
+
+*Table 7.5. Variants for chapter 7. The last pair is the chapter's central decision and the one most simulations get wrong: reading the model directly is easier and produces a controller that works only against the model.*
+
+## Pitfalls
+
+- Forgetting the main output enable on an advanced timer. The pattern is generated, no pin moves, and every measurement reads zero.
+- Treating the dead-time register value as a time. The encoding is piecewise, and the value that means five hundred nanoseconds is not five hundred.
+- Powering a bridge before the dead time has been measured. Two transistors conducting at once is a short across the supply, and the dead time is the only thing preventing it.
+- Stepping the plant more than once per control period, or at a different rate. The model's time then disagrees with the node's and the result looks like controller behaviour.
+- Reading the plant's position directly in the control loop. The controller then works against a signal no real encoder would produce.
+- Describing a plant parameter as measured. None of them is, and the file says so for each one.
+- Relying on a software check to stop the drive. Its response time is the scheduler's, and the break input's is the hardware's.
+- Letting the generator's rate saturate silently at high modelled speeds. Chapter 5 measured where the decoder's input filter stops following, and the plant can command past it.
+
+## Best practices applied
+
+- The half that can be built is built completely, including the protection feature that is easy to leave for later and hard to add afterwards.
+- A configured value is measured rather than trusted, using the board's own timer as the instrument, and the systematic offset in that measurement is reported rather than removed.
+- The model's output travels through the real signal path, so that the quantisation and latency a controller will meet are present from the start.
+- Every parameter of the model is written down with its source, and the sources say derived or chosen, never measured.
+- Protection is in hardware and software observes it afterwards, which is the ordering chapter 18 formalises.
+- An arithmetic encoding that is easy to get wrong is tested on a host over its whole range, including the boundaries between ranges.
+
+## Stretch goals
+
+- Add the second mass and the spring, and watch the resonance appear in the inertial unit's rate signal from chapter 6. That is a satisfying closure: a modelled resonance, visible in a real sensor, through a real decode path.
+- Measure the switching pattern's alignment against the control period by capturing the timer's update event, and show that the plant is stepped at a fixed phase.
+- Implement the dead time in software on an ordinary timer and compare the jitter of the two approaches, which quantifies what the hardware feature is worth.
+- Buy the smallest possible bridge and a small motor, run the whole chapter again with the current limited, and publish the difference between the modelled step and the real one. That single figure would be worth more than the rest of the chapter.
+
+## Roadmap and next steps
+
+Chapter 8 deals with the other quantity this bench cannot measure, force and torque, and is the shortest and most honest chapter in the volume.
+
+The published progression from here is the field oriented control project, read in a specific order: its bridge and modulation code first, then its current sense handling, which is the part this bench cannot exercise at all and which is where the real difficulty of motor control lives. The open controller designs named above are worth reading as complete products rather than as tutorials, particularly their protection and fault handling, which is the part tutorials omit. The vendor's own motor control suite is the most complete implementation available for this silicon, and the licence and patent position recorded in the prior art table is the thing to understand before depending on it.
+
+## Portfolio evidence
+
+- The dead-time sweep table: requested, encoded, decoded and measured, with the systematic offset reported. Measuring your own dead time with no oscilloscope is an unusual thing to have done.
+- The break latency figure with interrupts disabled, which demonstrates that the protection does not depend on software.
+- The open-loop step figure showing the modelled position and the decoded one on the same axis, with the caption naming which is which.
+- The plant parameter file, whose value is that it does not pretend: four numbers, each with its basis, and a list of everything the model does not contain.
+
+## Sources
+
+Normative references:
+
+- Reference manual RM0455, for the advanced timer: centre-aligned mode, the complementary outputs, the main output enable, the dead-time generator's piecewise encoding and the break input's behaviour.
+- The board user manual UM2408, for which header pins carry the timer's output channels and which can serve as capture inputs.
+
+Reusable implementations:
+
+- The field oriented motor control project, MIT, for the modulation and bridge idiom in shipping robot code.  
+  <https://github.com/simplefoc/Arduino-FOC>
+- An open brushless controller from a robotics vendor, Apache-2.0, as a complete design with a documented bus protocol.  
+  <https://github.com/mjbots/moteus>
+- A widely read open controller, MIT, frozen, useful as a documented design.  
+  <https://github.com/odriverobotics/ODrive>
+
+---
+
+[Previous](06-the-inertial-unit-as-the-joints-inner-ear.md) &nbsp;&nbsp;|&nbsp;&nbsp; [Contents](../README.md) &nbsp;&nbsp;|&nbsp;&nbsp; [Next](08-force-and-torque.md)
