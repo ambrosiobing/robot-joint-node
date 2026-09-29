@@ -1,0 +1,49 @@
+% Twenty milliseconds of the same load, with and without the old device.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm,
+  cfr/.style={fieldbox, fill=hwcol, minimum height=6mm, font=\sffamily\tiny},
+  ffr/.style={fieldbox, fill=kercol, minimum height=6mm, font=\sffamily\tiny},
+  efr/.style={fieldbox, fill=red!25, minimum height=6mm, font=\sffamily\tiny}]
+
+% ================================================================ every participant modern
+\node[chlabel, anchor=west] at (0,44) {every participant understands both formats};
+\draw[taxis] (0,32) -- (124,32);
+\foreach \x in {2,33,64,95}{ \node[cfr, minimum width=10mm, text width=8mm] at (\x,33) {classic}; }
+\foreach \x in {15,46,77,108}{ \node[ffr, minimum width=14mm, text width=12mm] at (\x,33) {flexible}; }
+\node[tlabel, anchor=west] at (0,29.5) {both formats arrive, no errors, no overruns in either queue};
+
+% ================================================================ one non-tolerant participant
+\node[chlabel, anchor=west] at (0,24) {the same twenty milliseconds, with one non-tolerant participant on the bus};
+\draw[taxis] (0,12) -- (124,12);
+\foreach \x in {2,33,64,95}{ \node[cfr, minimum width=10mm, text width=8mm] at (\x,13) {classic}; }
+\foreach \x in {15,46,77,108}{
+  \node[ffr, minimum width=5mm, text width=3mm] at (\x,13) {};
+  \node[efr, minimum width=9mm, text width=7mm] at ({\x+5},13) {error};
+}
+\node[tlabel, anchor=west, text=red!60!black] at (0,9.5)
+  {every classic frame passes, every frame in the newer format is invalidated before it finishes};
+
+% ================================================================ the counter
+\node[chlabel, anchor=west] at (0,5) {and the error counter on a node that is behaving correctly};
+\draw[taxis] (0,-15) -- (124,-15);
+\draw[taxis] (0,-15) -- (0,1);
+\draw[deadline] (0,-5) -- (124,-5);
+\node[tlabel, anchor=west] at (2,-3.6) {warning threshold};
+
+\draw[signal, line width=1pt]
+  (0,-14) -- (20,-14) -- (24,-11) -- (51,-11) -- (55,-8.5)
+        -- (82,-8.5) -- (86,-6) -- (113,-6) -- (117,-3.5);
+\foreach \x in {24,55,86,117}{ \draw[line width=1pt, draw=red!60!black] (\x,-17.2) -- (\x,-15); }
+\node[tlabel, anchor=west] at (26,-1.5) {one step per invalidated frame, and the steps do not stop};
+
+\node[chlabel, anchor=north west] at (0,-18.4) {each mark below the axis is an error frame from the old device};
+
+% ================================================================ notes
+\node[umlnote, text width=52mm, anchor=north west] at (0,-21)
+  {The top lane is what a mixed bus looks like when it works, and it is unremarkable. Proving it
+   first matters, because otherwise the failure below could be attributed to mixing the two formats at
+   all, which is not the problem.};
+\node[umlnote, text width=52mm, anchor=north west] at (62,-21)
+  {The middle lane is the diagnosis. One format gone, the other untouched, and the counters rising
+   on nodes that built and decoded valid frames. Compare it with the termination fault of the
+   previous chapter, which spoils a few frames in a hundred rather than all of one format.};
+\end{tikzpicture}

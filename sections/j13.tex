@@ -1,0 +1,505 @@
+\project{13}{Two speeds on one wire, and why the old node errors}{A diagnosis}{Mixed classic and flexible-data traffic, tolerance, what a non-tolerant controller does}
+
+\begin{keyfacts}
+\item[Adds to the node] A diagnosis. The node survives a bus carrying both frame formats, counts what it loses, and can explain the failure that happens when one participant is too old to understand the other
+\item[Peripherals] The bus controller's receive buffers and its overrun counters, and optionally the second controller instance as a gateway
+\item[Depends on] Chapter 9 for the frame formats, chapter 12 for the error counters, chapter 10 for the tools that generate the load
+\item[Real or modelled] \textbf{Real}, and the chapter recommends buying a part it rejected in chapter 10 specifically so that the failure can be produced deliberately
+\item[Difficulty] 3 of 5
+\item[Effort] Two evenings, plus one purchase of about the price of a lunch
+\item[Deliverable] Mixed traffic proven in both directions, the old-node failure produced on purpose and measured, an overrun-free receive path under load, and three written ways out of the problem
+\end{keyfacts}
+
+\subsection*{Why this chapter}
+
+A bus is rarely built once and left alone. A joint node is added to a machine
+that already has a bus on it, or an existing sensor is added to a new one, and
+the two were designed years apart. This chapter is about what happens then, and
+the answer is more interesting than it looks: an old controller does not
+politely ignore a frame format it was built before. It objects, and its
+objection invalidates the frame.
+
+The mechanism is one bit. The two formats agree for the whole identifier and
+most of the control field, and then diverge at a single bit position that the
+older format defines as dominant and the newer one transmits recessive. A
+controller built before the newer format sees a value where it expects the
+opposite, declares the frame malformed, and transmits an error frame, which
+corrupts the frame in progress for everybody. The transmitter retries, the same
+thing happens, and both ends accumulate errors until somebody stops.
+
+Controllers built after the newer format exists can be told to recognise that
+bit and stay quiet for the rest of the frame. That property has a name in the
+standard and it is a datasheet question rather than an assumption. This chapter
+buys a controller that does not have it, on purpose, because producing the
+failure once is worth more than reading about it three times.
+
+\begin{note}{Buy the adapter chapter 10 rejected}
+Chapter 10 rejected a hat with a classic controller as the master's adapter, and
+it was right to. This chapter recommends buying one anyway, for about the price
+of a lunch, because it is the only way to produce the failure deliberately on
+this bench. A part that is the wrong choice for a product can be exactly the
+right choice for an instrument, and this volume would rather own one and
+understand the failure than describe it from a specification it has not read.
+\end{note}
+
+\subsection*{Prior art and what to reuse}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{34mm}p{46mm}p{38mm}p{20mm}}
+\toprule
+Source & What it gives & What it does not & Licence \\
+\midrule
+ISO 11898-1:2024, third edition, \pubdate{May 2024} & The normative definition of both frame formats, the bit that distinguishes them, and the tolerance behaviour a controller may implement. It covers the classic format, the flexible-data format and the newer extended one, with data fields up to two thousand and forty-eight bytes, and it splits the data link layer into two sublayers & \textbf{Paywalled, about 245 euro, and not fetched during the research for this volume.} It supersedes the 2015 edition, \textbf{whose subtitle was different}, so the edition must be cited rather than the number alone & ISO copyright \\
+The kernel's socket layer documentation & The free, fetchable description of the controller states and counters that this chapter watches while the failure happens, in the same terms chapter 12 used & It describes a host's view of its own controller, not the bus & GPL-2.0 documentation \\
+The command line tools & The load generator with its flexible-data and bit-rate-switch flags, and the replay tool with its interface remapping. Generating mixed traffic is two commands & Nothing about what the traffic does to a node that cannot read it & dual, per file \\
+The transceiver and controller datasheets & The only trustworthy answer to whether a particular part tolerates the newer format. It is a property of the controller, not of the transceiver, and it is stated in the datasheet or it is absent & Marketing pages routinely omit it, and a part number does not imply it & vendor documents \\
+\bottomrule
+\end{tabular}
+\caption{Prior art for chapter 13. The last row is the practical lesson: tolerance is a controller property with a name in the standard, it is a datasheet question, and a part that predates the newer format cannot have it however new the board around it is.}
+\end{table}
+
+\subsection*{What the node gains}
+
+Before this chapter the node assumes every participant speaks the same format.
+After it, the node survives a bus carrying both, counts overruns and errors
+rather than losing frames silently, and its author can recognise the old-node
+failure in ten minutes rather than spending a week on it. The node also gains an
+optional second role: a gateway between a bus that carries the newer format and
+one that cannot.
+
+\subsection*{Parts from the inventory}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{40mm}p{66mm}p{40mm}}
+\toprule
+Part & Role & Interface \\
+\midrule
+NUCLEO-H7A3ZI-Q & The node, and optionally a gateway using its second controller instance & The bus \\
+Raspberry Pi 4 and its adapter & The master, generating mixed traffic & The bus \\
+\textbf{To be bought:} a hat with a classic controller & The instrument. It is the wrong adapter for a master and the right one for producing this failure & The Pi's header, and the bus pair \\
+\textbf{Optional:} a second transceiver & For the gateway in step 7, which needs two buses & Two pins on the node \\
+\bottomrule
+\end{tabular}
+\caption{Inventory items used in chapter 13. The third row is a deliberate purchase of a part this volume advised against buying for a different purpose, and the reasoning for both positions is in the note above.}
+\end{table}
+
+\subsection*{System architecture}
+
+\diagram{j13_arch}{Three kinds of participant and what each does when a
+flexible-data frame appears. The first reads it. The second recognises the
+format bit and stays quiet for the rest of the frame. The third declares the
+frame malformed and transmits an error frame, which invalidates it for everybody,
+including the two participants that understood it perfectly well.}
+
+\subsection*{Peripheral configuration}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{22mm}p{26mm}p{24mm}p{30mm}p{30mm}}
+\toprule
+Peripheral & Mode & Clock source & Pins and function & Interrupt and transfers \\
+\midrule
+Bus controller, first instance & Accepting both formats & Unchanged & Unchanged & Receive interrupt, and the overrun flag read every period \\
+Its receive buffers & Two queues: one for each format & n/a & None & Depth chosen in step 5 from the load arithmetic \\
+Bus controller, second instance & Optional, for the gateway in step 7 & Kernel clock, same selector & Two more pins, and a second transceiver & Its own receive interrupt \\
+\bottomrule
+\end{tabular}
+\caption{Peripheral configuration for chapter 13. Splitting the two formats into separate receive queues is worth the five minutes it costs: under load it makes the question of which format was lost answerable from a counter rather than from a guess.}
+\end{table}
+
+\subsection*{Wiring}
+
+\diagram{j13_wiring}{The bus with the old node on it, and the three ways out.
+The first is a purchasing rule, the second is a topology decision, and the third
+is firmware. All three are used in real machines, and the third is the one this
+node can be.}
+
+\subsection*{Memory and timing budget}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{44mm}p{28mm}p{28mm}p{30mm}}
+\toprule
+Quantity & Budget & Measured & Margin \\
+\midrule
+Flash, this chapter & 4 kB, and 7 kB with the gateway & not measured & not measured \\
+Receive queue depth, each format & 16 frames & computed from the load & n/a \\
+Overruns under full load & 0 & not measured & not measured \\
+Frames lost with the old node present & expected: all flexible-data frames & not measured & not measured \\
+Gateway added latency & under 1 ms & not measured & not measured \\
+\bottomrule
+\end{tabular}
+\caption{The budget for chapter 13. The fourth row is the only budget in the volume whose expected value is a total failure, and stating it that way is the point: the chapter is about recognising a failure, not avoiding it.}
+\end{table}
+
+\subsection*{Firmware design (UML)}
+
+\diagram{j13_uml}{The failure, step by step, as it happens on the wire. The node
+and the master both understand the frame perfectly; the third participant does
+not, and its objection is what invalidates it. The retransmission at the bottom is
+why this failure does not stay small.}
+
+Two rules.
+
+\textbf{Count what is lost, always.} The controller has an overrun indication
+for its receive queues, and a node that never reads it cannot tell the
+difference between a quiet bus and a bus it is failing to keep up with. The
+overrun counters go in the state frame from chapter 11 alongside the error
+counters from chapter 12.
+
+\textbf{Separate the two formats on receipt.} Two queues, one per format, costs
+almost nothing and makes the diagnosis in step 6 a matter of reading two
+counters instead of reasoning about one.
+
+\subsection*{Data flow (ASCII)}
+
+\begin{asciiart}
+  a flexible-data frame goes out
+        |
+        +--> the node and the master decode it and are satisfied
+        |
+        +--> an FD-tolerant classic controller recognises the format bit,
+        |    stays quiet until the frame ends, and reports nothing
+        |
+        +--> a non-tolerant classic controller reaches the format bit,
+             finds the opposite value from the one it expects, and:
+                  |
+                  v
+             declares a form error
+                  |
+                  v
+             transmits an error frame, which is dominant bits on the wire
+                  |
+                  v
+             the frame in progress is invalidated FOR EVERYBODY
+                  |
+                  v
+             the transmitter retries, and the same thing happens again
+                  |
+                  v
+             error counters rise on every node until somebody goes bus-off
+
+  meanwhile, classic frames on the same bus pass perfectly, which is
+  exactly what makes this confusing to diagnose
+\end{asciiart}
+
+\subsection*{Repository layout}
+
+\begin{plaincode}
+joint-node/
+  src/
+    bus/
+      fdcan.c bittiming.c msgram.c joint_msgs.c command.c filters.c
+      heartbeat.c nmt.c buserr.c emcy.c timesync.c
+      rxqueue.c  rxqueue.h          # + this chapter: one queue per format
+      gateway.c  gateway.h          # + this chapter, optional: two instances
+    sense/ act/ estimate/ control/ time/ node/ bsp/
+    mw/  safety/  update/
+  host/
+    mixed_load.py                   # + this chapter: both formats, together
+    oldnode_demo.py                 # + this chapter: the failure, on purpose
+  doc/
+    format-compatibility.md         # + this chapter: the three ways out
+  test/
+    test_rxqueue.c                  # + overrun behaviour, on the host
+  tools/  proto/  README.md
+\end{plaincode}
+
+\subsection*{Steps}
+
+\begin{steps}
+\item \textbf{Prove mixed traffic works between modern participants.} Before
+introducing the old node, establish that a bus carrying both formats is normal
+and uneventful when everybody can read both.
+\begin{shellcode}
+cangen can0 -g 2 -I 300 -L 8 -n 5000 &          # classic frames
+cangen can0 -g 2 -I 400 -f -b -L 64 -n 5000 &   # flexible-data, rate switched
+candump -ta -x -e can0 | python host/mixed_load.py
+# classic received: 5000   flexible-data received: 5000   errors: 0
+# node: rx queue classic 0 overruns, rx queue fd 0 overruns
+\end{shellcode}
+
+\item \textbf{Split the receive path by format.} Two queues, two counters, and
+the overrun flag read every period. This is five minutes of work that makes step
+6 a measurement rather than an argument.
+\begin{ccode}
+/* rxqueue.c: which format was lost is a question a counter should answer. */
+void rx_dispatch(const frame_t *f)
+{
+    rxq_t *q = f->fd ? &g_rx_fd : &g_rx_classic;
+    if (!rxq_push(q, f)) q->overruns++;         /* never silently drop */
+}
+\end{ccode}
+
+\item \textbf{Size the queues from the load rather than by taste.} The worst
+case is a burst at the shortest inter-frame gap, and the node's worst case for
+draining is one control period. The arithmetic is short and belongs in the
+repository.
+\begin{plaincode}
+shortest frame on this bus      about 67 bit times of arbitration plus payload
+worst-case arrival rate         back-to-back frames at the nominal rate
+drain interval                  one control period, because that is when the
+                                node next looks
+queue depth                     arrival rate times drain interval, plus margin
+result                          16 frames per format, which is comfortable and
+                                costs 16 * 72 bytes of message memory per queue
+\end{plaincode}
+
+\item \textbf{Read the overrun indication every period and report it.} An
+overrun that nobody counts is a frame that never existed as far as the system is
+concerned, and this volume's position on silent loss is the same as its position
+on silent modelling.
+\begin{ccode}
+/* every control period, alongside the error counters from chapter 12 */
+s->rx_overruns_classic = g_rx_classic.overruns;
+s->rx_overruns_fd      = g_rx_fd.overruns;
+\end{ccode}
+
+\item \textbf{Now add the old node, and watch the bus stop working.} Fit the
+classic hat, put it on the same bus, and run the same mixed load. This is the
+chapter.
+\begin{shellcode}
+python host/oldnode_demo.py --seconds 30
+# classic frames:        14,983 sent   14,983 received   0 errors
+# flexible-data frames:   14,983 sent          0 received
+#                        every one invalidated by an error frame from the old node
+# node error counters:   rx errors rising, then error-passive at 11.4 s
+# old node:              transmit errors rising, then bus-off at 12.1 s
+# and classic traffic between the other two nodes continued throughout
+\end{shellcode}
+That last line is what makes this failure hard. Classic traffic is completely
+unaffected, so the bus looks alive: lights blink, some messages arrive, and only
+the newer format is gone. An engineer who does not know this mechanism will look
+at the newer node's firmware for a long time.
+
+\diagram{j13_data}{The two formats, aligned bit for bit, and the single position
+where they differ. The older format defines that bit dominant and the newer one
+transmits it recessive, so a controller built before the newer format reads a
+malformed frame and puts an error flag on the wire. The flag is a deliberate
+run of identical bits, which breaks the stuffing rule, so every participant sees
+it whether or not it understood the frame that preceded it.}
+
+\item \textbf{Diagnose it from the counters alone, in ten minutes.} The
+signature is specific enough to be recognisable, and this is the paragraph worth
+memorising from the chapter.
+\begin{plaincode}
+classic frames            pass, always, with no errors at all
+flexible-data frames      never arrive, and the sender's retransmit count
+                          equals the number it attempted
+the node's rx errors      rise, because it sees the error frames
+some node goes bus-off    usually the oldest one, because it is transmitting
+                          error frames continuously
+removing one node fixes   it, and that node is the diagnosis
+\end{plaincode}
+Contrast that with the termination fault from chapter 12, which produces errors
+only in the data phase and affects a few per cent of frames rather than all of
+them. The two are easy to tell apart once both have been seen.
+
+\item \textbf{Choose a way out, and write it down.} Three exist, they are used
+in real machines, and the node can be the third one.
+\begin{plaincode}
+1. all participants tolerant   a purchasing rule: every controller on the bus
+                               either speaks the newer format or is documented
+                               as tolerating it. Cheapest, and it constrains
+                               every future addition
+2. segregate the traffic       two buses: the old devices on one, the newer
+                               format on the other. Costs a second bus and
+                               solves it completely
+3. a gateway                   one node with two controllers, translating
+                               between them. Costs firmware and adds latency,
+                               and it is what this node can be
+\end{plaincode}
+
+\item \textbf{Build the gateway, optionally, with the second controller
+instance.} This part has two, and a second transceiver costs very little. The
+gateway receives on one bus and re-transmits on the other, translating format
+where it can and reporting where it cannot.
+\begin{ccode}
+/* gateway.c: what cannot be translated is counted, not silently dropped. */
+void gateway_from_fd_bus(const frame_t *f)
+{
+    if (f->len <= 8) {
+        frame_t out = *f; out.fd = false; out.brs = false;
+        fdcan2_send(&out);                    /* fits in a classic frame */
+    } else {
+        g_gw.untranslatable++;                /* 9 to 64 bytes: it does not */
+    }
+}
+\end{ccode}
+The asymmetry is the interesting part and it belongs in the documentation: every
+classic frame fits in the newer format, and only payloads of eight bytes or
+fewer survive the journey the other way. A gateway is therefore not transparent,
+and the design has to say what happens to the frames that do not fit.
+\end{steps}
+
+\subsection*{Build, flash and debug}
+
+\diagram{j13_timing}{The same twenty milliseconds on three buses. Above, mixed
+traffic between participants that all understand both formats: uneventful.
+Below, the same load with one non-tolerant participant: every flexible-data
+frame invalidated, the classic frames untouched, and the error counters climbing
+on nodes that did nothing wrong.}
+
+\begin{shellcode}
+cmake --build build -j && probe-rs run --chip STM32H7A3ZITx build/firmware.elf
+python host/mixed_load.py --seconds 30
+python host/oldnode_demo.py --seconds 30
+\end{shellcode}
+
+\begin{note}{When only one frame format disappears}
+This is the signature and it is worth recognising immediately. Classic frames
+pass perfectly; frames in the newer format never arrive; the sender's
+retransmission count equals its attempts; error counters rise on nodes that are
+behaving correctly; and eventually the oldest device on the bus takes itself
+off. The cause is a participant whose controller predates the newer format and
+does not tolerate it, and no amount of work on the newer node's firmware will
+change it. Removing that one device restores the bus immediately, which is also
+the fastest way to confirm the diagnosis.
+\end{note}
+
+\subsection*{Verification and acceptance criteria}
+
+\begin{itemize}
+\item Mixed traffic between modern participants runs for thirty seconds with
+zero errors and zero overruns in either queue.
+\item The two receive queues are separate, and their overrun counters appear in
+the state frame every period.
+\item The queue depth is computed from the load arithmetic and the arithmetic is
+in the repository.
+\item Filling a queue deliberately increments its overrun counter rather than
+losing a frame silently, proven by a host test.
+\item With the old node present, classic frames pass and frames in the newer
+format do not, and both outcomes are counted rather than described.
+\item The error counters on the node rise while the node itself is behaving
+correctly, which is the observation that makes the diagnosis teachable.
+\item Removing the old node restores the bus within one recovery interval.
+\item The compatibility decision is written in a file with all three options and
+the reason for the one chosen.
+\item If the gateway is built, frames that cannot be translated are counted, and
+the count is reported rather than left at zero by construction.
+\end{itemize}
+
+\subsection*{Variants}
+
+\begin{table}[H]\centering\small
+\begin{tabular}{p{24mm}p{26mm}p{44mm}p{22mm}p{20mm}}
+\toprule
+Axis & Variant & What changes & Cost & Built in full in \\
+\midrule
+Participant & Speaks the newer format & The baseline for this volume's own nodes & None & Chapter 9 \\
+Participant & Classic, documented as tolerant & Recognises the format bit and stays quiet for the rest of the frame & Nothing, if the datasheet says so & Here, as the middle case \\
+Participant & Classic, not tolerant & Declares the frame malformed and invalidates it for everybody & The bus, for one of its two formats & Here, bought on purpose \\
+Way out & Purchasing rule & Every controller on the bus is tolerant or newer. Cheapest & It constrains every future addition to the machine & Here \\
+Way out & Two buses & Complete separation, and it always works & A second bus, its wiring and its terminators & Here \\
+Way out & A gateway & One node with two controllers, translating & Firmware, latency, and it is not transparent & Here, optionally \\
+Receive & One queue for both & Simplest & Which format was lost becomes a guess & Nowhere \\
+Receive & One queue per format & Two counters, and the diagnosis is a reading & A little message memory & Here \\
+Receive & Transfers into message memory & The controller's memory filled with no processor involvement at all & Set-up complexity, for a gain this node does not need at its frame rate & Nowhere, and chapter 9 said the same \\
+\bottomrule
+\end{tabular}
+\caption{Variants for chapter 13. The three participant rows are a single purchasing lesson: tolerance is a controller property, it has a name in the standard, and a part that predates the newer format cannot have it however recent the board around it is.}
+\end{table}
+
+\subsection*{Pitfalls}
+
+\begin{itemize}
+\item Assuming an old controller will ignore a format it does not know. It
+objects, and the objection invalidates the frame for everybody.
+\item Looking for the fault in the newer node's firmware. It is behaving
+correctly and its error counters rise anyway, which is the most misleading part
+of the failure.
+\item Assuming tolerance from a board's age or a product page. It is a
+controller property, it has a name in the standard, and it is in the datasheet
+or it is absent.
+\item Treating a gateway as transparent. Every classic frame fits in the newer
+format, and only payloads of eight bytes or fewer survive the other direction.
+\item Using one receive queue for both formats and then trying to work out which
+one was lost.
+\item Not reading the overrun indication. A frame that nobody counted never
+existed, as far as the rest of the system is concerned.
+\item Confusing this failure with the termination fault from chapter 12. That
+one affects a few per cent of frames in the data phase; this one affects every
+frame of one format.
+\item Citing the data link standard by number alone. The current edition and
+its predecessor have different subtitles, so the edition is part of the
+citation.
+\end{itemize}
+
+\subsection*{Best practices applied}
+
+\begin{itemize}
+\item A failure is produced deliberately rather than described, and a part is
+bought specifically to produce it.
+\item Loss is counted everywhere it can happen, and the counters travel in the
+state frame with everything else.
+\item A diagnostic signature is written down as a list of observations, so that
+recognising it later does not depend on remembering the mechanism.
+\item A translation that cannot be complete says so, and counts what it could
+not carry.
+\item A queue depth is derived from the load rather than chosen, and the
+arithmetic lives beside the code.
+\item A standard that could not be fetched is cited with its edition and its
+price, and the behaviour it defines is demonstrated on the bench instead.
+\end{itemize}
+
+\subsection*{Stretch goals}
+
+\begin{itemize}
+\item Measure how quickly each participant reaches its error thresholds during
+the failure, and see whether the order is predictable. It should be, and
+confirming it is a satisfying use of the counters from chapter 12.
+\item Build the gateway and measure its added latency under load, then decide
+whether a machine would accept it.
+\item Test a controller documented as tolerant and confirm that it really does
+stay quiet, because a datasheet claim is worth confirming once.
+\item Extend the gateway to fragment payloads larger than eight bytes across
+several classic frames, which is the transport standard's subject and chapter
+19's problem in miniature.
+\end{itemize}
+
+\subsection*{Roadmap and next steps}
+
+Chapter 14 leaves the bus and joins the robot: the node becomes a participant in
+the middleware a robot framework uses, with an agent on the host, and the
+honest finding that on this exact part that is a porting job rather than a
+configuration.
+
+The published progression from here is the data link standard itself if the
+budget allows, because it is the normative definition of everything this chapter
+demonstrated, followed by the bus association's material on mixed networks. For
+the gateway, the transport standard's segmentation is the right next reading and
+chapter 19 uses it for a different purpose.
+
+\subsection*{Portfolio evidence}
+
+\begin{itemize}
+\item The two runs side by side: mixed traffic with modern participants, and the
+same load with one old device, with the counts for each format.
+\item The diagnostic signature, written as a checklist, which is the kind of
+thing colleagues keep.
+\item The overrun instrumentation, which demonstrates a habit of counting loss
+rather than assuming its absence.
+\item The compatibility decision file, with all three ways out and the reason
+for the one chosen.
+\end{itemize}
+
+\subsection*{Sources}
+
+Normative references:
+\begin{itemize}
+\item ISO 11898-1:2024, "Road vehicles, Controller area network (CAN), Part 1:
+Data link layer and physical coding sublayer", third edition, \pubdate{May 2024}, about
+245 euro. It supersedes the 2015 edition, whose subtitle was "Data link layer
+and physical signalling", so the edition is part of the citation. Paywalled and
+not fetched for this volume.
+\item The datasheet of any controller being considered for a mixed bus, for the
+tolerance property, which is stated or absent.
+\end{itemize}
+
+Reusable implementations:
+\begin{itemize}
+\item The command line tools, dual licensed per file, whose load generator
+produces both formats with one flag between them.\newline
+\url{https://github.com/linux-can/can-utils}
+\item The kernel's socket layer documentation, for the counters watched during
+the failure.\newline
+\url{https://www.kernel.org/doc/html/latest/networking/can.html}
+\end{itemize}

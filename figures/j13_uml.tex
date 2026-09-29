@@ -1,0 +1,40 @@
+% The failure, step by step, as it happens on the wire.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm,
+  errmsg/.style={msg, draw=red!70!black}]
+
+\foreach \x/\name/\id in {0/{the node}/n, 3.8/{the bus}/bus,
+                          7.6/{the master}/m, 11.4/{the old device}/o}{
+  \node[actor, text width=24mm] (\id) at (\x,0) {\name};
+  \draw[lifeline] (\id.south) -- ++(0,-8.4);
+}
+
+\draw[msg] (0,-1.1) -- node[above, fill=white, inner sep=1.5pt]{a frame in the newer format begins} (3.8,-1.1);
+\node[activation, minimum height=3mm] at (0,-1.3) {};
+
+\draw[msg] (3.8,-2.1) -- node[above, fill=white, inner sep=1.5pt]{identifier, control bits, and then the format bit} (7.6,-2.1);
+\node[tlabel, anchor=west] at (7.75,-2.1) {decoded, correctly};
+
+\draw[msg] (3.8,-3.0) -- node[above, fill=white, inner sep=1.5pt]{the same bits, on the same wire} (11.4,-3.0);
+\node[activation, minimum height=4mm] at (11.4,-3.3) {};
+\node[tlabel, anchor=east, text=red!60!black] at (11.25,-3.75)
+  {expects that bit dominant, and finds it recessive};
+
+\draw[errmsg] (11.4,-4.6) -- node[above, fill=white, inner sep=1.5pt]{an error frame: dominant bits, which every participant sees} (3.8,-4.6);
+
+\draw[errmsg] (3.8,-5.5) -- node[above, fill=white, inner sep=1.5pt]{the frame is lost} (0,-5.5);
+\draw[errmsg] (3.8,-6.2) -- node[above, fill=white, inner sep=1.5pt]{and lost here too, and its error counter rises} (7.6,-6.2);
+
+\draw[msg] (0,-7.1) -- (1.4,-7.1) -- (1.4,-7.6) -- (0,-7.6);
+\node[tlabel, anchor=west] at (1.55,-7.35) {retransmits, because that is what a controller does};
+
+\node[chlabel, anchor=west, fill=white] at (0,-8.2) {and the whole sequence repeats, until something stops it};
+
+\node[umlnote, text width=52mm, anchor=north west] at (0,-9.0)
+  {The two participants at the left of this diagram did nothing wrong. They built a valid frame,
+   decoded a valid frame, and their error counters rose anyway. That is what makes the failure hard
+   to find: the evidence appears on the innocent nodes.};
+\node[umlnote, text width=52mm, anchor=north west] at (6.0,-9.0)
+  {Classic frames between the same three participants pass throughout, with no errors at all, so the
+   bus looks alive. Only one of the two formats is missing, which is the signature worth
+   memorising.};
+\end{tikzpicture}

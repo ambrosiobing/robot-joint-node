@@ -1,0 +1,49 @@
+% One frame, three kinds of participant, three different outcomes.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.6,2.4)
+  {one frame in the newer format, and three kinds of participant on the same pair of wires};
+
+% ================================================================ the trunk
+\draw[busline] (-6.2,1.5) -- (6.2,1.5);
+\node[busterm, anchor=east] at (-6.2,1.5) {};
+\node[busterm, anchor=west] at (6.2,1.5) {};
+\node[buslabel, anchor=south] at (0,1.62) {the frame is on the wire, and all three see every bit of it};
+
+% ================================================================ the three participants
+\node[busnode, text width=30mm] (a) at (-4.2,0.4) {speaks the newer format};
+\node[busnode, text width=30mm, fill=hwcol] (b) at (0,0.4) {classic, documented as tolerant};
+\node[busoff, text width=30mm] (c) at (4.2,0.4) {classic, not tolerant};
+
+\draw[busstub] (-4.2,1.5) -- (a.north);
+\draw[busstub] (0,1.5) -- (b.north);
+\draw[busstub] (4.2,1.5) -- (c.north);
+
+% ================================================================ what each does
+\node[blk, fill=usrcol, text width=34mm, align=left, minimum height=15mm] (oa) at (-4.2,-1.5)
+  {Decodes it and uses it. Nothing unusual happens, and nothing is reported.};
+\node[blk, fill=hwcol, text width=34mm, align=left, minimum height=15mm] (ob) at (0,-1.5)
+  {Recognises the format bit, stays quiet until the frame ends, and reports nothing. It cannot read
+   the payload, and it does no harm.};
+\node[blk, fill=red!18, text width=34mm, align=left, minimum height=15mm] (oc) at (4.2,-1.5)
+  {Declares the frame malformed and transmits an error frame, which invalidates the frame for
+   everybody, including the two that understood it.};
+
+\draw[flow] (a.south) -- (oa.north);
+\draw[flow] (b.south) -- (ob.north);
+\draw[faultedge] (c.south) -- (oc.north);
+
+\node[chlabel, anchor=north] at (-4.2,-2.85) {the baseline};
+\node[chlabel, anchor=north] at (0,-2.85) {a property in the datasheet, or absent};
+\node[chlabel, anchor=north] at (4.2,-2.85) {this chapter's instrument};
+
+% ================================================================ notes
+\node[umlnote, text width=54mm, anchor=north west] at (-6.6,-3.45)
+  {The middle case is the one people assume and the right-hand case is the one they meet. Tolerance
+   is a property of the controller, it has a name in the standard, and it is stated in the datasheet
+   or it is not there. The age of the board around the controller says nothing about it.};
+\node[umlnote, text width=54mm, anchor=north west] at (0.4,-3.45)
+  {The right-hand outcome is not passive. An error frame is dominant bits on a shared wire, so it
+   reaches every participant and corrupts the frame in progress. The two nodes that decoded the
+   frame correctly lose it anyway, and their error counters rise for a fault that is not theirs.};
+\end{tikzpicture}

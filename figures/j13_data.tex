@@ -1,0 +1,51 @@
+% The two frame formats, aligned, and the single bit that separates them.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm]
+
+\node[chlabel, anchor=west] at (0,27) {the same wire, the same start, and one bit of difference};
+
+% ================================================================ the classic frame
+\begin{scope}[yshift=12mm]
+  \node[signame] at (-2mm,3mm) {classic};
+  \framefield{0}{7}{fstuff}{start}
+  \framefield{7}{34}{fid}{11-bit identifier}
+  \framefield{41}{10}{fid}{RTR}
+  \framefield{51}{10}{fid}{IDE}
+  \framefield{61}{12}{fid}{r0}
+  \framefield{73}{36}{fdata}{length, then up to 8 bytes}
+\end{scope}
+
+% ================================================================ the newer frame
+\begin{scope}[yshift=-4mm]
+  \node[signame] at (-2mm,3mm) {flexible-data};
+  \framefield{0}{7}{fstuff}{start}
+  \framefield{7}{34}{fid}{11-bit identifier}
+  \framefield{41}{10}{fid}{RRS}
+  \framefield{51}{10}{fid}{IDE}
+  \framefield{61}{12}{fcrc}{FDF}
+  \framefield{73}{36}{fdata}{more control, then up to 64 bytes}
+\end{scope}
+
+% ================================================================ the bit
+\draw[faultedge, -] (60,-7) rectangle (74,20);
+\node[tlabel, anchor=south, text=red!60!black] at (67,20.5) {this one bit};
+\node[chlabel, anchor=north west, text width=60mm] at (46,-8)
+  {dominant in the older format, recessive in the newer one, and in exactly the same position in
+   both. A controller that predates the newer format reads it as a malformed frame};
+
+% ================================================================ what happens next
+\node[chlabel, anchor=west] at (0,-20) {and what a controller without tolerance puts on the wire next};
+\begin{scope}[yshift=-30mm]
+  \framefield{0}{61}{fstuff}{the frame so far, already transmitted}
+  \framefield{61}{34}{fieldbox, fill=red!25}{an error flag: dominant bits}
+  \framefield{95}{24}{fstuff}{error delimiter}
+\end{scope}
+\node[tlabel, anchor=north west, text width=56mm] at (0,-32)
+  {The flag is deliberately a run of identical bits, which breaks the stuffing rule, so every
+   participant on the bus detects it whether or not it understood the frame.};
+
+% ================================================================ notes
+\node[umlnote, text width=52mm, anchor=north west] at (60,-32)
+  {A controller documented as tolerant reads the same bit, concludes that the frame is in a format
+   it cannot decode, and stays quiet until the bus is idle again. The difference between the two
+   behaviours is one line in a datasheet and the whole usability of the bus.};
+\end{tikzpicture}
