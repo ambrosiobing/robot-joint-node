@@ -1,0 +1,73 @@
+% The object entries, the endurance arithmetic, and the licence position.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.6) {the object entries, with the names the primary documents actually use};
+
+\node[regcell, fill=white, minimum width=114mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,3.2)
+  {\begin{tabular}{@{}p{14mm}p{40mm}p{52mm}@{}}
+   \textbf{index} & \textbf{verified name} & \textbf{what it carries} \\[1pt]
+   \hline
+   1F50h & \textbf{Program data} & the image. Not "download program data", which
+   is the form usually written down \\[2pt]
+   1F51h & Program control & 00h stop, 01h start, 02h reset, 03h clear \\[2pt]
+   1F56h & Program software identification & the version a fleet sweep reads \\[2pt]
+   1F57h & Flash status identification & whether the last operation succeeded \\[2pt]
+   1003h & the predefined error field & 6100h loader checksum, 6200h application
+   checksum, 6300h stored configuration checksum \\
+   \end{tabular}};
+
+\node[regcell, fill=red!18, minimum width=114mm, text width=112mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-0.2)
+  {\textbf{The main open stack for this protocol does not define these entries.}
+   Its own list of supported specifications omits the part that defines them, and
+   its object dictionary enumeration stops well below this range. Two other
+   stacks have the same gap, and only one claims coverage of that part, in the
+   words "portions of", without itemising which.};
+
+% ================================================================ the arithmetic
+\node[chlabel, anchor=west] at (-6.8,-2.3) {the arithmetic that decides the storage scheme, parameterised because one input is unconfirmed};
+
+\node[regcell, fill=usrcol, minimum width=114mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,-2.7)
+  {\begin{tabular}{@{}p{44mm}p{30mm}p{32mm}@{}}
+   \textbf{scheme} & \textbf{events survived} & \textbf{at 100 cycles a day} \\[1pt]
+   \hline
+   rewrite one structure in place & E & about 100 days \\[2pt]
+   \textbf{rotating records, one word each} & \textbf{512 x E} & \textbf{about
+   140 years} \\[2pt]
+   and over several sectors & 512 x n x E & longer still \\
+   \end{tabular}};
+
+\node[regcell, fill=usrcol, minimum width=114mm, text width=112mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-4.7)
+  {where E is the per sector endurance figure. \textbf{E could not be confirmed
+   for this part}, and at a commonly quoted but unverified ten thousand cycles
+   the two rows above read 5,120,000 against 10,000. \textbf{The three order of
+   magnitude gap is the argument, and it survives whatever E turns out to be.}};
+
+% ================================================================ the licences
+\node[chlabel, anchor=west] at (-6.8,-6.4) {and the licence position of every loader this chapter considered};
+
+\node[regcell, fill=white, minimum width=114mm, anchor=north west,
+      align=left, inner sep=3pt] at (-6.8,-6.8)
+  {\begin{tabular}{@{}p{34mm}p{26mm}p{46mm}@{}}
+   \textbf{loader} & \textbf{licence} & \textbf{what that means here} \\[1pt]
+   \hline
+   the ROM one & in the silicon & free, present, and it speaks this bus already \\[2pt]
+   the off-the-shelf match & \textbf{GPL-3.0 or paid} & \textbf{linking the joint
+   firmware against it makes the firmware copyleft.} The most consequential
+   licence decision in this volume \\[2pt]
+   the portable open one & Apache-2.0 & permissive and port agnostic, and
+   \textbf{it has no bus transport at all} \\[2pt]
+   another open one & GPL-3.0 plus commercial & a correction: it is not the
+   earlier copyleft version that is usually quoted \\[2pt]
+   a popular repository & \textbf{could not be confirmed} & the host reports no
+   assertion and the licence path returns not found \\
+   \end{tabular}};
+
+\node[umlnote, text width=114mm, anchor=north west] at (-6.8,-11.4)
+  {Two rows here are refusals and one is an unknown, and all three were settled
+   before any code was written around a stack. A licence discovered after a
+   product ships is not a licence problem, it is a rewrite.};
+\end{tikzpicture}

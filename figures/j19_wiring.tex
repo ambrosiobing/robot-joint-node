@@ -1,0 +1,51 @@
+% The flash, drawn to this part's real geometry.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.6) {the flash of this part, which is not the geometry most of the internet writes about};
+
+% ================================================================ this part
+\node[layerlabel] at (-6.8,3.1) {this part};
+\begin{scope}[xshift=-64mm, yshift=-18mm]
+  \memregion{34}{10}{mmflash}{bank 2: application slot, 1024 kB}{0x08100000}
+  \memregion{22}{10}{mmram}{bank 1: application, continued}{}
+  \memregion{14}{7}{mmperiph}{3 sectors: rotating records}{0x08006000}
+  \memregion{6}{7}{mmres}{the loader, 24 kB, erase and program protected}{0x08000000}
+\end{scope}
+\node[chlabel, anchor=west, text width=30mm] at (-2.6,1.8)
+  {word \textbf{16 bytes}\\sector \textbf{8 kB}\\128 sectors a bank, two banks};
+
+% ================================================================ the sibling
+\node[layerlabel] at (1.2,3.1) {its popular sibling, for comparison};
+\node[regcell, fill=black!6, minimum width=44mm, text width=42mm, minimum height=26mm,
+      anchor=north west, align=left, inner sep=3pt] at (1.2,2.7)
+  {word \textbf{32 bytes}\\[2pt]
+   sector \textbf{128 kB}\\[2pt]
+   The vendor macro counting 32-bit words inside a flash word reads 4 here and
+   8 there.\\[2pt]
+   \textbf{The comment block in the vendor's flash driver source describing the
+   wider word is written for that part and is wrong for this one.}};
+
+\node[regcell, fill=red!18, minimum width=44mm, text width=42mm, inner sep=3pt,
+      anchor=north west, align=left] at (1.2,-0.95)
+  {\textbf{This has produced real defects.} Two closed reports against a widely
+   used project: one from Wednesday 11 May 2022 where a hardcoded thirty-two
+   byte stride corrupted data on this exact part, and one from Wednesday 15
+   October 2025 on dual bank sector mapping.};
+
+% ================================================================ the consequence
+\node[regcell, fill=usrcol, minimum width=114mm, text width=112mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-4.1)
+  {\textbf{And the consequence, which decides the storage scheme.} One record is
+   one flash word, so an eight kilobyte sector holds \textbf{512 records} before
+   an erase is needed. On the sibling part, with a sixteen times larger erase
+   granularity, the same scheme costs sixteen times more erase. \textbf{The
+   rotating log is unusually cheap on this part}, and the arithmetic is in the
+   data figure.};
+
+\node[umlnote, text width=114mm, anchor=north west] at (-6.8,-6.2)
+  {Two more properties of this flash are used later in the chapter. An
+   interrupted word programming reads back as an \textbf{uncorrectable} error,
+   so a torn record is detectable rather than silently wrong. And bits inside an
+   already written word cannot be reprogrammed, \textbf{so a validity flag has to
+   live in its own word} rather than inside the record it validates.};
+\end{tikzpicture}

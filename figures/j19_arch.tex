@@ -1,0 +1,59 @@
+% Two update paths, and what the second one is worth.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1cm, y=1cm]
+
+\node[chlabel, anchor=west] at (-6.8,3.6) {two ways to change this node's firmware, and only one of them had to be written};
+
+% ================================================================ the ROM path
+\node[layerlabel] at (-6.8,3.1) {already in the silicon, and it speaks this bus};
+\node[ext, text width=24mm] (m1) at (-5.2,2.2) {the master};
+\node[hw, text width=26mm] (rom) at (-1.6,2.2) {the ROM bootloader\\two pins, two bit rates};
+\node[hw, text width=24mm] (fl1) at (1.8,2.2) {flash};
+\draw[flow] (m1) -- (rom);
+\draw[flow] (rom) -- (fl1);
+\node[chlabel, anchor=west, text width=36mm] at (3.4,2.2)
+  {and its detection chain polls the bus \textbf{first}, before the serial and
+   USB routes};
+
+% ================================================================ what it does not do
+\node[regcell, fill=red!18, minimum width=114mm, text width=112mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,1.4)
+  {\textbf{What it does not do:} report a version, refuse a corrupt image, carry
+   a node identifier of its own, answer a fleet sweep, or let the bit rate be
+   anything other than the two it fixes. \textbf{Those five absences are the
+   entire justification for the rest of this chapter}, and a custom loader that
+   does not beat something already in the silicon is not worth its flash.};
+
+% ================================================================ the custom path
+\node[layerlabel] at (-6.8,-0.2) {and the one this chapter writes};
+\node[ext, text width=24mm] (m2) at (-5.2,-1.1) {the master};
+\node[fw, text width=26mm] (bl) at (-1.6,-1.1) {the loader\\a polled superloop};
+\node[hw, text width=24mm] (fl2) at (1.8,-1.1) {flash};
+\draw[flow] (m2) -- (bl);
+\node[chlabel, anchor=north] at (-3.45,-1.6) {segmented transfer};
+\draw[flow] (bl) -- (fl2);
+\node[laterblk, text width=24mm] (app) at (1.8,-2.4) {the application\\a task set};
+\draw[flow] (bl) -- node[ctrllabel, right]{checksum, then jump} (app);
+\draw[recoveredge] (app) to[bend left=35] node[buslabel]{a RAM keyword, then reset} (bl);
+
+% ================================================================ the requirements
+\node[regcell, fill=hwcol, minimum width=54mm, text width=52mm, inner sep=3pt,
+      anchor=north west, align=left] at (-6.8,-3.4)
+  {\textbf{Requirements, from two primary documents read in full:} it always
+   executes first; it always computes the application checksum and never runs a
+   mismatch; it accepts exactly two identifiers; every received block is bounds
+   checked; and its own sectors are protected.};
+
+\node[regcell, fill=usrcol, minimum width=54mm, text width=52mm, inner sep=3pt,
+      anchor=north west, align=left] at (0.2,-3.4)
+  {\textbf{And one simplification that comes from this part:} the vector table
+   offset register is programmable here, so the loader points it at the
+   application before jumping. Designs on parts with a fixed vector location
+   have to mirror the table and route every vector through a decider.};
+
+\node[umlnote, text width=114mm, anchor=north west] at (-6.8,-6.4)
+  {The bounded wait before the application starts is a cost paid at every single
+   power-up, in exchange for the node always being reachable afterwards. That is
+   a trade rather than an oversight, it is stated in the budget table with a
+   number beside it, and a design that does not state it has usually not noticed
+   it.};
+\end{tikzpicture}

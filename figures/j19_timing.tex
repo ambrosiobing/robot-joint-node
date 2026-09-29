@@ -1,0 +1,58 @@
+% Every power-up, and the one write that has to fit in a falling supply.
+\begin{tikzpicture}[font=\sffamily\scriptsize, x=1mm, y=1mm]
+
+% ================================================================ boot
+\node[chlabel, anchor=west] at (0,40) {every power-up, in order, and the cost of always being reachable};
+\node[signame] at (-2,30) {the loader};
+\node[fieldbox, fill=hwcol, minimum width=14mm, text width=12mm, minimum height=6mm,
+      font=\sffamily\tiny] at (0,27) {reset};
+\node[fieldbox, fill=fwcol, minimum width=34mm, text width=32mm, minimum height=6mm,
+      font=\sffamily\tiny] at (14,27) {bounded wait for one request};
+\node[fieldbox, fill=usrcol, minimum width=24mm, text width=22mm, minimum height=6mm,
+      font=\sffamily\tiny] at (48,27) {checksum};
+\node[fieldbox, fill=kercol, minimum width=20mm, text width=18mm, minimum height=6mm,
+      font=\sffamily\tiny] at (72,27) {set vector base};
+\node[fieldbox, fill=black!8, minimum width=32mm, text width=30mm, minimum height=6mm,
+      font=\sffamily\tiny] at (92,27) {the application, from here on};
+\draw[taxis] (0,24) -- (124,24);
+\foreach \x/\lab in {14/{}, 48/{300 ms}, 72/{under 40 ms}, 92/{}}{
+  \draw[release] (\x,21) -- (\x,25);
+}
+\node[tlabel, anchor=north] at (31,20) {300 ms, paid at every start};
+\node[tlabel, anchor=north] at (60,20) {under 40 ms};
+
+\node[tlabel, anchor=west, text width=112mm, align=left] at (0,12)
+  {\textbf{If anything arrives during the wait, or the keyword is set, or the
+   checksum does not match, the node stays in the loader} and reports through
+   the predefined error field instead of jumping.};
+
+% ================================================================ power down
+\node[chlabel, anchor=west] at (0,2) {and the other sequence, which happens while the supply is falling};
+\node[signame] at (-2,-8) {supply};
+\draw[taxis] (0,-20) -- (124,-20);
+\draw[signal, line width=0.9pt] (0,-4) -- (34,-4) .. controls (54,-5) and (66,-16) .. (86,-20)
+   -- (124,-20);
+\draw[deadline] (0,-10) -- (124,-10);
+\node[tlabel, anchor=west] at (2,-12) {the detector threshold};
+\draw[release, draw=red!70!black] (56,-24) -- (56,-6);
+\node[tlabel, anchor=west, text=red!60!black] at (58,-6) {the falling edge, on a line shared with the analog detector};
+
+\node[fieldbox, fill=usrcol, minimum width=16mm, text width=14mm, minimum height=5mm,
+      font=\sffamily\tiny] at (57,-28) {one 16 byte word};
+\node[fieldbox, fill=red!25, minimum width=60mm, text width=58mm, minimum height=5mm,
+      font=\sffamily\tiny] at (57,-36) {an 8 kB sector erase: milliseconds, and it never fits here};
+\draw[faultedge, -] (57,-31) -- (117,-31);
+\node[tlabel, anchor=west] at (0,-42)
+  {so the sector was erased long ago, during normal operation, and the power-down path only ever programs};
+
+\node[umlnote, text width=56mm, anchor=north west] at (0,-48)
+  {If the supply fails part way through that word, it reads back as an
+   \textbf{uncorrectable} error rather than as plausible data. A torn record is
+   therefore detectable, which is a rare and useful property and the reason the
+   validity flag lives in its own separate word.};
+\node[umlnote, text width=56mm, anchor=north west] at (66,-48)
+  {The two voltage detectors share one interrupt line, so the handler reads both
+   status bits to tell them apart. That is a correction: the two are usually
+   described as if they had a line each, and code written on that assumption
+   reacts to the wrong one.};
+\end{tikzpicture}
