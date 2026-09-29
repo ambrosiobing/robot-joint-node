@@ -1,0 +1,33 @@
+% One wire for the event input, and the instrument this bench does not have.
+\begin{tikzpicture}[font=\sffamily\small, x=1cm, y=1cm]
+
+\node[board, minimum width=46mm, minimum height=26mm] (nucleo) at (0,0) {};
+\node[text=white, font=\sffamily\bfseries\small] at (0,0.62) {NUCLEO-H7A3ZI-Q};
+\node[text=white, font=\sffamily\scriptsize] at (0,0.18) {TIM2 CH1, input capture};
+\node[pinrow, minimum width=40mm] at (0,1.05) {};
+\node[ledsym, fill=green!65!black] at (-1.5,-0.55) {};
+\node[text=white, font=\sffamily\tiny, anchor=west] at (-1.25,-0.55) {32.768 kHz crystal, fitted};
+
+\node[ext, text width=30mm] (src) at (5.4,0.55)
+  {an edge to stamp\\{\scriptsize the user button, or a line from the profiler}};
+\node[absentblk, text width=30mm] (gps) at (5.4,-1.6)
+  {receiver with a pulse per second\\{\scriptsize not on this bench}};
+
+\draw[cable, draw=red!60!black] (nucleo.east) -- node[lbl, above]{one wire} (src.west);
+\draw[hiz, ->] (gps.west) -- ++(-1.2,0) |- (nucleo.east);
+
+\node[ext, text width=26mm] (host) at (-5.2,0) {host PC\\{\scriptsize console}};
+\draw[usbcable] (host.east) -- node[lbl, above]{USB} (nucleo.west);
+
+\node[umlnote, text width=58mm, anchor=north] at (0.4,-2.4)
+  {What the wire gives: an externally generated edge whose timestamp is taken by
+   the timer at the pin. The difference between that stamp and one taken at the
+   top of the interrupt handler is this board's interrupt latency, measured
+   rather than quoted.\\[3pt]
+   What the absent part would give: an absolute reference. The drift figure this
+   chapter reports is a comparison of the board's two oscillators and cannot say
+   which of them is wrong. A receiver emitting one pulse per second, captured on
+   this same channel, would turn that comparison into a frequency measurement
+   with a stated uncertainty. It is the cheapest instrument that would improve
+   this volume, and it is named here rather than quietly wished for.};
+\end{tikzpicture}

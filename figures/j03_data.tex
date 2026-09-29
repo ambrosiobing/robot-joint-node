@@ -1,0 +1,74 @@
+% The three time words this node deals in, drawn to the same scale, with the
+% range each one buys.
+% Note for anyone copying this figure: \framefield always draws at y = 0, so
+% each row lives in its own shifted scope rather than carrying a y coordinate.
+\begin{tikzpicture}[font=\sffamily\small]
+
+% ================================================================ the node's own
+\begin{scope}
+  \node[signame] at (-2mm,3mm) {this node};
+  \framefield{0}{34}{fid}{upper 32 bits\\{\tiny software, from the update interrupt}}
+  \framefield{34}{34}{fdata}{lower 32 bits\\{\tiny TIM2->CNT, one tick is 1 us}}
+  % \framebits places its label at 6 mm, which is inside a box this tall, so
+  % the bit ranges are written directly above each field instead.
+  \node[fbyte] at (17mm,12.5mm) {63 .. 32};
+  \node[fbyte] at (51mm,12.5mm) {31 .. 0};
+  \node[chlabel, anchor=west, text width=52mm] at (72mm,3mm)
+    {64 bits of microseconds: 584,542 years. Monotonic, never stepped, never
+     reset. The only word this node computes with.};
+\end{scope}
+
+% ================================================================ the wrap zoo
+\begin{scope}[yshift=-26mm]
+  \node[signame] at (-2mm,4mm) {what wraps, and when};
+  \draw[busline] (0mm,4mm) -- (68mm,4mm);
+  \foreach \x/\lab/\t in {4/{16 bit at 1 us}/{65.5 ms},
+                          22/{16 bit bus stamp}/{seconds},
+                          42/{32 bit at 3.57 ns}/{15.3 s},
+                          62/{32 bit at 1 us}/{71.6 min}}{
+    \draw[busstub] (\x mm,4mm) -- (\x mm,0mm);
+    \node[font=\sffamily\tiny, anchor=north] at (\x mm,0mm) {\lab};
+    \node[font=\sffamily\tiny, anchor=north, text=red!60!black] at (\x mm,-3.5mm) {\t};
+  }
+  \node[chlabel, anchor=west, text width=52mm] at (72mm,2mm)
+    {Every one of these is extended in software, or it is a defect waiting for
+     an inconvenient moment.};
+\end{scope}
+
+% ================================================================ the profile's word
+\begin{scope}[yshift=-52mm]
+  \node[signame] at (-2mm,3mm) {field bus profile};
+  \framefield{0}{30}{fdata}{milliseconds after midnight}
+  \framefield{30}{8}{fstuff}{void}
+  \framefield{38}{30}{fcrc}{days since 1 January 1984}
+  \node[fbyte] at (15mm,9mm) {27 .. 0};
+  \node[fbyte] at (34mm,9mm) {31 .. 28};
+  \node[fbyte] at (53mm,9mm) {47 .. 32};
+  \node[chlabel, anchor=west, text width=52mm] at (72mm,3mm)
+    {48 bits, and it is a wall clock: a date, not an elapsed time. The epoch is
+     Sunday 1 January 1984.};
+\end{scope}
+
+% ================================================================ the third one
+\begin{scope}[yshift=-72mm]
+  \node[signame] at (-2mm,3mm) {profile, high resolution};
+  \framefield{0}{68}{fdata}{microseconds, unsigned, 32 bits}
+  \node[fbyte] at (34mm,7mm) {31 .. 0};
+  \node[chlabel, anchor=west, text width=52mm] at (72mm,3mm)
+    {Wraps about every 71.6 minutes. Handle the wrap, or do not put it in a
+     frame at all.};
+\end{scope}
+
+% ================================================================ the reading
+\node[umlnote, text width=60mm, anchor=north west] at (0mm,-84mm)
+  {Three different words for three different jobs, and the top one is the only
+   one this node computes with. The two profile words exist because chapter 11
+   has to put a timestamp in a frame that another vendor's tool can read, and
+   the mapping between the node's own 64-bit microseconds and those two is
+   arithmetic that belongs in one file with tests, not scattered through the bus
+   code.};
+\node[umlnote, text width=52mm, anchor=north west] at (66mm,-84mm)
+  {The second row is the reason this chapter comes before the bus chapters.
+   Every hardware counter here wraps inside an hour, two of them inside a
+   minute, and a joint node runs for weeks.};
+\end{tikzpicture}
