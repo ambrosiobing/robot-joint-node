@@ -1,0 +1,30 @@
+cff-version: 1.2.0
+title: "Twenty Chapters, One Robot Joint Node"
+message: "If you refer to this work, please cite it as below."
+type: software
+authors:
+  - family-names: Pagaran
+    given-names: Joseph Ambrose
+    orcid: ""
+abstract: >-
+  A build plan for one robot joint node, taken apart into twenty chapters and
+  built on a bench without a robot arm on it. Covers a proven one kilohertz
+  control period, one clock shared across sensors and bus, quadrature and
+  inertial sensing, a drive stage written in full for a motor that is not
+  present, CAN-FD from bit timing upward, network management, an embedded
+  middleware port, standard joint message types, a closed control loop with
+  following error, latched safe states, update over the bus, and a rig that
+  asserts on motion quality. Three capabilities the bench cannot demonstrate are
+  named and designed around rather than omitted, and every figure marks what is
+  real, what is modelled and what is absent.
+keywords:
+  - embedded firmware
+  - robotics
+  - CAN-FD
+  - real-time control
+  - functional safety
+  - STM32H7A3
+license: MIT
+repository-code: "https://github.com/ambrosiobing/robot-joint-node"
+version: "1.0.0"
+date-released: "2026-09-29"

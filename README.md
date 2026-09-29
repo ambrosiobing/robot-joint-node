@@ -4,37 +4,42 @@ One joint node for a robot arm, taken apart into twenty chapters and built on a
 bench that has no robot arm on it. A NUCLEO-H7A3ZI-Q, a Raspberry Pi 4, three
 sensor shields, one transceiver, and no motor.
 
-**314 pages, 101 figures.** Deliverables, rebuilt with `python build.py`:
+**314 pages, 101 figures, 20 chapters.** Each chapter stands on its own: it
+states what it adds to the node, what it depends on, what is real and what is
+only modelled, and it ends in something measurable. Build any one of them by
+itself:
 
-- `robot-joint-node.pdf` the book, built with pdflatex
-- `robot-joint-node.html` the same content as one self-contained
-  HTML file, with every figure inlined as SVG
+    python build.py --chapter 7
 
-By the end the node keeps a one kilohertz period and can prove it without a
-probe, shares one clock across its sensors and its bus, reads a real encoder and
-a real inertial unit, drives an actuator that is not there, speaks CAN-FD from
-bit timing upward, survives a device older than itself on the same wire, joins a
-robot framework as a participant, publishes standard message types with one
-field honestly left empty, closes a loop and reports following error, stops
-safely and latches, can be updated over the wire it already has, and is checked
-nightly by a rig that turns a build red.
+That writes `chapter-07-the-actuator-you-do-not-have.pdf` and a matching
+self-contained `.html` with its five figures inlined.
+
+**Contents**
+[The rule](#the-rule-that-runs-through-it) ·
+[The twenty chapters](#the-twenty-chapters) ·
+[Building](#building) ·
+[Checks](#checks) ·
+[Layout](#repository-layout) ·
+[Requirements](#requirements) ·
+[Licence](#licence)
 
 ## The rule that runs through it
 
 Three things a robotics firmware role asks for cannot be demonstrated on this
 bench: a motor and drive stage, a force or torque sensor, and a real-time
-Ethernet fieldbus. The volume names all three in chapter 1, designs around them
+Ethernet fieldbus. The book names all three in chapter 1, designs around them
 deliberately, and marks every figure accordingly.
 
-- A **solid** outline is hardware that is present.
-- A **dashed** outline is a model standing in for hardware that is not.
-- A **dotted grey** block is hardware that is absent and explained rather than
-  built.
+| In a figure | Means |
+|---|---|
+| A **solid** outline | hardware that is present |
+| A **dashed** outline | a model standing in for hardware that is not |
+| A **dotted grey** block | hardware that is absent and explained rather than built |
 
 No measurement taken through a dashed block is a measurement of anything
-physical, every budget table carries a `Measured` column that reads *not
-measured* until something has been, and a claim the research could not confirm
-is written as a question rather than as an assertion.
+physical. Every budget table carries a `Measured` column that reads *not
+measured* until something has been. A claim the research could not confirm is
+written as a question rather than as an assertion.
 
 That discipline produced more of the book than expected. Several of its most
 useful paragraphs are of the form *this is not what everybody says*: that this
@@ -43,63 +48,110 @@ live in a different peripheral from its better known sibling's, that a widely
 repeated middleware footprint comes from a commercial blog rather than from the
 project, that a popular bootloader changed licence in 2025, and that the
 collaborative robot technical specification is not withdrawn. Appendix C lists
-all of them; appendix D lists the eight gaps the research could not close, which
+them all; appendix D lists the eight gaps the research could not close, which
 are claimed as new work rather than dressed up as a survey.
 
-## Source layout
+## The twenty chapters
+
+Difficulty is 1 to 5. Effort is in evenings. Chapter 1 gates everything; after
+that the reading order is mostly preference, and the dependency map in the front
+matter draws the parts that are not.
+
+| # | Chapter | What the node gains | Diff. | Effort |
+|---|---|---|---|---|
+| 1 | [What a joint node is, and the bench that stands in for one](sections/j01.tex) | An identity and a bring-up | 2/5 | Two evenings |
+| 2 | [The control period: 1 kHz you can prove](sections/j02.tex) | A heartbeat | 3/5 | Two evenings |
+| 3 | [One clock for sensors, loop and bus](sections/j03.tex) | A shared time base | 3/5 | Two evenings |
+| 4 | [The board support package, and a board file you can hand over](sections/j04.tex) | A documented hardware interface | 2/5 | Two evenings |
+| 5 | [The encoder: quadrature in hardware, and one you generate](sections/j05.tex) | Position | 3/5 | Three evenings |
+| 6 | [The inertial unit as the joint's inner ear](sections/j06.tex) | Motion sensing | 3/5 | Three evenings |
+| 7 | [The actuator you do not have: PWM, dead time, and a plant model](sections/j07.tex) | A command output and a simulated joint | 4/5 | Four evenings |
+| 8 | [Force and torque: the signal you cannot buy](sections/j08.tex) | An estimate, honestly labelled | 4/5 | Three evenings |
+| 9 | [CAN-FD from the controller out: bit timing and the first frame](sections/j09.tex) | A voice | 4/5 | Three evenings |
+| 10 | [The motion master: the bus on Linux](sections/j10.tex) | A listener and a commander | 3/5 | Two evenings |
+| 11 | [A joint protocol: state and command in sixty-four bytes](sections/j11.tex) | A vocabulary | 3/5 | Three evenings |
+| 12 | [Network management: heartbeat, node state, bus-off and recovery](sections/j12.tex) | Membership | 4/5 | Three evenings |
+| 13 | [Two speeds on one wire, and why the old node errors](sections/j13.tex) | A diagnosis | 3/5 | Two evenings |
+| 14 | [The node as a middleware participant, and the agent that hosts it](sections/j14.tex) | A place in the robot | 5/5 | Four evenings |
+| 15 | [Joint state and joint command as messages](sections/j15.tex) | A standard shape | 3/5 | Two evenings |
+| 16 | [The loop closed over the bus: setpoint in, state out, following error](sections/j16.tex) | A closed loop | 5/5 | Four evenings |
+| 17 | [What a real-time fieldbus would change, and why it is not on this bench](sections/j17.tex) | An honest boundary | 2/5 | Two evenings |
+| 18 | [Safe states, and the workspace sensor that triggers one](sections/j18.tex) | A way to stop | 4/5 | Three evenings |
+| 19 | [Update over the bus: a node you can reach but not touch](sections/j19.tex) | Maintainability | 5/5 | Four evenings |
+| 20 | [The rig: injected faults, tracking error, and a build that fails](sections/j20.tex) | Proof | 5/5 | Five evenings |
+
+Every chapter has the same twenty-one sections: why it exists, the prior art and
+what is taken from it, what the node gains, the parts it uses, a system
+architecture figure, the peripheral configuration, the wiring, a memory and
+timing budget, a software design in UML, a data-flow sketch, a repository
+layout, numbered steps with real commands and real code, measurable acceptance
+criteria, the variants it touches, pitfalls, best practices, stretch goals, a
+sourced roadmap, the evidence to publish, and its sources.
+
+## Building
+
+    python build.py --chapter 7      one chapter, PDF and self-contained HTML
+    python build.py --chapters       all twenty, one file each
+    python build.py                  the whole book, PDF and one HTML file
+
+Built output is not committed. The book and the individual chapters are
+artefacts of this source, they are regenerated in a couple of minutes, and
+keeping them out of the history keeps the repository small and every published
+file traceable to the commit it came from.
+
+## Checks
+
+    python lint.py                             house rules over every chapter
+    python crosscheck.py                       book-level consistency
+    python build.py --check sections/j07.tex   compile one chapter and report on it
+
+`lint.py` checks prose for em and en dashes, non-ASCII characters, violent
+idioms and the required section skeleton, and checks code blocks for non-ASCII
+and for lines longer than the page can print. `crosscheck.py` checks what
+per-chapter linting cannot see: the variant matrix, figure coverage,
+cross-references, chapter titles against the authoring guide, and that every
+date is written in full. Both run on every push, see
+[`.github/workflows/checks.yml`](.github/workflows/checks.yml).
+
+One exemption is worth knowing about. `\pubdate{April 2010}` marks a date a
+publisher gives to month precision only. The house rule is that every date the
+book states carries weekday, day, month and year, and that rule cannot apply to
+a day a publisher never published; writing one would be inventing a fact. The
+macro makes the exemption explicit in the source, so every month-and-year that
+is *not* wrapped is still reported as a defect.
+
+## Repository layout
 
 | Path | What it is |
 |---|---|
+| `sections/jNN.tex` | one file per chapter, 01 to 20 |
+| `sections/front.tex` | about, the honesty rule, the bench, how to read it |
+| `sections/appendix.tex` | the chapters at a glance, the honesty ledger, the corrections, the gaps, the open questions, the licence categories, the reference library |
+| `figures/jNN_{arch,wiring,uml,data,timing}.tex` | five figures per chapter |
+| `figures/front_map.tex` | the dependency map |
 | `main.tex` | preamble, authoring macros, five parts |
 | `tikz_preamble.tex` | shared TikZ and circuitikz styles, including the field bus, frame layout, control loop, joint and safe-state styles, and the three honesty styles |
-| `sections/front.tex` | about, the honesty rule, the bench, how to read it |
-| `sections/jNN.tex` | one file per chapter, 01 to 20 |
-| `sections/appendix.tex` | the chapters at a glance, the honesty ledger, the corrections, the gaps, the open questions, the licence categories, the reference library |
-| `figures/front_map.tex` | the dependency map |
-| `figures/jNN_{arch,wiring,uml,data,timing}.tex` | five figures per chapter |
-| `build.py` | figures to SVG, PDF, and the HTML converter |
+| `build.py` | figures to SVG, PDF, per-chapter builds, and the HTML converter |
 | `lint.py` | house-style check |
 | `crosscheck.py` | book-level consistency |
 | `AUTHORING.md` | the contract every chapter follows, the honesty rule, the confirm-before-writing list, the variant matrix |
 | `SOURCE.md` | the prior-art pool with verification marks, the four licence categories, the corrections, the claimable gaps, the open questions |
-| `build/` | scratch output, gitignored, safe to delete |
+| `build/` | scratch output, ignored, safe to delete |
 
 Chapter files use a `j` prefix so that a cross-reference or a copied figure can
-never silently resolve against a sibling volume's files.
-
-## Checks
-
-    python build.py --check sections/j07.tex   # one chapter alone, with its figures
-    python lint.py                             # house rules over every chapter
-    python crosscheck.py                       # book-level consistency
-    python build.py --pdf                      # PDF only
-    python build.py --html                     # figures and HTML only
-
-`lint.py` checks prose for em and en dashes, non-ASCII characters, violent
-idioms and the required subsection skeleton, and checks code blocks for
-non-ASCII and for lines longer than the page can print. `crosscheck.py` checks
-what per-chapter linting cannot see: the variant matrix, figure coverage,
-cross-references, chapter titles against the authoring guide, and that every
-date is written in full.
-
-One exemption is worth knowing about. `\pubdate{April 2010}` marks a date a
-publisher gives to month precision only. The house rule is that every date the
-volume states carries weekday, day, month and year, and that rule cannot apply
-to a day a publisher never published; writing one would be inventing a fact.
-The macro makes the exemption explicit in the source, so every month-and-year
-that is *not* wrapped is still reported as a defect.
-
-The volume's identity lives in exactly one `DOC` block per tool file, and both
-`build.py` and `lint.py` assert that the folder name matches it before
-generating anything.
+never silently resolve against a sibling volume's files. The book's identity
+lives in exactly one `DOC` block per tool file, and both `build.py` and
+`lint.py` refuse to run if the folder name stops matching it.
 
 ## Requirements
 
-MiKTeX or TeX Live with pdflatex, latex, dvisvgm, circuitikz, tcolorbox and
-listings; Python 3.10 or newer. No other Python package is needed to build.
+MiKTeX or TeX Live with `pdflatex`, `latex`, `dvisvgm`, `circuitikz`,
+`tcolorbox` and `listings`; Python 3.10 or newer. No Python package outside the
+standard library is needed.
 
 ## Licence
 
-MIT, see `LICENSE`. The book cites a great deal of other people's work; every
-chapter's Sources section records what was taken from where and under what
-terms, and appendix F sets out the four licence categories the volume applies.
+MIT, see [`LICENSE`](LICENSE). The book cites a great deal of other people's
+work: every chapter's Sources section records what was taken from where and
+under what terms, and appendix F sets out the four licence categories the book
+applies to its own dependencies.
