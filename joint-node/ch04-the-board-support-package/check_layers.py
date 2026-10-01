@@ -20,7 +20,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Where the silicon is allowed to be named. Everything else is portable code.
+# Where the silicon is allowed to be named, as a path segment pair. Every
+# chapter keeps its own tree, so this matches chNN/src/bsp/ wherever it appears
+# rather than one fixed path from the root.
 BOARD_LAYER = ("src/bsp",)
 
 # Vendor and toolchain headers. A prefix match is enough: the point is to catch
@@ -36,7 +38,7 @@ INCLUDE = re.compile(r'^\s*#\s*include\s*[<"]([^>"]+)[>"]', re.M)
 
 def is_board_layer(path):
     rel = path.relative_to(ROOT).as_posix()
-    return any(rel.startswith(d + "/") for d in BOARD_LAYER)
+    return any(("/" + d + "/") in ("/" + rel) for d in BOARD_LAYER)
 
 
 def vendor_header(name):

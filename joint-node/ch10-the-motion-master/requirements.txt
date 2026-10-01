@@ -1,0 +1,2 @@
+# Nothing beyond the standard library.
+# The socket is the kernel; the rest is struct and re.
