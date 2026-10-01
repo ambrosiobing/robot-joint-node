@@ -1,0 +1,591 @@
+{
+  "description": "356c7b841e583485",
+  "messages": {
+    "state": {
+      "length": 24,
+      "cases": [
+        {
+          "label": "all zero",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "all minimum",
+          "fields": {
+            "position_counts": -2147483648,
+            "velocity_mrad_s": -2147483648,
+            "effort_mnm": -2147483648,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "all maximum",
+          "fields": {
+            "position_counts": 2147483647,
+            "velocity_mrad_s": 2147483647,
+            "effort_mnm": 2147483647,
+            "stamp_us": 4294967295,
+            "valid_flags": 65535,
+            "fault_flags": 65535,
+            "mode": 255,
+            "effort_source": 255,
+            "model_version": 255,
+            "seq": 255
+          }
+        },
+        {
+          "label": "alternating bits",
+          "fields": {
+            "position_counts": 1431655765,
+            "velocity_mrad_s": 1431655765,
+            "effort_mnm": 1431655765,
+            "stamp_us": 1431655765,
+            "valid_flags": 21845,
+            "fault_flags": 21845,
+            "mode": 85,
+            "effort_source": 85,
+            "model_version": 85,
+            "seq": 85
+          }
+        },
+        {
+          "label": "position_counts at minimum",
+          "fields": {
+            "position_counts": -2147483648,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "position_counts at maximum",
+          "fields": {
+            "position_counts": 2147483647,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "velocity_mrad_s at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": -2147483648,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "velocity_mrad_s at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 2147483647,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "effort_mnm at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": -2147483648,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "effort_mnm at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 2147483647,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "stamp_us at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "stamp_us at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 4294967295,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "valid_flags at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "valid_flags at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 65535,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "fault_flags at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "fault_flags at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 65535,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "mode at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "mode at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 255,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "effort_source at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "effort_source at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 255,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "model_version at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "model_version at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 255,
+            "seq": 0
+          }
+        },
+        {
+          "label": "seq at minimum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 0
+          }
+        },
+        {
+          "label": "seq at maximum",
+          "fields": {
+            "position_counts": 0,
+            "velocity_mrad_s": 0,
+            "effort_mnm": 0,
+            "stamp_us": 0,
+            "valid_flags": 0,
+            "fault_flags": 0,
+            "mode": 0,
+            "effort_source": 0,
+            "model_version": 0,
+            "seq": 255
+          }
+        }
+      ]
+    },
+    "command": {
+      "length": 16,
+      "cases": [
+        {
+          "label": "all zero",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "all minimum",
+          "fields": {
+            "target": -2147483648,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "all maximum",
+          "fields": {
+            "target": 2147483647,
+            "valid_until_us": 4294967295,
+            "mode_req": 255,
+            "expiry_policy": 255,
+            "seq": 255,
+            "reserved_11": 255,
+            "reserved_12": 4294967295
+          }
+        },
+        {
+          "label": "alternating bits",
+          "fields": {
+            "target": 1431655765,
+            "valid_until_us": 1431655765,
+            "mode_req": 85,
+            "expiry_policy": 85,
+            "seq": 85,
+            "reserved_11": 85,
+            "reserved_12": 1431655765
+          }
+        },
+        {
+          "label": "target at minimum",
+          "fields": {
+            "target": -2147483648,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "target at maximum",
+          "fields": {
+            "target": 2147483647,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "valid_until_us at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "valid_until_us at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 4294967295,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "mode_req at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "mode_req at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 255,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "expiry_policy at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "expiry_policy at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 255,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "seq at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "seq at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 255,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "reserved_11 at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "reserved_11 at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 255,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "reserved_12 at minimum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 0
+          }
+        },
+        {
+          "label": "reserved_12 at maximum",
+          "fields": {
+            "target": 0,
+            "valid_until_us": 0,
+            "mode_req": 0,
+            "expiry_policy": 0,
+            "seq": 0,
+            "reserved_11": 0,
+            "reserved_12": 4294967295
+          }
+        }
+      ]
+    }
+  }
+}

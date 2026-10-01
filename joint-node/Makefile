@@ -1,0 +1,63 @@
+# Stage one: everything provable with no hardware.
+#
+# Chapter 20 builds this stage first, because it needs no board and it is the
+# one that will run thousands of times. Nothing here opens a serial port, flashes
+# anything or waits on a bus.
+#
+#     make            the whole stage
+#     make audit      the bus load arithmetic against chapter 11, see the note
+#
+# On the win11 aquamarine authoring laptop there is no make and no C compiler,
+# so run the python half directly:
+#
+#     python tools/gen_msgs.py proto/messages.yaml --check
+#     python tools/check_layers.py
+#     python test/test_msgs.py
+#     python test/test_gen.py
+
+CC      ?= cc
+CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O1 -g
+INCLUDE  = -Isrc/bus -Itest
+PYTHON  ?= python3
+BUILD    = build
+
+.PHONY: all generated layers pytest ctest audit clean
+all: generated layers pytest ctest
+	@echo
+	@echo "stage one passed: no hardware was involved, and none was claimed"
+
+# The generated files must match the description. A hand edit fails here rather
+# than surviving to be overwritten later by somebody who did not know.
+generated:
+	@$(PYTHON) tools/gen_msgs.py proto/messages.yaml --check
+
+# Chapter 4's rule, which is what makes the rest of this stage possible at all.
+layers:
+	@$(PYTHON) tools/check_layers.py
+
+pytest:
+	@$(PYTHON) test/test_msgs.py
+	@$(PYTHON) test/test_gen.py
+
+$(BUILD):
+	@mkdir -p $(BUILD)
+
+$(BUILD)/test_msgs: $(BUILD) test/test_msgs.c src/bus/joint_msgs.c src/bus/joint_msgs.h test/vectors.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_msgs.c src/bus/joint_msgs.c
+
+$(BUILD)/test_expiry: $(BUILD) test/test_expiry.c src/bus/command.c src/bus/joint_msgs.c
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_expiry.c src/bus/command.c src/bus/joint_msgs.c
+
+ctest: $(BUILD)/test_msgs $(BUILD)/test_expiry
+	@./$(BUILD)/test_msgs
+	@./$(BUILD)/test_expiry
+
+# Deliberately not part of the stage. It compares this tool's arithmetic with
+# the figures printed in chapter 11, and three of them disagree, so it exits
+# non zero on purpose. Gating the build on an unsettled question would stop all
+# other work; leaving the question unasked would be worse.
+audit:
+	-@$(PYTHON) tools/busload.py --audit-chapter
+
+clean:
+	@rm -rf $(BUILD)

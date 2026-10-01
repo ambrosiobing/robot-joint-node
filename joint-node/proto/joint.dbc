@@ -1,0 +1,35 @@
+VERSION ""
+
+NS_ :
+
+BS_:
+
+BU_: MASTER JOINT
+
+BO_ 385 state_1: 24 JOINT
+ SG_ position_counts : 0|32@1- (1,0) [-2147483648|2147483647] "counts" MASTER
+ SG_ velocity_mrad_s : 32|32@1- (1,0) [-2147483648|2147483647] "mrad/s" MASTER
+ SG_ effort_mnm : 64|32@1- (1,0) [-2147483648|2147483647] "mNm" MASTER
+ SG_ stamp_us : 96|32@1+ (1,0) [0|4294967295] "us" MASTER
+ SG_ valid_flags : 128|16@1+ (1,0) [0|65535] "bitfield" MASTER
+ SG_ fault_flags : 144|16@1+ (1,0) [0|65535] "bitfield" MASTER
+ SG_ mode : 160|8@1+ (1,0) [0|255] "enum" MASTER
+ SG_ effort_source : 168|8@1+ (1,0) [0|255] "enum" MASTER
+ SG_ model_version : 176|8@1+ (1,0) [0|255] "enum" MASTER
+ SG_ seq : 184|8@1+ (1,0) [0|255] "count" MASTER
+
+BO_ 257 command_1: 16 MASTER
+ SG_ target : 0|32@1- (1,0) [-2147483648|2147483647] "counts" JOINT
+ SG_ valid_until_us : 32|32@1+ (1,0) [0|4294967295] "us" JOINT
+ SG_ mode_req : 64|8@1+ (1,0) [0|255] "enum" JOINT
+ SG_ expiry_policy : 72|8@1+ (1,0) [0|255] "enum" JOINT
+ SG_ seq : 80|8@1+ (1,0) [0|255] "count" JOINT
+ SG_ reserved_11 : 88|8@1+ (1,0) [0|255] "reserved" JOINT
+ SG_ reserved_12 : 96|32@1+ (1,0) [0|4294967295] "reserved" JOINT
+
+CM_ BO_ 385 "every period, from the node";
+CM_ BO_ 257 "every period, to the node";
+
+CM_ "Generated from proto/messages.yaml, description 356c7b841e583485.";
+CM_ "Identifier rule: function_code << 7 | node_id. This file is written for node 1; every other node repeats it with a different low 7 bits.";
+CM_ "Lengths above eight bytes are flexible-data lengths. A tool that only knows classic frames will reject them, which is correct of it.";
