@@ -11,9 +11,13 @@
 # so run the python half directly:
 #
 #     python tools/gen_msgs.py proto/messages.yaml --check
-#     python tools/check_layers.py
 #     python test/test_msgs.py
 #     python test/test_gen.py
+#
+# The layer rule is not checked from here. It is chapter 4's check and it reads
+# the whole joint-node tree at once, so running it from this chapter would make
+# this chapter depend on that one, which is the arrangement the volume's README
+# rules out. It runs from chapter 4 and covers these files from there.
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O1 -g
@@ -21,8 +25,8 @@ INCLUDE  = -Isrc/bus -Itest
 PYTHON  ?= python3
 BUILD    = build
 
-.PHONY: all generated layers pytest ctest audit clean
-all: generated layers pytest ctest
+.PHONY: all generated pytest ctest audit clean
+all: generated pytest ctest
 	@echo
 	@echo "stage one passed: no hardware was involved, and none was claimed"
 
@@ -30,10 +34,6 @@ all: generated layers pytest ctest
 # than surviving to be overwritten later by somebody who did not know.
 generated:
 	@$(PYTHON) tools/gen_msgs.py proto/messages.yaml --check
-
-# Chapter 4's rule, which is what makes the rest of this stage possible at all.
-layers:
-	@$(PYTHON) tools/check_layers.py
 
 pytest:
 	@$(PYTHON) test/test_msgs.py

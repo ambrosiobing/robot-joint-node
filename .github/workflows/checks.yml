@@ -7,10 +7,15 @@ name: checks
 #          Markdown edition still matches its source. Needs only Python.
 #
 # software the chapters under joint-node/, each on its own terms. This is where
-#          the C is compiled and the socket is exercised, neither of which can
-#          happen on the authoring laptop: it has no compiler, and its Python
-#          has no AF_CAN. The runner has both, so the things that can only be
-#          skipped locally are actually run here.
+#          the C is compiled, which cannot happen on the win11 aquamarine
+#          authoring laptop because there is no compiler there. Everything in
+#          chapters 10 and 11 that is written in C is therefore first built
+#          here, and a red job is the first information anyone has about it.
+#
+#          The socket is the one thing this job still cannot settle. GitHub's
+#          runner kernel has no vcan module, so chapter 10's socket test reports
+#          a skip with its reason and the Pi 4 remains the only host that can
+#          turn that into a result.
 #
 # Building the book itself needs a TeX installation and is done locally, so
 # the Markdown check regenerates the chapters only, not the figures.
@@ -91,26 +96,37 @@ jobs:
           pip install -r requirements.txt
           python check_layers.py
 
-      - name: Chapter 10, frame layout and log format
-        working-directory: joint-node/ch10-the-motion-master
-        run: |
-          pip install -r requirements.txt
-          python test/test_frames.py
-          python test/test_record.py
-
-      # The virtual interface is the whole point of running this here. If the
-      # runner's kernel has no vcan module the next step still runs and reports
-      # a skip with its reason, which is information rather than a false pass.
+      # The runner's kernel is where this is decided, not the workflow. If vcan
+      # is absent the socket test still runs and reports a skip with its reason,
+      # which is information rather than a false pass. The extra modules package
+      # is tried first because the base image ships a kernel without vcan.
       - name: Bring up a virtual CAN interface
         run: |
+          sudo modprobe vcan \
+            || sudo apt-get install -y "linux-modules-extra-$(uname -r)" \
+            || echo "no extra modules package for $(uname -r)"
           sudo modprobe vcan || echo "no vcan module on this runner"
           sudo ip link add dev vcan0 type vcan || echo "vcan0 not created"
           sudo ip link set up vcan0 || echo "vcan0 not brought up"
           ip -details link show vcan0 || true
 
-      - name: Chapter 10, the socket
+      # All C since the port off Python. The frame layout and the log format
+      # build and run anywhere; the socket test skips cleanly when vcan above
+      # did not appear. The flags are the Makefile's own:
+      # -std=c11 -Wall -Wextra -Werror.
+      - name: Chapter 10, build and run the C
         working-directory: joint-node/ch10-the-motion-master
-        run: python test/test_transport.py
+        run: make
+
+      - name: Chapter 10, no Python left behind
+        working-directory: joint-node/ch10-the-motion-master
+        run: |
+          set -e
+          if git ls-files | grep -E '\.py$|^requirements\.txt$'; then
+            echo "this chapter is C; a Python file here is a leftover"
+            exit 1
+          fi
+          echo "none, as intended"
 
       - name: Chapter 11, the generator and the host codec
         working-directory: joint-node/ch11-a-joint-protocol
