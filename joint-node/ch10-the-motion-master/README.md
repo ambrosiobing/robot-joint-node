@@ -108,7 +108,7 @@ is the one that was typed in.
 | The wire buffer carries nothing but the frame | `test_frame`, buffer dirtied first |
 | A recording can be read by the standard tools | `test_log`, against lines those tools produce |
 | Replaying a file twice gives the same traffic twice | `test_log` |
-| The socket layer works against the virtual interface | `test_bus`, on Linux only |
+| The socket layer works against the virtual interface | `test_bus`, run in the workflow against `vcan0` |
 | A kernel filter drops what it should and nothing else | `test_bus`, by a second receive that must time out |
 | The setpoint source holds its rate | reported at run time, **never measured** |
 
@@ -116,6 +116,16 @@ There is no C compiler on the win11 aquamarine authoring laptop, so nothing in
 this directory has ever been built there. It is built by the workflow in
 `.github/workflows/checks.yml` and on the Pi 4.
 
-`test_bus` has still not run as a real test anywhere. GitHub's runner kernel has
-no `vcan` module, so the workflow reports its skip honestly rather than claiming
-a pass. The Pi 4 is the only host that can turn that row into a result.
+`test_bus` is a real test as of Thursday 1 October 2026 and no longer a skip.
+GitHub's runner image ships a kernel with no `vcan` module, so the first
+`modprobe vcan` fails; the workflow then installs `linux-modules-extra` for the
+running kernel and the second `modprobe` succeeds. The interface comes up with
+an MTU of 72, which is the flexible-data size, and the test sends a 24 byte
+flexible-data frame through the kernel and gets every byte back. That is the
+socket option, the 72 byte layout and the filter all exercised by a kernel
+rather than asserted.
+
+What the virtual interface still cannot prove is anything about a wire. It has
+no arbitration, no bit timing and no error frames, so the Pi 4 with the isolated
+adapter remains the only way to learn whether the bus works, as opposed to
+whether this code speaks to a kernel correctly.

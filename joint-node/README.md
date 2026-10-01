@@ -81,7 +81,11 @@ tree is built there. It is built by the workflow in `.github/workflows/checks.ym
 and on the Pi 4, and the workflow is where the first information about a change
 to any of it comes from.
 
-Two things are still unproven anywhere, and both READMEs say so in their own
-acceptance tables. GitHub's runner kernel has no `vcan` module, so chapter 10's
-socket test reports a skip rather than a pass; and no setpoint rate has been
-measured, only reported at run time.
+One thing is still unproven anywhere, and chapter 10's README says so in its own
+acceptance table: no setpoint rate has been measured, only reported at run time.
+
+Chapter 10's socket test was in that list until Thursday 1 October 2026. The
+runner image ships a kernel with no `vcan` module, so it reported a skip; the
+workflow now installs `linux-modules-extra` for the running kernel first, and
+the test is real. It sends a 24 byte flexible-data frame through the kernel and
+gets every byte back.

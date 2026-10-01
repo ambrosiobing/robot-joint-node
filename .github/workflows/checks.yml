@@ -12,10 +12,11 @@ name: checks
 #          chapters 10 and 11 that is written in C is therefore first built
 #          here, and a red job is the first information anyone has about it.
 #
-#          The socket is the one thing this job still cannot settle. GitHub's
-#          runner kernel has no vcan module, so chapter 10's socket test reports
-#          a skip with its reason and the Pi 4 remains the only host that can
-#          turn that into a result.
+#          The socket is settled here too, since Thursday 1 October 2026. The
+#          runner image ships a kernel with no vcan module, so the step below
+#          installs linux-modules-extra for the running kernel before giving up.
+#          What a virtual interface cannot teach is arbitration, bit timing and
+#          error frames, and no step here claims otherwise.
 #
 # Building the book itself needs a TeX installation and is done locally, so
 # the Markdown check regenerates the chapters only, not the figures.
@@ -96,23 +97,37 @@ jobs:
           pip install -r requirements.txt
           python check_layers.py
 
-      # The runner's kernel is where this is decided, not the workflow. If vcan
-      # is absent the socket test still runs and reports a skip with its reason,
-      # which is information rather than a false pass. The extra modules package
-      # is tried first because the base image ships a kernel without vcan.
+      # The runner image ships a kernel with no vcan module, so the first
+      # modprobe fails and the extra modules package for the running kernel is
+      # installed before trying again.
+      #
+      # The last line is a hard failure on purpose. Chapter 10's README claims
+      # the socket is proven against a virtual interface, and test_bus prints a
+      # skip and exits zero when there is no interface to prove it against. Left
+      # unchecked, a runner image that drops vcan again would turn that claim
+      # into a lie behind a green tick. A red build here says which of the two
+      # has to change, the step or the claim.
       - name: Bring up a virtual CAN interface
         run: |
           sudo modprobe vcan \
             || sudo apt-get install -y "linux-modules-extra-$(uname -r)" \
             || echo "no extra modules package for $(uname -r)"
-          sudo modprobe vcan || echo "no vcan module on this runner"
+          sudo modprobe vcan || echo "second modprobe failed too"
           sudo ip link add dev vcan0 type vcan || echo "vcan0 not created"
           sudo ip link set up vcan0 || echo "vcan0 not brought up"
           ip -details link show vcan0 || true
+          if ! ip link show vcan0 >/dev/null 2>&1; then
+            echo "vcan0 is not up, so chapter 10's socket test would only skip."
+            echo "Either restore the interface or correct the acceptance table"
+            echo "in joint-node/ch10-the-motion-master/README.md, which says the"
+            echo "socket is proven here."
+            exit 1
+          fi
+          echo "vcan0 is up, so the socket test below is a real test"
 
       # All C since the port off Python. The frame layout and the log format
-      # build and run anywhere; the socket test skips cleanly when vcan above
-      # did not appear. The flags are the Makefile's own:
+      # build and run anywhere; the socket test needs the interface the step
+      # above guarantees. The flags are the Makefile's own:
       # -std=c11 -Wall -Wextra -Werror.
       - name: Chapter 10, build and run the C
         working-directory: joint-node/ch10-the-motion-master
