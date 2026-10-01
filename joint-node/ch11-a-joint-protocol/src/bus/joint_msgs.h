@@ -44,8 +44,14 @@ typedef struct {
 
 /* A packed mirror of the layout. Nothing packs through it: it exists so the
  * compiler checks the offsets this file was built from, and fails the
- * build if a field is added, widened or moved. */
-typedef struct {
+ * build if a field is added, widened or moved.
+ *
+ * The attribute sits straight after the struct keyword, which is the
+ * position the compiler documents. Placed after the closing brace it is
+ * accepted in some versions and ignored with a warning in others, and a
+ * silently ignored packing attribute makes every assertion below pass for
+ * the wrong reason. */
+typedef struct JOINT_PACKED {
     int32_t   position_counts;
     int32_t   velocity_mrad_s;
     int32_t   effort_mnm;
@@ -56,7 +62,7 @@ typedef struct {
     uint8_t   effort_source;
     uint8_t   model_version;
     uint8_t   seq;
-} JOINT_PACKED state_wire_t;
+} state_wire_t;
 
 _Static_assert(sizeof(state_wire_t) == STATE_LEN,
                "state frame must stay 24 bytes");
@@ -103,8 +109,14 @@ typedef struct {
 
 /* A packed mirror of the layout. Nothing packs through it: it exists so the
  * compiler checks the offsets this file was built from, and fails the
- * build if a field is added, widened or moved. */
-typedef struct {
+ * build if a field is added, widened or moved.
+ *
+ * The attribute sits straight after the struct keyword, which is the
+ * position the compiler documents. Placed after the closing brace it is
+ * accepted in some versions and ignored with a warning in others, and a
+ * silently ignored packing attribute makes every assertion below pass for
+ * the wrong reason. */
+typedef struct JOINT_PACKED {
     int32_t   target;
     uint32_t  valid_until_us;
     uint8_t   mode_req;
@@ -112,7 +124,7 @@ typedef struct {
     uint8_t   seq;
     uint8_t   reserved_11;
     uint32_t  reserved_12;
-} JOINT_PACKED command_wire_t;
+} command_wire_t;
 
 _Static_assert(sizeof(command_wire_t) == COMMAND_LEN,
                "command frame must stay 16 bytes");

@@ -181,11 +181,17 @@ def emit_header(spec, digest):
                 "",
                 "/* A packed mirror of the layout. Nothing packs through it: it exists so the",
                 " * compiler checks the offsets this file was built from, and fails the",
-                " * build if a field is added, widened or moved. */",
-                "typedef struct {"]
+                " * build if a field is added, widened or moved.",
+                " *",
+                " * The attribute sits straight after the struct keyword, which is the",
+                " * position the compiler documents. Placed after the closing brace it is",
+                " * accepted in some versions and ignored with a warning in others, and a",
+                " * silently ignored packing attribute makes every assertion below pass for",
+                " * the wrong reason. */",
+                "typedef struct JOINT_PACKED {"]
         for f in m["fields"]:
             out.append(f"    {TYPES[f['type']]['c']:<9} {f['name']};")
-        out += [f"}} JOINT_PACKED {mname}_wire_t;",
+        out += [f"}} {mname}_wire_t;",
                 "",
                 f'_Static_assert(sizeof({mname}_wire_t) == {up}_LEN,',
                 f'               "{mname} frame must stay {m["length"]} bytes");']
@@ -204,34 +210,68 @@ def emit_header(spec, digest):
     return "\n".join(out)
 
 
-PUT_GET = """
-static void put_u8 (uint8_t *p, uint8_t  v) { p[0] = v; }
-static void put_u16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v); p[1] = (uint8_t)(v >> 8); }
-static void put_u32(uint8_t *p, uint32_t v) { put_u16(p, (uint16_t)v); put_u16(p + 2, (uint16_t)(v >> 16)); }
-static void put_u64(uint8_t *p, uint64_t v) { put_u32(p, (uint32_t)v); put_u32(p + 4, (uint32_t)(v >> 32)); }
-static void put_i8 (uint8_t *p, int8_t  v) { put_u8 (p, (uint8_t) v); }
-static void put_i16(uint8_t *p, int16_t v) { put_u16(p, (uint16_t)v); }
-static void put_i32(uint8_t *p, int32_t v) { put_u32(p, (uint32_t)v); }
-static void put_i64(uint8_t *p, int64_t v) { put_u64(p, (uint64_t)v); }
+# Each accessor and what it calls. A static function that is defined and never
+# called is a warning, and the build treats warnings as errors, so only the
+# accessors the description actually reaches are emitted.
+ACCESSOR_CALLS = {
+    "u8": (), "u16": (),
+    "u32": ("u16",), "u64": ("u32",),
+    "i8": ("u8",), "i16": ("u16",), "i32": ("u32",), "i64": ("u64",),
+}
 
-static uint8_t  get_u8 (const uint8_t *p) { return p[0]; }
-static uint16_t get_u16(const uint8_t *p) { return (uint16_t)p[0] | (uint16_t)((uint16_t)p[1] << 8); }
-static uint32_t get_u32(const uint8_t *p) { return (uint32_t)get_u16(p) | ((uint32_t)get_u16(p + 2) << 16); }
-static uint64_t get_u64(const uint8_t *p) { return (uint64_t)get_u32(p) | ((uint64_t)get_u32(p + 4) << 32); }
-static int8_t   get_i8 (const uint8_t *p) { return (int8_t)  get_u8 (p); }
-static int16_t  get_i16(const uint8_t *p) { return (int16_t) get_u16(p); }
-static int32_t  get_i32(const uint8_t *p) { return (int32_t) get_u32(p); }
-static int64_t  get_i64(const uint8_t *p) { return (int64_t) get_u64(p); }
-"""
+PUT = {
+    "u8":  "static void put_u8 (uint8_t *p, uint8_t  v) { p[0] = v; }",
+    "u16": "static void put_u16(uint8_t *p, uint16_t v) { p[0] = (uint8_t)(v); p[1] = (uint8_t)(v >> 8); }",
+    "u32": "static void put_u32(uint8_t *p, uint32_t v) { put_u16(p, (uint16_t)v); put_u16(p + 2, (uint16_t)(v >> 16)); }",
+    "u64": "static void put_u64(uint8_t *p, uint64_t v) { put_u32(p, (uint32_t)v); put_u32(p + 4, (uint32_t)(v >> 32)); }",
+    "i8":  "static void put_i8 (uint8_t *p, int8_t  v) { put_u8 (p, (uint8_t) v); }",
+    "i16": "static void put_i16(uint8_t *p, int16_t v) { put_u16(p, (uint16_t)v); }",
+    "i32": "static void put_i32(uint8_t *p, int32_t v) { put_u32(p, (uint32_t)v); }",
+    "i64": "static void put_i64(uint8_t *p, int64_t v) { put_u64(p, (uint64_t)v); }",
+}
+
+GET = {
+    "u8":  "static uint8_t  get_u8 (const uint8_t *p) { return p[0]; }",
+    "u16": "static uint16_t get_u16(const uint8_t *p) { return (uint16_t)p[0] | (uint16_t)((uint16_t)p[1] << 8); }",
+    "u32": "static uint32_t get_u32(const uint8_t *p) { return (uint32_t)get_u16(p) | ((uint32_t)get_u16(p + 2) << 16); }",
+    "u64": "static uint64_t get_u64(const uint8_t *p) { return (uint64_t)get_u32(p) | ((uint64_t)get_u32(p + 4) << 32); }",
+    "i8":  "static int8_t   get_i8 (const uint8_t *p) { return (int8_t)  get_u8 (p); }",
+    "i16": "static int16_t  get_i16(const uint8_t *p) { return (int16_t) get_u16(p); }",
+    "i32": "static int32_t  get_i32(const uint8_t *p) { return (int32_t) get_u32(p); }",
+    "i64": "static int64_t  get_i64(const uint8_t *p) { return (int64_t) get_u64(p); }",
+}
+
+ORDER = ("u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64")
+
+
+def accessors_needed(spec):
+    """Every type the fields use, plus everything those accessors call."""
+    need = set()
+    pending = [f["type"] for m in spec["messages"].values() for f in m["fields"]]
+    while pending:
+        t = pending.pop()
+        if t in need:
+            continue
+        need.add(t)
+        pending.extend(ACCESSOR_CALLS[t])
+    return [t for t in ORDER if t in need]
 
 
 def emit_source(spec, digest):
+    needed = accessors_needed(spec)
     out = [banner("c", digest, ("/*", " */")),
            '#include "joint_msgs.h"',
            "",
            "/* Fixed offsets, fixed byte order, never a structure copy. Dull on purpose:",
-           " * it is the reason a frame recorded today still decodes in two years. */",
-           PUT_GET]
+           " * it is the reason a frame recorded today still decodes in two years.",
+           " *",
+           " * Only the accessors this description reaches are here. An accessor that is",
+           " * defined and never called is a warning, and warnings fail this build. */",
+           ""]
+    out += [PUT[t] for t in needed]
+    out.append("")
+    out += [GET[t] for t in needed]
+    out.append("")
 
     for mname, m in spec["messages"].items():
         out.append(f"void pack_{mname}(uint8_t *p, const {mname}_t *s)\n{{")

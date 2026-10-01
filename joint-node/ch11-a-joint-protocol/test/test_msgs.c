@@ -38,7 +38,7 @@ static void problem(const char *msg, const char *label, const char *field)
             bad = diff_##MSG(&(CASES)[i].f, &got);                           \
             if (bad)                                                         \
                 problem(#MSG, (CASES)[i].label, bad);                        \
-            checked += (int) (COUNT ? 1 : 0);                                \
+            checked++;                                                       \
         }                                                                    \
     } while (0)
 
