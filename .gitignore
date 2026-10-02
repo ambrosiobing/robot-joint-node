@@ -8,7 +8,15 @@ build/
 *.fdb_latexmk
 *.synctex.gz
 
-# The built book stays local. Rebuild it with: python build.py
+# No assembled volume and no PDF is ever published. Only the Markdown chapters
+# and the projects are, which is what mdbuild.py writes. These are blanket rules
+# rather than named files, so a new output name cannot slip through: the whole
+# volume, a single unit of it, or anything else.
+*.pdf
+*.html
+
+# Named explicitly as well, so the intent survives anyone relaxing the rules
+# above.
 robot-joint-node.pdf
 robot-joint-node.html
 
@@ -23,3 +31,12 @@ venv/
 .idea/
 __pycache__/
 *.pyc
+
+# Journals and correspondence never reach a published repository, private
+# shares included. They live in the catalogue, which is local only. A published
+# repository carries the work, never the running record of doing it. This is a
+# guard rather than a reminder: the rule has held by discipline so far, and a
+# rule that lives only in someone's head is one copy away from being broken.
+private_journal/
+correspondence/
+DIARY*.md
