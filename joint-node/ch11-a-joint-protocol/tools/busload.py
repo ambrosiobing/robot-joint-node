@@ -29,14 +29,22 @@ ARB_BITS_DEFAULT = 67        # identifier, control, and the trailing fields
 DATA_OVERHEAD_DEFAULT = 48   # checksum, stuff count, delimiters, in the data phase
 
 # What chapter 11 step 7 prints, for the audit mode below.
+#
+# These three option figures were 91, 61 and 38 until Tuesday 6 October 2026,
+# and they were wrong. The chapter printed them inside a block that claims to be
+# this program's output, so the quickest way to settle it was to run the command
+# the chapter itself quotes. The per-frame costs and the baseline were right and
+# are unchanged; only the options were wrong, and they were wrong in the
+# direction that flatters the design. The chapter now reproduces what the tool
+# prints, and this table is what makes the two stay together.
 CHAPTER = {
     "state_us": 254.0,
     "command_us": 222.0,
     "baseline_pct": 190.0,
     "options": {
-        "command at 250 Hz": 91.0,
-        "arbitration at 1 Mbit/s": 61.0,
-        "both": 38.0,
+        "command at 250 Hz": 124.0,
+        "arbitration at 1 Mbit/s": 137.0,
+        "both": 90.0,
     },
 }
 
@@ -95,7 +103,9 @@ def main(argv=None):
     print("DOES NOT FIT. Options, in order of preference:")
     s_fast, c_fast = frames(1_000_000)
     options = [
-        ("state at {r} Hz, command at {q} Hz with interpolation on the node".format(
+        # Kept short on purpose: this output is quoted verbatim in chapter 11,
+        # and the house limit for a code block there is 96 columns.
+        ("state at {r} Hz, command at {q} Hz, interpolated on the node".format(
             r=a.rate, q=a.rate // 4),
          load(a.joints, a.rate, a.rate // 4, s_us, c_us)),
         ("raise the arbitration rate to 1 Mbit/s",
@@ -124,12 +134,14 @@ def main(argv=None):
             print(f"  {label:<46} this tool {mine:7.1f}   chapter {theirs:7.1f}   "
                   f"{'agree' if agree else f'DIFFER by {delta:+.1f}'}")
         if bad:
-            print(f"\n  {bad} figures disagree. The per-frame costs and the baseline come")
-            print("  straight from the chapter's own two constants, so the disagreement is")
-            print("  in the options rather than in the model. Note that this tool's 'both'")
-            print("  figure is close to the chapter's first option, which is what a shifted")
-            print("  row looks like. One of the two is wrong and it is worth settling before")
-            print("  either number is quoted to anybody.")
+            print(f"\n  {bad} figures disagree. The chapter prints these numbers inside a")
+            print("  block that claims to be this program's output, so they are not two")
+            print("  opinions: either the chapter was edited without rerunning the command")
+            print("  it quotes, or the model here changed under it. Run the command in the")
+            print("  chapter, compare, and correct whichever one moved. Quote neither")
+            print("  number until they match.")
+        else:
+            print("\n  the chapter and this tool agree on every figure")
         return 1 if bad else 0
 
     return 0

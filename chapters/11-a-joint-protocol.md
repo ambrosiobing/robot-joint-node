@@ -82,7 +82,7 @@ Before this chapter the node can send bytes. After it, it says something: a stat
 | Command frame payload | 16 bytes | computed | n/a |
 | Pack and unpack cost | under 150 cycles each | not measured | not measured |
 | Bus load, one joint at 1 kHz | computed in step 7 | computed | n/a |
-| Bus load, four joints at 1 kHz | under 40 per cent | computed | n/a |
+| Bus load, four joints at 1 kHz | 90 per cent, and only with both mitigations | computed in step 7 | n/a |
 
 *Table 11.4. The budget for chapter 11. The two load rows are the ones that decide the design: if four joints at the full control rate do not fit comfortably, the state rate comes down or the layout gets smaller, and it is better to know that before writing the packer.*
 
@@ -254,12 +254,14 @@ python tools/busload.py --joints 4 --rate 1000 --nominal 500000 --data 2000000
 # command frame: 67 arbitration bits @ 500k + 176 data bits @ 2M -> 222 us
 # four joints, both directions, 1000 Hz: 1.90 ms of every 1.00 ms  -> 190%
 # DOES NOT FIT. Options, in order of preference:
-#   state at 1 kHz, command at 250 Hz with interpolation on the node -> 91%
-#   raise the arbitration rate to 1 Mbit/s                            -> 61%
-#   both                                                              -> 38%
+#   state at 1000 Hz, command at 250 Hz, interpolated on the node  -> 124%   still does not fit
+#   raise the arbitration rate to 1 Mbit/s                         -> 137%   still does not fit
+#   both                                                           ->  90%
 ```
 
-That result is the most useful thing in this chapter. The obvious design, every joint reporting and being commanded at the full control rate, does not fit on one bus at these rates, and finding that out in an afternoon with arithmetic is better than finding it out on a robot. The arbitration phase is the expensive part, which is why raising the arbitration rate helps more than shrinking the payload.
+That result is the most useful thing in this chapter, and it is worse than it first looks. The obvious design, every joint reporting and being commanded at the full control rate, does not fit on one bus at these rates. Neither does either way out on its own: dropping the command rate to a quarter still asks for 124 per cent of the period, and doubling the arbitration rate still asks for 137 per cent. Only both together fit, at 90 per cent, and 90 per cent of every period is not a comfortable number to design against. Finding that out in an afternoon with arithmetic is better than finding it out on a robot.
+
+The arbitration phase is the expensive part: 134 microseconds of a 254 microsecond state frame, and 134 of a 222 microsecond command frame. That is why raising the arbitration rate helps more than shrinking the payload would. It is also why the order of preference above is what it is: dropping the command rate removes three whole frames per period and saves 666 microseconds, while halving the arbitration time saves 67 microseconds on each of eight frames, which is 536. The cheaper option is the one that sends fewer frames, not the one that sends them faster.
 
 **Step 8.** **Filter in hardware, not in software.** The controller can accept only the identifiers this node cares about. On a four-joint bus that is the difference between waking for every frame and waking for three.
 
@@ -362,7 +364,7 @@ The published progression from here is the bus association's application layer p
 
 ## Portfolio evidence
 
-- The bus load calculation, with the design that does not fit and the two ways out. An honest negative result from an afternoon of arithmetic is persuasive evidence of judgement.
+- The bus load calculation, with the design that does not fit, the two mitigations that do not rescue it on their own, and the combination that fits with ten per cent to spare. An honest negative result from an afternoon of arithmetic is persuasive evidence of judgement.
 - The message description and its four generated outputs, which demonstrate the one-source-of-truth discipline on a protocol rather than on a board file.
 - A recorded trace decoded into named signals, with a derived effort value visibly labelled as derived on the wire.
 - The expiry demonstration: the master is stopped and the joint stops by itself, in a time the master chose.

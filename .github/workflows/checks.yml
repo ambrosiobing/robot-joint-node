@@ -174,8 +174,7 @@ jobs:
 
       - name: Chapter 11, the bus load audit
         working-directory: joint-node/ch11-a-joint-protocol
-        continue-on-error: true
         run: |
-          echo "This disagrees with chapter 11 on three figures and exits non zero"
-          echo "on purpose. It is reported, not enforced, until the question is settled."
+          echo "The chapter prints these figures as this program's output, so they"
+          echo "have to be that. Settled on Tuesday 6 October 2026 and enforced since."
           python tools/busload.py --audit-chapter
