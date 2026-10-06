@@ -1,0 +1,2 @@
+# The bit timing work needs nothing outside the standard library.
+# Kept so that the pinned-requirements rule is answered rather than assumed.

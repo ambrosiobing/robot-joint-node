@@ -238,24 +238,33 @@ prescaler; the bit is a synchronisation quantum plus two segments; and the
 sample point is where the second segment begins. Both phases have their own
 prescaler and their own segments.
 \begin{ccode}
-/* bittiming.c: the whole arithmetic, in one place, with no table of magic. */
+/* bittiming.c: the whole arithmetic, in one place, with no table of magic.
+   The limits are an argument because the two phases do not share them. */
 bool bt_compute(uint32_t kernel_hz, uint32_t bitrate, float want_sp,
-                bt_t *out)
+                const bt_limits_t *lim, bt_t *out)
 {
-    for (uint32_t pre = 1; pre <= BT_MAX_PRESCALER; pre++) {
-        uint32_t tq_hz = kernel_hz / pre;
+    uint32_t want = (uint32_t) (want_sp * 1000.0f + 0.5f);   /* per mille */
+    uint32_t max_tq = 1u + lim->seg1_max + lim->seg2_max;
+
+    for (uint32_t pre = lim->prescaler_min; pre <= lim->prescaler_max; pre++) {
         if (kernel_hz % pre) continue;                 /* inexact prescaler */
+        uint32_t tq_hz = kernel_hz / pre;
         if (tq_hz % bitrate) continue;                 /* inexact bit time  */
         uint32_t tq_per_bit = tq_hz / bitrate;
-        if (tq_per_bit < BT_MIN_TQ || tq_per_bit > BT_MAX_TQ) continue;
+        if (tq_per_bit < lim->min_tq || tq_per_bit > max_tq) continue;
 
-        uint32_t seg1 = (uint32_t) lroundf(want_sp * (float) tq_per_bit) - 1u;
-        uint32_t seg2 = tq_per_bit - seg1 - 1u;        /* 1 tq is the sync   */
-        if (seg1 < BT_MIN_SEG1 || seg2 < BT_MIN_SEG2) continue;
+        uint32_t before = (want * tq_per_bit + 500u) / 1000u;
+        if (before == 0u || before > tq_per_bit) continue;
+        uint32_t seg1 = before - 1u;                   /* 1 tq is the sync  */
+        uint32_t seg2 = tq_per_bit - seg1 - 1u;
+        if (seg1 < lim->seg1_min || seg1 > lim->seg1_max) continue;
+        if (seg2 < lim->seg2_min || seg2 > lim->seg2_max) continue;
 
         out->prescaler = pre; out->seg1 = seg1; out->seg2 = seg2;
-        out->sample_point = (float) (1u + seg1) / (float) tq_per_bit;
-        out->sjw = min_u32(seg2, BT_MAX_SJW);
+        out->tq_per_bit = tq_per_bit;
+        out->sjw = min_u32(seg2, lim->sjw_max);
+        out->sample_point_permille =
+            ((1u + seg1) * 1000u + tq_per_bit / 2u) / tq_per_bit;
         return true;
     }
     return false;                                      /* caller must fail   */
@@ -265,6 +274,23 @@ Print both results at boot, with their achieved sample points, and stop the node
 if either phase could not be solved exactly. A bit rate that is one part in a
 thousand out works between two nodes that are wrong in the same direction and
 fails against anything else.
+
+Two things in that function are easy to get wrong and both cost a working bus.
+The first is that \textbf{the limits are an argument rather than a set of
+constants}, because the registers that hold these numbers are much narrower in
+the data phase: the prescaler there runs to 32 where the nominal phase allows
+512, and the second segment to 16 where the nominal phase allows 128. One set of
+constants cannot be right for both, and the set that suits the nominal phase
+silently accepts data timings the hardware cannot hold.
+
+The second is that \textbf{the decision is integer}. The obvious way to place
+the sample point is to round a fraction of the bit, and the obvious way to check
+the result is to compute the same fraction in whatever language the host test is
+written in. Those two roundings do not have to agree: one common pair of
+conventions rounds a half to the nearest even number and the other rounds it
+away from zero, and 75 per cent of 30 quanta is exactly 22.5. That disagreement
+produces one wrong row in a table of correct ones, which is the hardest kind to
+find.
 
 \diagram{j09_data}{One bit in each phase, divided into time quanta, with the
 sample point marked. The two phases share a kernel clock and nothing else: each

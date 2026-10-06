@@ -5,9 +5,15 @@ its own tests, its own dependencies and its own README.
 
 ```
 ch04-the-board-support-package/
+ch09-can-fd-from-the-controller-out/
 ch10-the-motion-master/
 ch11-a-joint-protocol/
 ```
+
+Four of the twenty. Chapter 9 carries its arithmetic half only: bit timing
+computed and refused, with no board, no transceiver and no bus. The loopback,
+the message memory layout and the first frame need the Nucleo and are not there
+yet, and its README says which half is which.
 
 ## Why one directory per chapter rather than one shared tree
 
