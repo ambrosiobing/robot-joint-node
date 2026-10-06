@@ -20,9 +20,12 @@ make                                      # needs a C compiler
 
 Everything except `make` runs on the win11 aquamarine authoring laptop. There is
 no C compiler there, and the house rule is that one is never run there even
-though Qt ships one, so **the C half is written and has never been through a
-compiler**. The Python half is proven; the C half is not, and this README will
-say so until it has run on the Pi 4 or on the win11 skyhorizon WSL side.
+though Qt ships one, so the C half is never built where it is written.
+
+It is built in continuous integration, which compiled it for the first time on
+Tuesday 6 October 2026 with `-std=c11 -Wall -Wextra -Werror` and ran it against
+the same vectors the Python half uses. Both halves are proven now. Neither has
+been near the board, which is a different claim and is made nowhere.
 
 ## Why exact, and why it refuses
 
@@ -120,5 +123,5 @@ caller passes in, converted once before anything is decided.
 | A bit is the sync quantum plus the two segments | asserted in both tests |
 | The result fits the registers that must hold it | `test_bittiming.py`, against the field widths |
 | A hand edit of the vectors does not survive | `--check` |
-| The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, **never compiled** |
+| The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
 | The message memory layout, the loopback, the first frame | **not here yet**, they need the board |

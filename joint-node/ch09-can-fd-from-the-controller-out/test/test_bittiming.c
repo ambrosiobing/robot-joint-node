@@ -5,10 +5,10 @@
  * vector file, so when they disagree the output says which case and which
  * field rather than leaving somebody to guess which side moved.
  *
- * This has never been compiled. There is no C compiler on the win11 aquamarine
- * authoring laptop, so it runs on the Pi 4 or on the win11 skyhorizon WSL side,
- * and until it has, the honest claim is that the Python half is proven and this
- * half is written.
+ * There is no C compiler on the win11 aquamarine authoring laptop, so this is
+ * never built where it is written. Continuous integration builds it with
+ * -std=c11 -Wall -Wextra -Werror and runs it, which is where it first compiled
+ * on Tuesday 6 October 2026. It has still never been near the board.
  */
 #include <stdio.h>
 #include <string.h>

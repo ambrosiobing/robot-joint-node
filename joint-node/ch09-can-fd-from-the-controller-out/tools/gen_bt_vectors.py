@@ -13,8 +13,8 @@ test/vectors.json rather than against each other, so when they disagree the
 vector file says which case and which field.
 
 There is no C compiler on the win11 aquamarine authoring laptop, so the C half
-is written and has never been through one. This file is therefore the only half
-whose output has actually been seen, and the README says so.
+is never built where it is written. It is built in continuous integration, which
+runs it against these same vectors.
 
 The limits are not invented. They are the widths of the register fields that
 hold these numbers on this part, read from the field definitions rather than
