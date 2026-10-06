@@ -75,12 +75,22 @@ int main(void)
         }
     }
 
-    /* The macro used in the compile time assertion has to agree with the
-     * function. If these two ever drift, the build stops protecting anything. */
+    /* Three ways of saying the same total have to agree: the function, the
+     * run time macro over the struct, and the constant the compile time
+     * assertion uses. The assertion cannot read the struct, because a const
+     * object's members are not a constant expression in C, so it reads its own
+     * macros instead. That is the gap where the two can drift apart, and this
+     * is the only place it would ever be noticed. */
     if (MSGRAM_BYTES(MSGRAM_LAYOUT) != m.total_bytes) {
-        printf("  FAIL the assertion macro says %u and the function says %u\n",
+        printf("  FAIL the run time macro says %u and the function says %u\n",
                (unsigned) MSGRAM_BYTES(MSGRAM_LAYOUT),
                (unsigned) m.total_bytes);
+        failures++;
+    }
+    if (MSGRAM_LAYOUT_BYTES != m.total_bytes) {
+        printf("  FAIL the asserted constant says %u and the function says "
+               "%u, so the build is guarding a layout that is not this one\n",
+               (unsigned) MSGRAM_LAYOUT_BYTES, (unsigned) m.total_bytes);
         failures++;
     }
 

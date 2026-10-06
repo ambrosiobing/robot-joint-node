@@ -6,21 +6,17 @@
  * with four joints reporting, sixteen is four control periods of slack before
  * anything is dropped, which is enough to survive a late handler and not so
  * much that a stale frame is ever acted on. */
+/* Built from the macros rather than from literals, so the struct and the
+ * compile time assertion in the header cannot say different numbers. */
 const msgram_layout_t MSGRAM_LAYOUT = {
-    .std_filters = 8u,
-    .ext_filters = 4u,
-    .rx_fifo0    = 16u,
-    .rx_fifo1    = 8u,
-    .rx_buffers  = 0u,
-    .tx_event    = 8u,
-    .tx_buffers  = 8u,
+    .std_filters = MSGRAM_N_STD_FILTERS,
+    .ext_filters = MSGRAM_N_EXT_FILTERS,
+    .rx_fifo0    = MSGRAM_N_RX_FIFO0,
+    .rx_fifo1    = MSGRAM_N_RX_FIFO1,
+    .rx_buffers  = MSGRAM_N_RX_BUFFERS,
+    .tx_event    = MSGRAM_N_TX_EVENT,
+    .tx_buffers  = MSGRAM_N_TX_BUFFERS,
 };
-
-/* The build fails if this layout does not fit the part's message memory.
- * A controller whose layout overflows does not report anything: it simply does
- * not transmit, and the symptom appears somewhere else entirely. */
-_Static_assert(MSGRAM_BYTES(MSGRAM_LAYOUT) <= MSGRAM_SIZE_BYTES,
-               "the message memory layout does not fit this part");
 
 bool msgram_compute(const msgram_layout_t *lay, msgram_map_t *out)
 {

@@ -46,8 +46,13 @@ typedef struct {
     uint32_t tx_buffers;
 } msgram_layout_t;
 
-/* The total a layout occupies, as an expression so it can be asserted at
- * compile time. Each section is multiplied by its own element size. */
+/* The total a layout occupies at run time. Each section is multiplied by its
+ * own element size. This takes a struct, so it is NOT a constant expression and
+ * cannot be used in _Static_assert: in C, reading a member of a const object is
+ * not an integer constant expression, however obviously constant it looks. The
+ * macros below exist for the assertion, and the test checks that the two agree,
+ * because an assertion that has drifted from the layout it guards protects
+ * nothing. */
 #define MSGRAM_BYTES(l)                                   \
     ((l).std_filters * MSGRAM_STD_FILTER_BYTES            \
      + (l).ext_filters * MSGRAM_EXT_FILTER_BYTES          \
@@ -56,6 +61,31 @@ typedef struct {
      + (l).rx_buffers * MSGRAM_FRAME_BYTES                \
      + (l).tx_event   * MSGRAM_TX_EVENT_BYTES             \
      + (l).tx_buffers * MSGRAM_FRAME_BYTES)
+
+/* This node's layout, as macros, so the total below is a constant expression.
+ * Chapter 9 step 3. */
+#define MSGRAM_N_STD_FILTERS  8u
+#define MSGRAM_N_EXT_FILTERS  4u
+#define MSGRAM_N_RX_FIFO0    16u
+#define MSGRAM_N_RX_FIFO1     8u
+#define MSGRAM_N_RX_BUFFERS   0u
+#define MSGRAM_N_TX_EVENT     8u
+#define MSGRAM_N_TX_BUFFERS   8u
+
+#define MSGRAM_LAYOUT_BYTES                                   \
+    (MSGRAM_N_STD_FILTERS * MSGRAM_STD_FILTER_BYTES           \
+     + MSGRAM_N_EXT_FILTERS * MSGRAM_EXT_FILTER_BYTES         \
+     + MSGRAM_N_RX_FIFO0   * MSGRAM_FRAME_BYTES               \
+     + MSGRAM_N_RX_FIFO1   * MSGRAM_FRAME_BYTES               \
+     + MSGRAM_N_RX_BUFFERS * MSGRAM_FRAME_BYTES               \
+     + MSGRAM_N_TX_EVENT   * MSGRAM_TX_EVENT_BYTES            \
+     + MSGRAM_N_TX_BUFFERS * MSGRAM_FRAME_BYTES)
+
+/* The build fails if this layout does not fit the part's message memory.
+ * A controller whose layout overflows does not report anything: it simply does
+ * not transmit, and the symptom appears somewhere else entirely. */
+_Static_assert(MSGRAM_LAYOUT_BYTES <= MSGRAM_SIZE_BYTES,
+               "the message memory layout does not fit this part");
 
 typedef struct {
     uint32_t std_filters_off, std_filters_bytes;

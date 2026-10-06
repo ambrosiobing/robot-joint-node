@@ -220,16 +220,33 @@ The second is that **the decision is integer**. The obvious way to place the sam
 **Step 3.** **Lay out the message memory before configuring anything else.** On this controller the filters, the receive buffers and the transmit buffers all live in one block of memory whose layout the firmware chooses. A controller whose layout has not been written accepts every other configuration, reports no error, and never transmits, which is the single most common way this peripheral appears broken.
 
 ```c
-/* msgram.c: an explicit layout, computed once and asserted against the size. */
-static const msgram_layout_t layout = {
-    .std_filters = 8,      .ext_filters = 4,
-    .rx_fifo0    = 16,     .rx_fifo1    = 8,
-    .rx_buffers  = 0,      .tx_event    = 8,
-    .tx_buffers  = 8,      .element_bytes = 72,   /* 64 data + header  */
-};
+/* msgram.c: an explicit layout, computed once and asserted against the size.
+   The counts are macros rather than struct members because _Static_assert
+   needs a constant expression, and in C a const object's members are not one. */
+#define N_STD_FILTERS  8u          /* 1 word each                  */
+#define N_EXT_FILTERS  4u          /* 2 words each                 */
+#define N_RX_FIFO0    16u          /* 18 words: 2 header, 16 data  */
+#define N_RX_FIFO1     8u
+#define N_RX_BUFFERS   0u
+#define N_TX_EVENT     8u          /* 2 words each                 */
+#define N_TX_BUFFERS   8u          /* 18 words each                */
+
+#define MSGRAM_LAYOUT_BYTES                                            \
+    (N_STD_FILTERS * 4u + N_EXT_FILTERS * 8u + N_TX_EVENT * 8u         \
+     + (N_RX_FIFO0 + N_RX_FIFO1 + N_RX_BUFFERS + N_TX_BUFFERS) * 72u)
+
 /* The build fails if this layout does not fit the part's message memory. */
-_Static_assert(MSGRAM_BYTES(layout) <= MSGRAM_SIZE_BYTES, "message memory");
+_Static_assert(MSGRAM_LAYOUT_BYTES <= MSGRAM_SIZE_BYTES, "message memory");
+
+static const msgram_layout_t layout = {
+    .std_filters = N_STD_FILTERS, .ext_filters = N_EXT_FILTERS,
+    .rx_fifo0    = N_RX_FIFO0,    .rx_fifo1    = N_RX_FIFO1,
+    .rx_buffers  = N_RX_BUFFERS,  .tx_event    = N_TX_EVENT,
+    .tx_buffers  = N_TX_BUFFERS,
+};
 ```
+
+Two details in that block cost a compile each and are worth stating plainly. **The sections do not share an element size**, so a single `element_bytes` field cannot describe the layout: a standard filter is one word, an extended filter and a transmit event are two, and a receive or transmit element carrying the full payload is eighteen. A total computed as though every element were the largest reads 3744 bytes rather than 2432. **And the assertion cannot read the struct**, because a const object's members are not a constant expression in C however constant they look. The counts are therefore macros, the struct is built from the same macros, and a host test checks that the asserted constant and the computed total still agree, since an assertion that has drifted from the layout it guards protects nothing.
 
 **Step 4.** **Send a frame to yourself, with no hardware at all.** Internal loopback connects the controller's transmitter to its own receiver inside the peripheral. The pins are not involved, no transceiver is needed and no second node exists. Almost everything in this chapter can be proven here.
 
