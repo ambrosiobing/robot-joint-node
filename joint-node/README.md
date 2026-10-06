@@ -8,12 +8,20 @@ ch04-the-board-support-package/
 ch09-can-fd-from-the-controller-out/
 ch10-the-motion-master/
 ch11-a-joint-protocol/
+ch17-what-a-real-time-fieldbus-would-change/
 ```
 
-Four of the twenty. Chapter 9 carries its arithmetic half only: bit timing
+Five of the twenty. Chapter 9 carries its arithmetic half only: bit timing
 computed and refused, with no board, no transceiver and no bus. The loopback,
 the message memory layout and the first frame need the Nucleo and are not there
 yet, and its README says which half is which.
+
+Chapter 17 contains **no code at all**, and that is the chapter rather than an
+omission. Its subject is the boundary this volume stops at, so its deliverable
+is a decision document: what a deterministic fieldbus would buy, what it would
+cost in parts and weeks and obligations, why this part cannot reach it, and what
+would change that. Every claim in it says where it came from, and a check keeps
+it that way.
 
 ## Why one directory per chapter rather than one shared tree
 

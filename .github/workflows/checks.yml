@@ -171,6 +171,13 @@ jobs:
         working-directory: joint-node/ch09-can-fd-from-the-controller-out
         run: make ctest
 
+      # Chapter 17 builds nothing, so this checks the only thing a program can
+      # check about a decision document: that it still has its four headings and
+      # that every claim still says where it came from.
+      - name: Chapter 17, the decision document keeps its shape
+        working-directory: joint-node/ch17-what-a-real-time-fieldbus-would-change
+        run: python tools/check_decision.py
+
       - name: Chapter 11, the generator and the host codec
         working-directory: joint-node/ch11-a-joint-protocol
         run: |
