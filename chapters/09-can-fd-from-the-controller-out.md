@@ -269,7 +269,20 @@ compensation offset      set from that, or measured by the controller itself
 when it matters          above about 1 Mbit/s in the data phase
 symptom when wrong       frames that pass in loopback and fail on a real bus,
                          with errors that increase with the data rate
+
+this bench's part, with its slope control pin tied to ground:
+  recessive to dominant  70 ns typical, 115 ns maximum
+  dominant to recessive  100 ns typical, 135 ns maximum
+  at 2 Mbit/s            a bit is 500 ns, so the worst case is 27 per cent
+                         of a bit, and about 11 time quanta at an 80 MHz
+                         kernel clock with a prescaler of one
+  the slope control pin  grounded is high speed; a resistor to ground slows
+                         the edges and multiplies the delay, 10 kOhm giving
+                         about 105 and 155 ns; pulled high is STANDBY, which
+                         is the usual reason one of these looks dead
 ```
+
+Those figures carry a warning rather than a recipe. This transceiver is rated for one megabit per second, and the compensation above matters above one megabit, so the two meet exactly where this part stops. Running the data phase at the two megabits this chapter computes puts the transceiver outside its rating, and the delay figures say why that is not merely pedantic: at 2 Mbit/s the worst-case loop delay is more than a quarter of a bit. This is the measured form of chapter 13's cap, and it is the reason that chapter's subject waits for a transceiver rated for the data rate rather than for more firmware.
 
 **Step 6.** **Prove it on the pins with external loopback and one wire.** The external mode drives the transmit pin and listens on the receive pin, so a single jumper wire between them proves the pin configuration, the alternate functions and the direction, which internal loopback cannot.
 
