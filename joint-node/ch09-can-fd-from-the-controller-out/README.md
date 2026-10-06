@@ -11,10 +11,17 @@ layout and the first frame need the Nucleo and are not here yet.
 ## What runs
 
 ```bash
-python tools/gen_bt_vectors.py            # regenerate the vectors
+python tools/gen_bt_vectors.py            # regenerate the bit timing vectors
 python tools/gen_bt_vectors.py --check    # for the build
 python tools/gen_bt_vectors.py --table    # the table in doc/bit-timing.md
 python test/test_bittiming.py             # the reference and its invariants
+
+python tools/gen_msgram.py                # regenerate the layout vectors
+python tools/gen_msgram.py --check        # for the build
+python tools/gen_msgram.py --audit-chapter  # against chapter 9's budget row
+python tools/gen_msgram.py --table        # the table in doc/message-memory.md
+python test/test_msgram.py                # the layout and its invariants
+
 make                                      # needs a C compiler
 ```
 
@@ -124,4 +131,30 @@ caller passes in, converted once before anything is decided.
 | The result fits the registers that must hold it | `test_bittiming.py`, against the field widths |
 | A hand edit of the vectors does not survive | `--check` |
 | The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
-| The message memory layout, the loopback, the first frame | **not here yet**, they need the board |
+| The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
+| The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |
+| A layout the part would refuse is refused here | 3 of the 4 layout cases, each for a different reason |
+| The loopback and the first frame | **not here yet**, they need the board |
+
+## The message memory, and the budget row it corrected
+
+A controller whose message memory has not been laid out accepts every other
+configuration, reports no error, and never transmits. It is the single most
+common way this peripheral appears broken, so the layout is computed and
+asserted rather than written down.
+
+The sections do not share an element size, and that is where the chapter's
+budget row went wrong. A standard filter is one word, an extended filter and a
+transmit event are two, and a receive or transmit element carrying the full
+sixty-four byte payload is eighteen: two of header and sixteen of data. The
+chapter's own layout from step 3 therefore occupies **2432 bytes**, not the
+"under 2 kB" its budget table claimed until Tuesday 6 October 2026. The sixteen
+receive elements of the first queue are 1152 bytes on their own.
+
+Nothing about the design was at fault. Every section is inside the counts the
+part accepts, and 2432 of the 10240 bytes leaves 7808 free. The budget row was a
+round number nobody had multiplied out, and `--audit-chapter` is gating now so
+the two cannot drift apart again.
+
+The element sizes and the element-count maxima are the silicon vendor's own, read
+from the driver source rather than from a summary of it.

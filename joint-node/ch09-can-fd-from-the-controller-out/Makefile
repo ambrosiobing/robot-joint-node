@@ -32,9 +32,12 @@ all: generated pytest ctest
 # surviving to be overwritten later by somebody who did not know it was there.
 generated:
 	@$(PYTHON) tools/gen_bt_vectors.py --check
+	@$(PYTHON) tools/gen_msgram.py --check
+	@$(PYTHON) tools/gen_msgram.py --audit-chapter
 
 pytest:
 	@$(PYTHON) test/test_bittiming.py
+	@$(PYTHON) test/test_msgram.py
 
 $(BUILD):
 	@mkdir -p $(BUILD)
@@ -43,8 +46,13 @@ $(BUILD)/test_bittiming: $(BUILD) test/test_bittiming.c src/bus/bittiming.c \
                          src/bus/bittiming.h test/vectors.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_bittiming.c src/bus/bittiming.c
 
-ctest: $(BUILD)/test_bittiming
+$(BUILD)/test_msgram: $(BUILD) test/test_msgram.c src/bus/msgram.c \
+                      src/bus/msgram.h test/vectors_msgram.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_msgram.c src/bus/msgram.c
+
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram
 	@./$(BUILD)/test_bittiming
+	@./$(BUILD)/test_msgram
 
 # The table in doc/bit-timing.md comes from here rather than from a person
 # typing it, so it cannot drift away from the arithmetic it describes.

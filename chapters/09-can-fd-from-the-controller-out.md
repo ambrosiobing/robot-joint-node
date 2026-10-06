@@ -81,7 +81,7 @@ Before this chapter the node is silent. After it, the node can frame a message, 
 | Quantity | Budget | Measured | Margin |
 | --- | --- | --- | --- |
 | Flash, this chapter | 9 kB | not measured | not measured |
-| Message memory used | under 2 kB | computed from the layout | n/a |
+| Message memory used | 2432 bytes of the part's 10240 | computed in step 3 | 7808 bytes free |
 | Nominal bit rate | 500 kbit/s | confirmed in step 7 | n/a |
 | Data bit rate | 2 Mbit/s | confirmed in step 7 | n/a |
 | Sample point, nominal phase | 80 per cent | computed | n/a |

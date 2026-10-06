@@ -164,6 +164,15 @@ jobs:
           python tools/gen_bt_vectors.py --check
           python test/test_bittiming.py
 
+      # The budget row in the chapter and this layout are the same arithmetic,
+      # so the audit is gating: they cannot differ honestly.
+      - name: Chapter 9, the message memory layout and the budget row
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_msgram.py --check
+          python tools/gen_msgram.py --audit-chapter
+          python test/test_msgram.py
+
       # The first time chapter 9's C meets a compiler. It is written on a laptop
       # that has none, so until this step runs the honest claim is that the
       # Python half is proven and the C half is only written.
