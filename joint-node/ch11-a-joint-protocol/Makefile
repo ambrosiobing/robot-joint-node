@@ -4,8 +4,8 @@
 # one that will run thousands of times. Nothing here opens a serial port, flashes
 # anything or waits on a bus.
 #
-#     make            the whole stage
-#     make audit      the bus load arithmetic against chapter 11, see the note
+#     make            the whole stage, the bus load audit included
+#     make audit      that audit on its own
 #
 # On the win11 aquamarine authoring laptop there is no make and no C compiler,
 # so run the python half directly:
@@ -26,7 +26,7 @@ PYTHON  ?= python3
 BUILD    = build
 
 .PHONY: all generated pytest ctest audit clean
-all: generated pytest ctest
+all: generated audit pytest ctest
 	@echo
 	@echo "stage one passed: no hardware was involved, and none was claimed"
 
@@ -52,12 +52,13 @@ ctest: $(BUILD)/test_msgs $(BUILD)/test_expiry
 	@./$(BUILD)/test_msgs
 	@./$(BUILD)/test_expiry
 
-# Deliberately not part of the stage. It compares this tool's arithmetic with
-# the figures printed in chapter 11, and three of them disagree, so it exits
-# non zero on purpose. Gating the build on an unsettled question would stop all
-# other work; leaving the question unasked would be worse.
+# Part of the stage since Tuesday 6 October 2026. It compares this tool's
+# arithmetic with the figures printed in chapter 11, which the chapter presents
+# as this tool's own output. Three of them disagreed and the chapter was wrong;
+# now that they match, the check is what keeps them matching, so it is gating
+# rather than excused.
 audit:
-	-@$(PYTHON) tools/busload.py --audit-chapter
+	@$(PYTHON) tools/busload.py --audit-chapter
 
 clean:
 	@rm -rf $(BUILD)

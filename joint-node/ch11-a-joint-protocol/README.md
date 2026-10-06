@@ -12,7 +12,7 @@ python tools/gen_msgs.py proto/messages.yaml          # regenerate
 python tools/gen_msgs.py proto/messages.yaml --check  # for the build
 python test/test_msgs.py                              # the host codec
 python test/test_gen.py                               # the validator
-python tools/busload.py --audit-chapter               # see the disagreement below
+python tools/busload.py --audit-chapter               # the chapter's figures, checked
 make                                                  # needs a C compiler
 ```
 
@@ -45,27 +45,35 @@ before a byte is emitted. `test_gen.py` breaks the description nine ways and
 confirms each one is caught, because a validator nobody has tested has never
 rejected anything.
 
-## One open disagreement with the chapter
+## The bus load audit, and the disagreement it settled
 
 `tools/busload.py --audit-chapter` adopts the chapter's own two constants, 67
 arbitration bits and a data phase of the payload plus 48 bits. On those it
 reproduces the chapter exactly: 254 and 222 microseconds per frame, and a 190
-per cent baseline. It then disagrees with all three option percentages:
+per cent baseline.
 
-| Option | This tool | Chapter 11 |
+Until Tuesday 6 October 2026 it disagreed with all three option percentages, and
+the chapter was the one that was wrong:
+
+| Option | Chapter, until 6 October | Correct |
 |---|---|---|
-| command at a quarter rate | 124% | 91% |
-| arbitration at 1 Mbit/s | 137% | 61% |
-| both | 90% | 38% |
+| command at a quarter rate | 91% | 124%, still does not fit |
+| arbitration at 1 Mbit/s | 61% | 137%, still does not fit |
+| both | 38% | 90% |
 
-The tool's *both* figure lands within one point of the chapter's first option,
-which is what a shifted row looks like. One of the two is wrong. Neither number
-should be quoted until it is settled, and the conclusion the chapter draws from
-them, that the obvious design does not fit on one bus, survives either way.
+What settled it is that the chapter prints those figures inside a block that
+claims to be this program's output, naming the exact command. Running that
+command does not produce them, so they were not two opinions about a model: one
+side was a transcript, and a transcript either matches or does not.
 
-`make audit` runs it, and is deliberately not part of `make`: gating the build
-on an unsettled question would stop all other work, and leaving the question
-unasked would be worse.
+It mattered more than a rounding difference. At 91, 61 and 38 all three
+mitigations fit and the reader is offered a choice. In fact neither rescues the
+design on its own, and only the combination fits, at 90 per cent, which is tight
+rather than comfortable. The error ran in the direction that flattered the
+design.
+
+The audit is part of the build now rather than an excused failure, so the two
+cannot drift apart again without a push going red.
 
 ## Acceptance criteria, and which are covered
 
@@ -75,7 +83,7 @@ unasked would be worse.
 | Round trip every field, including each type's boundaries | `test_msgs.py`, and `test_msgs.c` **unrun** |
 | The compile time assertion on frame size fails if a field moves | `joint_msgs.h`, **never compiled, so never fired** |
 | The length is one the format allows | `test_msgs.py`, and the validator |
-| The bus load calculation runs as part of the build | `busload.py`, **not in `make`, see above** |
+| The bus load calculation runs as part of the build | `busload.py`, in `make` since 6 October 2026 |
 | An expired command moves the node to its named policy | `command.c` and `test_expiry.c`, **unrun** |
 | A command from beyond the horizon is rejected | `test_expiry.c`, **unrun** |
 | The filters accept exactly three identifiers | **not written** |
