@@ -34,10 +34,12 @@ generated:
 	@$(PYTHON) tools/gen_bt_vectors.py --check
 	@$(PYTHON) tools/gen_msgram.py --check
 	@$(PYTHON) tools/gen_msgram.py --audit-chapter
+	@$(PYTHON) tools/gen_frame_vectors.py --check
 
 pytest:
 	@$(PYTHON) test/test_bittiming.py
 	@$(PYTHON) test/test_msgram.py
+	@$(PYTHON) test/test_frame.py
 
 $(BUILD):
 	@mkdir -p $(BUILD)
@@ -50,9 +52,14 @@ $(BUILD)/test_msgram: $(BUILD) test/test_msgram.c src/bus/msgram.c \
                       src/bus/msgram.h test/vectors_msgram.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_msgram.c src/bus/msgram.c
 
-ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram
+$(BUILD)/test_frame: $(BUILD) test/test_frame.c src/bus/frame.c \
+                     src/bus/frame.h test/vectors_frame.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_frame.c src/bus/frame.c
+
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_frame
 	@./$(BUILD)/test_bittiming
 	@./$(BUILD)/test_msgram
+	@./$(BUILD)/test_frame
 
 # The table in doc/bit-timing.md comes from here rather than from a person
 # typing it, so it cannot drift away from the arithmetic it describes.

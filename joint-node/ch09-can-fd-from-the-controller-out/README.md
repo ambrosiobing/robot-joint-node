@@ -22,7 +22,19 @@ python tools/gen_msgram.py --audit-chapter  # against chapter 9's budget row
 python tools/gen_msgram.py --table        # the table in doc/message-memory.md
 python test/test_msgram.py                # the layout and its invariants
 
+python tools/gen_frame_vectors.py         # regenerate the frame vectors
+python tools/gen_frame_vectors.py --check # for the build
+python tools/gen_frame_vectors.py --table # the table in doc/frame-rules.md
+python test/test_frame.py                 # the length code and its round trip
+
 make                                      # needs a C compiler
+```
+
+On the WSL side of win11 skyhorizon, `bing@JPTOUPM678`, the whole thing
+including the C runs in seconds:
+
+```bash
+cd ~/src/robot-joint-node/joint-node/ch09-can-fd-from-the-controller-out; make
 ```
 
 Everything except `make` runs on the win11 aquamarine authoring laptop. There is
@@ -134,7 +146,30 @@ caller passes in, converted once before anything is decided.
 | The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
 | The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |
 | A layout the part would refuse is refused here | 3 of the 4 layout cases, each for a different reason |
-| The loopback and the first frame | **not here yet**, they need the board |
+| The three frames step 4 sends are legal, and the rest are refused | `test_frame.py` and `test_frame.c` |
+| A length the format cannot carry has no code | all 65 lengths, both formats |
+| A length that has a code comes back as itself | the 16 round trips |
+| The loopback itself and the first frame | **not here yet**, they need the board |
+
+## The length code, which is the other silent one
+
+Chapter 9 step 4 sends three frames to itself: classic, flexible-data without
+the rate switch, and flexible-data with it. All three have to be built before
+any can be sent, and the part of that provable on a host is the length code.
+
+The controller carries a **four bit code, not a length**. Code 9 is twelve
+bytes, and the top codes step 24, 32, 48, 64. Worse, the same code means
+different things in the two formats: a classic frame has no length above eight
+and reads every code above 8 as 8. A codec that gets this wrong does not fail
+loudly, it moves the right bytes with the wrong count or the wrong bytes with
+the right one, and the symptom appears in whatever reads the payload.
+
+So `frame_code_for_length` returns a refusal rather than the nearest code.
+Rounding up sends bytes the caller never wrote; rounding down drops the tail.
+Both are silent, and nine bytes is not a flexible-data length at all.
+
+The full table is in [`doc/frame-rules.md`](doc/frame-rules.md), generated
+rather than typed.
 
 ## The message memory, and the budget row it corrected
 

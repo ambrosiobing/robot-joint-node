@@ -173,6 +173,12 @@ jobs:
           python tools/gen_msgram.py --audit-chapter
           python test/test_msgram.py
 
+      - name: Chapter 9, the frame length code
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_frame_vectors.py --check
+          python test/test_frame.py
+
       # The first time chapter 9's C meets a compiler. It is written on a laptop
       # that has none, so until this step runs the honest claim is that the
       # Python half is proven and the C half is only written.

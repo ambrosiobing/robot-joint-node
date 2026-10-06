@@ -287,6 +287,15 @@ python host/frame_timing.py --lengths 0,8,16,32,64 --fd --brs
 
 Two honest notes. The counter counts bit times, so this confirms the ratio between the phases and the frame structure rather than the absolute rate in bits per second; the absolute rate rests on the kernel clock, which chapter 4 reads back from the registers. And the timestamps are captured at the start-of-frame bit, in hardware, which is the property chapter 3 established and chapter 12 depends on.
 
+> [!NOTE]
+> **The expected column disagrees with chapter 11 and is not settled**
+>
+> Subtract the 67 arbitration bits from each row above and the data portion comes out as 0, 65, 130, 260 and 520 bits, which is the payload plus one bit for every eight bytes. Chapter 11's bus load arithmetic, and the program that computes it, use a fixed overhead of 48 bits in the data phase instead, which for the same five lengths gives 48, 112, 176, 304 and 560.
+>
+> Both cannot be right, and they are the same physical quantity. The table above also implies that a sixty-four byte frame carries only eight bits of anything but payload in its data phase, which does not leave room for the checksum that format uses, so the column above is the one to doubt first. Neither number is quoted anywhere else in this volume and the bus load conclusion does not rest on this table, so nothing downstream moves either way.
+>
+> This is written as a question rather than corrected because settling it needs the frame format from the standard itself, which is paywalled and was not opened here. The measurement in this step settles it on the bench without reading anything: with the transceiver fitted, run the sweep and compare against both models. That is what the step is for, and it is now possible.
+
 **Step 8.** **Fit the transceiver, terminate the bus, and send one frame to nothing.** With the transceiver fitted and a single terminator, the node is alone on a bus and every frame it sends goes unacknowledged. That is not a failure to debug: a frame with no other node to acknowledge it is retransmitted, the error counter rises, and the controller eventually becomes error-passive. Watching that happen deliberately is the best possible preparation for chapter 12.
 
 ## Build, flash and debug
