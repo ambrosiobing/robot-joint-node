@@ -861,6 +861,120 @@ count frames but cannot see which went missing, so loss is measured by comparing
 counts rather than by looking for a gap. That is a real cost and it is why
 `counter` remains the default.
 
+### What the payload measurement returned
+
+Run the same evening, on the same bus at 1 Mbit/s, so it is directly comparable
+with the `counter` figures above.
+
+**The method changed, and it had to.** Single trials located the `counter` cliff
+at 8100 passing and 8200 failing. Repeating each rate showed that near capacity
+the outcome is **probabilistic rather than deterministic**, so a single trial
+cannot locate a boundary. Every row below is three trials and a count of passes.
+
+```bash
+for m in zeros counter alternating; do
+  for r in 7600 8000 8400 8800; do
+    p=0
+    for t in 1 2 3; do
+      ./build/jn-setpoint can1 --rate $r --seconds 5 --payload $m 2>&1 \
+        | grep -q achieved && p=$((p+1))
+    done
+    echo "$m $r Hz: $p of 3 passed"
+  done
+done
+```
+
+| Rate | `zeros` | `counter` | `alternating` | Source |
+|---|---|---|---|---|
+| 7600 Hz | 3 of 3 | 2 of 3 | 2 of 3 | `[measured]` |
+| 8000 Hz | **0 of 3** | 3 of 3 | 3 of 3 | `[measured]` |
+| 8400 Hz | 0 of 3 | **0 of 3** | 3 of 3 | `[measured]` |
+| 8800 Hz | 0 of 3 | 0 of 3 | 3 of 3, then 2 of 3 on a repeat | `[measured]` |
+| 9000 Hz | | | **0 of 3** | `[measured]` |
+| 9200 Hz | | | 0 of 3 | `[measured]` |
+
+### One artefact, which was mine
+
+`counter` and `alternating` both show **2 of 3 at 7600 while passing 3 of 3 at
+8000**. A lower rate failing more often than a higher one is impossible for a
+capacity limit, and that impossibility is the tell.
+
+7600 is the **first rate in each mode's block**. `counter`'s block follows three
+failed `zeros` runs, and `alternating`'s follows three failed `counter` runs.
+`zeros` at 7600 is the only 7600 that passed cleanly, and it is the only one not
+preceded by failures.
+
+**A run that ends in `ENOBUFS` exits with frames still queued, and the next run
+starts into a queue that is not empty** `[inferred]`. Inserting `sleep 2` between
+trials removes it. The measurement was wrong, the bus was not.
+
+### The derived frame lengths
+
+| Mode | Capacity at 1 Mbit/s | Frame on the wire | Stuff bits over the 111 nominal | Source |
+|---|---|---|---|---|
+| `alternating` | about **8800**, marginal there | about **113.6 bits** | about **2.6** | `[arithmetic]` |
+| `random` | 8400 to 8600 | 116 to 119 bits | 5 to 8 | `[arithmetic]` |
+| `counter` | about 8100 | 122.0 to 123.5 bits | 11 to 12.5 | `[arithmetic]` |
+| `zeros` | 7600 to 8000 | 125 to 131.6 bits | 14 to 20.6 | `[arithmetic]` |
+
+**`alternating` establishes the floor, and the floor is not zero.** A payload of
+`0x55` contains no run of five, so it contributes no stuffing at all. What remains
+is about 2.6 bits, and that comes from the identifier, the control field and the
+CRC, which **no payload can avoid**.
+
+The consequence is a hard ceiling that is lower than the textbook one. An
+unstuffed 111 bit frame would allow 9009 frames per second at 1 Mbit/s. That rate
+failed 0 of 3, and so did 9200. **9009 is not reachable by any traffic**, because
+the parts of the frame that stuff are not the parts you control `[measured]`.
+
+### The headline
+
+| Payload | Capacity | Relative | Source |
+|---|---|---|---|
+| `zeros` | 7600 frames per second | baseline | `[measured]` |
+| `alternating` | 8800 frames per second | **plus 15.8 per cent** | `[measured]` |
+
+**Changing nothing but the eight payload bytes moves the bus capacity by about
+sixteen per cent.** Same bit rate, same frame type, same length field, same two
+controllers, same wire. The bytes this chapter declares opaque are not free, and
+a bus load calculation that ignores what is being sent can be wrong by that much
+in either direction.
+
+### Scoring the predictions
+
+The predictions were written into this document before the run, which is the only
+reason this table means anything.
+
+| Prediction | Outcome | Source |
+|---|---|---|
+| Ordering `alternating` > `random` > `counter` > `zeros` | **Right**, all four in that order | `[measured]` |
+| `alternating` 8700 to 8900 frames per second | **Right**, marginal at 8800 | `[measured]` |
+| `alternating` 112 to 115 bits | **Right**, about 113.6 | `[arithmetic]` |
+| `counter` and `zeros` barely differ | **Wrong.** `zeros` is clearly worse | `[measured]` |
+| `zeros` 7900 to 8100 | **Wrong**, its ceiling is below 8000 | `[measured]` |
+
+The two failures have one cause, and it is traceable. A counter running to 40000
+reaches `0x9C40`, so its **low two bytes vary** across a run while `zeros` never
+varies at all. Sixteen bits of changing data break up runs that would otherwise
+stuff. The prediction reasoned from a counter below 65536 having six zero bytes
+and treated the two varying bytes as negligible; a quarter of the payload is not
+negligible.
+
+### A correction to part three's own framing
+
+Part three above presents the `counter` ceiling as a **sharp cliff** at 8100
+passing and 8200 failing, and derives 122.0 to 123.5 bits from it. That was one
+trial at each rate.
+
+With three trials per rate the boundary is **marginal rather than sharp**: a band
+in which a run mostly succeeds and sometimes does not, because `qlen 10` holds
+only about 1.2 ms of traffic and a single scheduling delay near capacity overflows
+it. The derived number is probably right and the evidence for it was weaker than
+it was presented as being.
+
+**The honest form of a ceiling on this bus is a pass rate at a rate, not a
+verdict.** Anything quoted from here should carry the trial count.
+
 ### What this does to a bus load figure
 
 | Basis | Load at 4000 frames per second, 500 kbit/s |
