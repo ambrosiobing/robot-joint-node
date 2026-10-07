@@ -62,7 +62,7 @@ silkscreen prints `120R` and `NC` beside its terminal. `120R` is terminated.
 Termination belongs at the two ends of the bus and nowhere else. With two nodes
 both ends carry it; a third node in the middle must not.
 
-**Read off the board on Tuesday 7 October 2026: both CAN caps are on `120R`**,
+**Read off the board on Wednesday 7 October 2026: both CAN caps are on `120R`**,
 so both channels are terminated as they stand. The photograph and the reading
 are in [first-light.md](first-light.md).
 
@@ -73,7 +73,7 @@ channel's on GPIO 24. Each has an unfitted alternative, `R21` to GPIO 22 and
 match two resistors, and the alternatives need a soldering iron.
 
 **Two statements that an earlier reading of this schematic got wrong**, both
-corrected on Tuesday 7 October 2026 and both recorded in full in
+corrected on Wednesday 7 October 2026 and both recorded in full in
 [rewiring.md](rewiring.md), because the shape of the mistake is more useful than
 the fix. `R36` does not choose between GPIO 23 and GPIO 24; those belong to two
 different channels and two different link pairs. And `R32`, `R33` and `R34` do
@@ -102,8 +102,8 @@ maximum. The full correction, with page numbers, is in
 What survives is the caution rather than the finding: `Rs` pulled **high** is
 standby, and on this particular part that stops the driver while the receiver
 keeps working, so a far end node sees a healthy listener that never speaks. And
-it still says nothing about the loose SN65HVD230 module intended for the Nucleo
-end, whose own `Rs` arrangement has not been read.
+it still says nothing about the loose SN65HVD230 module intended for the
+NUCLEO-H7A3ZI-Q end, whose own `Rs` arrangement has not been read.
 
 ## The card
 
@@ -225,8 +225,9 @@ external loopback, and it is why the chapter does them in that order.
 
 The last command prints the sample points the kernel chose. They will not match
 chapter 9's 80.0 and 75.0 per cent, because the MCP2518FD runs from a 40 MHz
-crystal and the Nucleo from an 80 MHz kernel clock, so the two have different
-achievable sets. Record both; the comparison is a finding rather than a fault.
+crystal and the NUCLEO-H7A3ZI-Q from an 80 MHz kernel clock, so the two have
+different achievable sets. Record both; the comparison is a finding rather than
+a fault.
 
 ## Still open
 
@@ -237,20 +238,21 @@ until those exist this is a bus with one node.
 A one node bus is not a small limitation. Nothing acknowledges a frame, so every
 transmission fails and the controller retries, which is physics rather than a
 fault and is the classic confusing first hour of a CAN bring up. It was observed
-exactly that way on Tuesday 7 October 2026 before the wires went in: the
+exactly that way on Wednesday 7 October 2026 before the wires went in: the
 transmitter sat in `ERROR-PASSIVE` with a transmit error counter of 128, which is
 sixteen failed attempts, while `TX: packets` stayed at 0. See
 [first-light.md](first-light.md) part two.
 
-There is a way around it that needs no firmware and no parts, and it came out of
-reading the schematic rather than out of planning: **this board can be its own
-two node bus. Done on Tuesday 7 October 2026, and it works.** It carries two complete controllers with separate oscillators,
-separate transceivers and separate terminal positions, so joining terminal
-position 1 to 4 and 2 to 5 with two jumper wires gives a real bus with real
-arbitration, real error frames, real termination and a real acknowledgement. It
-has to run classic, because the MCP2515 cannot do flexible data frames, so it
-proves nothing about CAN FD itself. [rewiring.md](rewiring.md) sets out what it
-does and does not buy, and recommends it.
+There is a way around it that needs no firmware and no parts, and it came out
+of reading the schematic rather than out of planning: **this board can be its
+own two node bus. Done on Wednesday 7 October 2026, and it works.** It carries
+two complete controllers with separate oscillators, separate transceivers and
+separate terminal positions, so joining terminal position 1 to 4 and 2 to 5
+with two jumper wires gives a real bus with real arbitration, real error
+frames, real termination and a real acknowledgement. It has to run classic,
+because the MCP2515 cannot do flexible data frames, so it proves nothing about
+CAN FD itself. [rewiring.md](rewiring.md) sets out what it does and does not
+buy, and recommends it.
 
 **And when both channels are up, do not assume which interface is which.**
 `can0` and `can1` are handed out in the order the drivers probe, which nothing
@@ -263,14 +265,14 @@ for i in /sys/class/net/can*; do
 done
 ```
 
-**The bit rate switch is capped at the Nucleo end**, and the reason is not the
-obvious one. The loose transceiver is rated for 1 Mbit signalling, but by loop
-delay it is the **fastest** of the three transceivers on this bench. What it does
-not specify is loop delay **symmetry**, which is the property a CAN FD data phase
-actually depends on. So chapter 13 waits for a part whose datasheet states that
-figure, and the named candidate is the TCAN3413. The comparison is in
-[datasheet-notes.md](datasheet-notes.md) section 5. The adapter's own CAN FD
-channel is not the limit.
+**The bit rate switch is capped at the NUCLEO-H7A3ZI-Q end**, and the reason is
+not the obvious one. The loose transceiver is rated for 1 Mbit signalling, but
+by loop delay it is the **fastest** of the three transceivers on this bench.
+What it does not specify is loop delay **symmetry**, which is the property a
+CAN FD data phase actually depends on. So chapter 13 waits for a part whose
+datasheet states that figure, and the named candidate is the TCAN3413. The
+comparison is in [datasheet-notes.md](datasheet-notes.md) section 5. The
+adapter's own CAN FD channel is not the limit.
 
 ## How these answers were obtained
 

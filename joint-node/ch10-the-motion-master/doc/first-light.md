@@ -2,7 +2,7 @@
 
 The other pages in this directory are about documents. This one is the
 only one that contains measurements, and everything on it was taken on
-**Tuesday 7 October 2026** on a Raspberry Pi 4B carrying a Waveshare WS-28164,
+**Wednesday 7 October 2026** on a Raspberry Pi 4B carrying a Waveshare WS-28164,
 host name `eplepi`, user `bing`.
 
 It covers three runs. **Part one** is internal loopback with nothing wired, which
@@ -18,7 +18,7 @@ specification are different kinds of claim and should never be able to be
 mistaken for one another. Everything below is marked `[measured]` and names the
 command that produced it.
 
-![The Raspberry Pi 4B and the Waveshare WS-28164 as tested, photographed Tuesday 7 October 2026](figures/ws28164-pi4b-first-light.jpg)
+![The Raspberry Pi 4B and the Waveshare WS-28164 as tested, photographed Wednesday 7 October 2026](figures/ws28164-pi4b-first-light.jpg)
 
 *The assembly every measurement on this page was taken from. Pi 4B on the right,
 WS-28164 beneath it in a DIN rail base, joined by a 40 way ribbon rather than
@@ -34,6 +34,7 @@ left has nothing in it.*
 | `[chapter]` | What this volume predicted, for comparison |
 | `[inferred]` | A conclusion drawn from the above, with its reasoning |
 | `[unconfirmed]` | Still not established by anything here |
+| `[vendor]` | From the manufacturer's own published source or board support files, with the file named |
 | `[arithmetic]` | Follows from the measured rows by calculation, so you can redo it |
 
 ## The configuration under test
@@ -313,7 +314,7 @@ which is what makes it safe to call rather than a judgement on a blurred edge.
 **So the board ships, or was left, with both CAN channels terminated.** That is
 the right state for the two node self bus in [rewiring.md](rewiring.md), where
 the two channels are the two ends of one short wire and both ends want 120 ohms.
-It is also the right state for a two node bus to the Nucleo, provided the Nucleo
+It is also the right state for a two node bus to the NUCLEO-H7A3ZI-Q, provided it
 end carries the other termination and nothing is added in the middle.
 
 It is the **wrong** state the moment this board becomes a third node in the
@@ -322,7 +323,7 @@ rediscovering as a bus that half works at speed.
 
 ## What else the photograph settled
 
-A photograph of the assembled board on Tuesday 7 October 2026 reads the terminal
+A photograph of the assembled board on Wednesday 7 October 2026 reads the terminal
 block silkscreen top to bottom as `DC7-36V`, `RS232`, `RS485_2`, `RS485_1`,
 `CAN FD`, `CAN`. That is the reverse of the order derived from the schematic's
 `P2` symbol, which places **position 1 at the `CAN` end** and confirms the
@@ -348,6 +349,7 @@ names `[measured]`.
 | 2 | The two ends will land on different sample points because 40 MHz and 80 MHz divide differently | 80.0 per cent is exactly achievable here. The 87.5 was kernel **policy** for rates at or below 500 kbit/s |
 | 3 | Chapter 9's length code is checked against its own generator | It is now checked against silicon: nine bytes padded to twelve with three zero bytes |
 | 4 | `jn-listen` counts frames | It counts them **twice** on a loopback interface, and that is not yet handled |
+| 5 | The classic controller probes first and takes `can0` | There is **no stable order**. The next two power cycles gave `can0` to the CAN FD controller. Read it every session |
 
 Item 2 is the second time in one day that a plausible mechanism was named for a
 real observation and turned out to be the wrong mechanism. The first was
@@ -358,7 +360,7 @@ harder, which is the whole argument of
 
 ---
 
-# Part two: a real two node bus, Tuesday 7 October 2026
+# Part two: a real two node bus, Wednesday 7 October 2026
 
 Everything above was internal loopback, where the frame never leaves the
 controller. This part is the same board wired to itself, so that frames cross
@@ -417,9 +419,25 @@ mcp251xfd  spi0.1 can1: MCP2518FD rev0.0 (...) successfully initialized.
 ```
 
 **The CAN FD channel was `can0` when it was the only one. It is `can1` now.**
-`[measured]` The classic controller probes first and takes the lower number. That
-is the probe order trap from [board-findings.md](board-findings.md) happening for
-real, within one afternoon, on one machine, with no change but an added overlay.
+`[measured]` That is the probe order trap from
+[board-findings.md](board-findings.md) happening for real, within one afternoon,
+on one machine, with no change but an added overlay.
+
+**And the explanation written here first was wrong.** This paragraph originally
+said the classic controller probes first and takes the lower number, as though
+that were the rule. Later the same day, after nothing but a power cycle on the
+same card and the same board, the order came up reversed:
+
+```
+mcp251xfd  spi0.1 can0: MCP2518FD rev0.0 (...) successfully initialized.
+mcp251x    spi0.0 can1: MCP2515 successfully initialized.
+```
+
+`[measured]` Twice in a row, across two power cycles, with `can0` the **CAN FD**
+channel. So there is no stable order to learn, which makes the identity check
+below not merely good practice but the only thing standing between a recorded
+measurement and the wrong controller's name on it. **Every number in this
+chapter has to name its controller, never only its interface.**
 
 So the identity check is not pedantry:
 
@@ -600,7 +618,7 @@ interface.
 | Anything about isolation as isolation | Both nodes sit on the same isolated rail and the same `SGND`. There is no ground offset between them because it is the same ground |
 | Anything about cable length, reflections or noise | The wire is two jumper leads |
 | Arbitration under contention | Both nodes can transmit, but nothing here made them transmit at the same instant |
-| Anything about the node end | The Nucleo is exactly as far away as it was |
+| Anything about the node end | The NUCLEO-H7A3ZI-Q is exactly as far away as it was |
 
 So this replaces `vcan0`, not the real bus. It is a strictly better substitute:
 real bit timing, real transceivers, real termination, real acknowledgement, real
@@ -1065,4 +1083,188 @@ maximum of 1 Mbit/s `[datasheet]` SLOS346K p2 and did not produce a single error
 | Anything about CAN FD | Still classic throughout, because the MCP2515 cannot do otherwise |
 | Arbitration under contention | One sender at a time. The one accidental two sender run was discarded as contaminated rather than analysed |
 | A frame length for any other payload | The figure is specific to a counter with four trailing zero bytes |
-| Anything about the node end | The Nucleo is exactly as far away as it was this morning |
+| Anything about the node end | The NUCLEO-H7A3ZI-Q is exactly as far away as it was this morning. Part four closes the wiring half of that and leaves the firmware half wide open |
+
+---
+
+# Part four: a three node bus, and the node end finally on the wire
+
+Wednesday 7 October 2026, late. Parts one to three all ran on one board talking
+to itself. This part adds the third node, which is the first time anything
+outside the Waveshare WS-28164 has been electrically on this bus.
+
+It is deliberately a small claim. **No firmware on the NUCLEO-H7A3ZI-Q touches
+FDCAN1**, so the Nucleo is not a participant yet. What the third node is, for
+now, is a powered transceiver with a terminating resistor, sitting on the line.
+That is worth measuring anyway, because it is exactly the arrangement that can
+quietly stop a working bus from carrying anything, and because it is the arrangement every later
+chapter starts from.
+
+## The bus as built
+
+| Position | Node | Terminated | Source |
+|---|---|---|---|
+| One end | WS-28164 classic channel, MCP2515 plus its own SN65HVD230 | yes, `J2` cap on `120R` | `[measured]` |
+| Middle | WS-28164 CAN FD channel, MCP2518FD plus MCP2562FD | **no**, `J1` cap moved to `NC` | `[measured]` |
+| Other end | loose Waveshare SN65HVD230 board, fed by the NUCLEO-H7A3ZI-Q | yes, by its own fitted resistor | `[unconfirmed]` |
+
+The middle node is the point. A three node line has two ends and one middle, and
+a middle node that terminates puts a third resistor across a bus designed for
+two. `J1` was on `120R` out of the box, so going from two nodes to three is a
+jumper move and not only a wire.
+
+Seven wires, and the order they went in matters for one of them:
+
+| # | From | To | Source |
+|---|---|---|---|
+| 1 | NUCLEO-H7A3ZI-Q `CN8` `3V3` | SN65HVD230 board `3.3V` | `[measured]` |
+| 2 | NUCLEO-H7A3ZI-Q `CN8` `GND` | SN65HVD230 board `GND` | `[measured]` |
+| 3 | NUCLEO-H7A3ZI-Q `CN11` `PD1` | SN65HVD230 board `CAN_TX` | `[measured]` |
+| 4 | NUCLEO-H7A3ZI-Q `CN11` `PD0` | SN65HVD230 board `CAN_RX` | `[measured]` |
+| 5 | SN65HVD230 board `GND` | WS-28164 `CAN FD` screw `G` | `[measured]` |
+| 6 | SN65HVD230 board `CANH` | WS-28164 `CAN FD` screw `H` | `[measured]` |
+| 7 | SN65HVD230 board `CANL` | WS-28164 `CAN FD` screw `L` | `[measured]` |
+
+**Wire 5 goes in before 6 and 7, and both boards are unpowered while it does.**
+The two grounds are separately supplied and float relative to one another until
+they are joined, so whichever wire is fitted last carries whatever difference
+has accumulated. Ground first means that wire is the ground wire. It costs
+nothing and it is the one ordering rule on this page.
+
+**`CN11`, not `CN9`, and the reason is printing.** Both pins are on `CN9`
+electrically, `[vendor]` ZIO designators `D67` and `D66`. But the Zio connectors
+do not silkscreen port names, and `CN11`, the bare morpho hole row at the left
+board edge, does. Wiring to the connector that prints `PD0` and `PD1` removes a
+counting step, and a miscount of one on `CN9` lands a CAN signal on `PB14`,
+which drives the red LED LD3 and would look exactly like a dead transceiver
+`[vendor]`.
+
+## What the stub costs when it is dark
+
+Baseline first, with the Nucleo's USB cable out, so its transceiver is
+unpowered but its terminating resistor and its bus pins are still on the line:
+
+```
+mcp251xfd spi0.1 can0: MCP2518FD rev0.0 (...) successfully initialized.
+mcp251x   spi0.0 can1: MCP2515 successfully initialized.
+  can1  123   [4]  DE AD BE EF
+```
+
+| Observation | Value | Source |
+|---|---|---|
+| Frame from `can0` arrived at `can1` | yes, first attempt | `[measured]` |
+| Errors | zero | `[measured]` |
+| Dropped | zero | `[measured]` |
+
+`[inferred]` So an unpowered transceiver and a third terminating resistor on a
+500 kbit/s classic bus cost nothing measurable at this length. That is the
+expected answer and it is still worth having written down, because it is the
+control for the next test.
+
+## What the stub costs when it is powered, which was the real question
+
+The hazard is specific and it is not about speed. Until firmware configures it,
+`PD1` on the STM32H7A3ZI is an input, so the SN65HVD230's driver input is
+floating. **A floating driver input on a CAN transceiver can hold the bus
+dominant**, and a bus held dominant does not fail loudly: it simply stops
+carrying frames, which reads like a wiring fault at the other end entirely.
+
+So the test is: start a listener, apply power to the Nucleo, and see whether the
+bus still works.
+
+```
+candump -td can1 &
+cansend can0 456#11223344
+ (000.000000)  can1  456   [4]  11 22 33 44
+    RX:  bytes packets errors dropped  missed   mcast
+             8       2      0       0       0       0
+    TX:  bytes packets errors dropped carrier collsns
+             8       2      0       0       0       0
+```
+
+| Observation | Value | Source |
+|---|---|---|
+| NUCLEO-H7A3ZI-Q powered, `LD6` lit, ST-LINK LED showing colour | confirmed by eye before the result was accepted | `[measured]` |
+| Frame crossed with the Nucleo powered | yes | `[measured]` |
+| `can0` errors, dropped, carrier, collisions | all zero | `[measured]` |
+| Bus held dominant by the floating driver input | **no** | `[measured]` |
+
+`[inferred]` The driver input is pulled recessive, either on the Waveshare
+module or inside the part. Which of those two it is has not been established,
+and the distinction matters: a pull-up on the module is a component that can be
+absent on another revision, while an internal one is a property of the silicon.
+
+**This is the one row on this page that should not be trusted as a general
+rule.** It was measured on one module, with one firmware image loaded, at one
+bit rate. The honest form is: this particular board, in this particular state,
+does not jam this bus. A different image that drives `PD1` low would.
+
+## What is actually on the Nucleo, which nobody had checked
+
+The question had been open all day and was answered by opening its serial
+console rather than by assuming. The ST-LINK virtual COM port is `COM13` on
+win11 skyhorizon, 115200 baud, and the drag and drop flashing volume is `D:`
+labelled `NOD_H7A3ZIQ` `[measured]`.
+
+Pressing the black `RESET` button with the port open gives:
+
+```
+nucleo-h7a3-sampling
+  acquisition   timer
+  nominal rate  1000 Hz
+  instrument    core cycle counter
+  tick rate     64000000 Hz
+  ...
+  adc preselection           REFUSED  the channel is unsourced
+acq_start failed: -11
+a value is unconfirmed against RM0455. See the TO BE CONFIRMED
+comments in the selected back end before running again.
+```
+
+| Finding | Value | Source |
+|---|---|---|
+| Image on the board | `nucleo-h7a3-sampling`, the 1 kHz sampling project from the firmware volume | `[measured]` |
+| Does anything in it configure FDCAN1? | **no** | `[measured]` |
+| Core clock | 64 MHz, so it is on HSI and not the 280 MHz PLL | `[measured]` |
+| Its own verdict on itself | refuses at ADC channel preselection, `acq_start failed: -11` | `[measured]` |
+
+Two things follow, and they point in opposite directions.
+
+`[inferred]` The first is good news about the volume next door: that image is
+refusing rather than reporting a number it cannot justify, exactly as it was
+built to. An unsourced ADC channel is a datasheet question, the image says so,
+and it names the comments to read. That is the refusal pattern working on real
+silicon.
+
+`[inferred]` The second is that **this chapter has no node firmware at all.**
+Chapter 10's code is `jn_bus.c`, `jn_frame.c`, `jn_log.c` and two applications,
+all of it Linux and SocketCAN. Nothing in this repository initialises FDCAN1,
+sets a bit timing, or claims a pin. So the wiring half of the node end is
+finished and the software half has not started.
+
+## What part four proves, and what it carefully does not
+
+| Claim | Status | Source |
+|---|---|---|
+| The three node line is wired as designed | yes, seven wires, listed above | `[measured]` |
+| Moving `J1` to `NC` leaves the bus working | yes | `[measured]` |
+| A dark third node does not disturb the bus | yes, at 500 kbit/s classic over this wire length | `[measured]` |
+| A powered third node with floating `PD1` does not jam the bus | yes, on this module with this image | `[measured]` |
+| The NUCLEO-H7A3ZI-Q can send or receive a frame | **no, and nothing here suggests it can** | `[measured]` |
+| The loose SN65HVD230 board terminates with 120 ohm | still unread, inferred from the product photograph | `[unconfirmed]` |
+| Anything about CAN FD | no. Still classic, still limited by the MCP2515 | `[chapter]` 9 |
+
+**The gap between row four and row five is the whole of the next session.** A
+transceiver that does not jam a bus is not a node. It becomes a node when
+firmware on the STM32H7A3ZI claims `PD0` and `PD1` at alternate function 9,
+configures FDCAN1 with a bit timing that matches the Pi end, and transmits.
+Every input that needs is already settled and written down: the pins and their
+alternate function `[vendor]`, the connector `[measured]`, the bit timing the Pi
+end actually achieved `[measured]`, and the sample point the kernel chose
+`[measured]`.
+
+**What is not settled is the one number chapter 9 and chapter 11 disagree
+about**, the 520 against 560 bits for a 64 byte frame, and that is open question
+8. It does not block a classic frame at 500 kbit/s, so it does not block the
+first transmission.
+

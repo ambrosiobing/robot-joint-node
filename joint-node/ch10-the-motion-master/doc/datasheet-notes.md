@@ -11,7 +11,7 @@ from. Each part gets its own section, and each section ends with what the
 datasheet changed about a decision, because a number that changes nothing is
 trivia.
 
-Read on **Tuesday 7 October 2026**, all documents fetched from the addresses in
+Read on **Wednesday 7 October 2026**, all documents fetched from the addresses in
 the table at the end.
 
 ## How to read a line
@@ -57,7 +57,7 @@ text says so and gives its number, so you can go and look at it.
 # 1. SN65HVD230, the classic CAN transceiver
 
 Two of these matter: `U3` on the WS-28164, and the loose Waveshare board
-intended for the Nucleo end.
+intended for the NUCLEO-H7A3ZI-Q end.
 
 **Document: TI SLOS346K, March 2001, revised February 2011.** Note the
 revision letter. An earlier note on this bench cited SLOS346O; the copy read
@@ -570,10 +570,11 @@ what this bench has recorded before. The fallback that has worked is ST's
 published header repositories for register and pin definitions, which answer the
 alternate function question even though they are not the datasheet.
 
-So the four `[unconfirmed]` rows that gate putting a wire into the Nucleo remain
-exactly where they were, and that gate stays closed. That is the correct
-outcome: the documents that would open it are named, the route that has worked
-before is named, and nothing has been guessed in the meantime.
+So the four `[unconfirmed]` rows that gate putting a wire into the
+NUCLEO-H7A3ZI-Q remain exactly where they were, and that gate stays closed.
+That is the correct outcome: the documents that would open it are named, the
+route that has worked before is named, and nothing has been guessed in the
+meantime.
 
 ## The documents, with their addresses
 

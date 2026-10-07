@@ -18,12 +18,13 @@ sacred except the markers.
 
 | Marker | Means |
 |---|---|
-| `[schematic]` | Read out of the WS-28164 schematic's own text layer, Tuesday 7 October 2026 |
+| `[schematic]` | Read out of the WS-28164 schematic's own text layer, Wednesday 7 October 2026 |
 | `[wiki]` | From Waveshare's wiki page, which for this board is the only manual there is |
 | `[datasheet]` | From the semiconductor manufacturer's published datasheet |
 | `[kernel]` | From the mainline Linux driver or its device tree binding |
 | `[measured]` | Measured on this bench, with the instrument named |
 | `[inferred]` | A conclusion drawn from the above, with the reasoning given so you can disagree |
+| `[vendor]` | From the manufacturer's own published source or board support files, with the file named. Not a datasheet, and held to the same rule: cite the file or leave the claim out |
 | `[unconfirmed]` | Believed, not yet checked. **No wiring decision may rest on one of these.** |
 | `[chapter]` | Established elsewhere in this volume, with the chapter named |
 | `[arithmetic]` | Follows from the other rows by calculation, so you can redo it |
@@ -39,7 +40,7 @@ Two ends, and it is worth being clear that they are not symmetrical.
 | End | Board | What it brings | What it lacks |
 |---|---|---|---|
 | Controller | Raspberry Pi 4B plus Waveshare WS-28164 | Two complete CAN controllers with their own transceivers, isolated | Nothing for this chapter `[schematic]` |
-| Node | NUCLEO-H7A3ZI-Q plus a loose Waveshare SN65HVD230 board | An FDCAN peripheral inside the STM32H7A3ZI | An FD rated transceiver `[datasheet]` |
+| Node | NUCLEO-H7A3ZI-Q plus a loose Waveshare SN65HVD230 board | An FDCAN peripheral inside the STM32H7A3ZI | An FD rated transceiver `[datasheet]` SLOS346K p2, and as of Wednesday 7 October 2026 any firmware that touches it `[measured]` |
 
 The asymmetry is the whole shape of the bring-up. The Pi end is finished
 hardware. The node end has a transceiver rated for 1 Mbit/s signalling, which is
@@ -425,7 +426,7 @@ right for a 3.3 V transceiver.
 
 Pin 8 of the SN65HVD230 is `Rs`, and it selects one of three modes. `R3` is
 **1k** to ground `[schematic]`. The first reading of that, written earlier on
-Tuesday 7 October 2026, was that the board ships **slew limited on purpose**,
+Wednesday 7 October 2026, was that the board ships **slew limited on purpose**,
 with a longer loop delay as the price.
 
 **That was wrong, and the datasheet says so plainly.** The full correction is in
@@ -788,6 +789,16 @@ A `mcp251xfd` answer is the CAN FD channel, terminal positions 4 and 5. A
 that one command, and writing the answer down with the date, is cheaper than
 any amount of reasoning about probe order.
 
+**This section's warning has now been observed coming true, twice, in opposite
+directions.** On Wednesday 7 October 2026 the classic controller probed first
+and took `can0`; later the same day, after nothing but a power cycle on the same
+card with the same overlays, `can0` was the CAN FD controller `[measured]`. So
+the instability is not theoretical and it is not rare. It also means
+[first-light.md](first-light.md) part two was briefly wrong about it: that page
+had written down "the classic controller probes first" as though it were a rule,
+and the correction is recorded in its own corrections table rather than quietly
+edited away.
+
 Better still, bring up one channel at a time, which makes the question
 disappear. That is the plan for this volume anyway, because the classic channel
 has no part to play in it.
@@ -832,7 +843,7 @@ jumper caps are right now.** A jumper position is a state, not a specification.
 look at the board, which is why this is a step in the bring up sequence and not
 a line in a table.
 
-**Looked at, Tuesday 7 October 2026.** A photograph enlarged on the two CAN
+**Looked at, Wednesday 7 October 2026.** A photograph enlarged on the two CAN
 jumpers reads them unambiguously:
 
 | Channel | Jumper | Cap position | Terminated? | Source |
@@ -860,35 +871,145 @@ it matches a resistor.
 
 | Fact | Value | Source |
 |---|---|---|
-| Part | STM32H7A3ZI, Nucleo-144 form factor | `[chapter]` 4 |
+| Part | STM32H7A3ZIT6**Q**, Nucleo-144 form factor | `[vendor]` stm32duino variant `H7A3Z(G-I)TxQ_H7B3ZITxQ` |
 | CAN peripheral | FDCAN, the Bosch M_CAN | `[chapter]` 9 |
 | Message RAM | 10240 bytes, shared across the FDCAN instances | `[chapter]` 9 |
-| FDCAN1 pins | believed `PD0` as RX and `PD1` as TX, alternate function 9 | `[unconfirmed]` |
-| Which connector pin carries `PD0` and `PD1` | not established | `[unconfirmed]` |
+| **FDCAN1 RX** | **`PD0`, alternate function 9** | `[vendor]` `PeripheralPins.c`, `PinMap_CAN_RD` |
+| **FDCAN1 TX** | **`PD1`, alternate function 9** | `[vendor]` `PeripheralPins.c`, `PinMap_CAN_TD` |
+| Which connector | **`CN9`**, ZIO designator `D67` for `PD0` and `D66` for `PD1` | `[vendor]` `variant_NUCLEO_H7A3ZI_Q.h`, confirmed by mbed-os `PinNames.h` |
+| Where `CN9` is | the **lower left** black Zio connector, below `CN8` | `[measured]` |
+| Which row of `CN9` | the **outer** column, nearest the left board edge and the `CN11` bare holes | `[measured]` |
+| How to find the pins on that row | the board silkscreens a vertical group label **`CAN`** near its bottom | `[measured]` |
+| Which physical pin number within `CN9` | still unread, and no longer needed | `[unconfirmed]` |
+| Does the board itself use `PD0` or `PD1`? | **No.** No LED, button, serial or bus macro resolves to either | `[vendor]` `variant_NUCLEO_H7A3ZI_Q.h` |
+| Firmware on the board as of Wednesday 7 October 2026 | `nucleo-h7a3-sampling`, the 1 kHz sampling image from the firmware volume. It configures no CAN peripheral and claims neither pin | `[measured]` |
+| Core clock in that image | 64 MHz, so HSI and not the 280 MHz PLL | `[measured]` |
+| ST-LINK virtual COM port | `COM13` on win11 skyhorizon, 115200 baud | `[measured]` |
+| Drag and drop flashing volume | `D:`, labelled `NOD_H7A3ZIQ` | `[measured]` |
 
-Those last two rows carry a note from chapter 4's pin table that says, in as
-many words, "TO CONFIRM against UM2408 before chapter 9". It has not been
-confirmed, and this page is not going to pretend otherwise. Both documents that
-settle it are named, and each answers exactly one half of the question:
+### Settled on Wednesday 7 October 2026, and not by the documents that should have
 
-| Document | Answers | Where |
+Chapter 4's pin table carried a note reading, in as many words, "TO CONFIRM
+against UM2408 before chapter 9". It is now confirmed, by a different route,
+because the two documents that would settle it directly have never been served
+to this bench:
+
+| Document | Would answer | Status |
 |---|---|---|
-| STM32H7A3ZI datasheet, alternate function table | whether `PD0` and `PD1` carry FDCAN1 RX and TX, and on which AF number | `https://www.st.com/resource/en/datasheet/stm32h7a3zi.pdf` |
-| UM2408, the STM32H7 Nucleo-144 board manual | which connector and pin on the MB1363 board carries `PD0` and `PD1` | `https://www.st.com/resource/en/user_manual/um2408-stm32h7-nucleo144-boards-mb1363-stmicroelectronics.pdf` |
+| STM32H7A3ZI datasheet, alternate function table | whether `PD0` and `PD1` carry FDCAN1 and on which AF | **not served**, three attempts, HTTP 000 |
+| UM2408, the Nucleo-144 MB1363 board manual | which connector pin carries them | **not served** |
 
-Two documents rather than one, and the split is the thing to notice: the
-datasheet knows what the silicon can do, and only the board manual knows where
-that pin comes out. Confirming one and assuming the other is how a transceiver
-ends up on the wrong header.
+The split between those two is the thing to notice and it survives the detour:
+**the silicon's capability and the board's wiring are different questions**, and
+confirming one while assuming the other is how a transceiver ends up on the wrong
+header.
 
-ST's own site has not served a PDF to this bench before, so if those links do
-not open here, the fallback that has worked is ST's published header
-repositories for the register and pin definitions.
+**What answered the silicon question.** ST maintains the alternate function
+mapping in a database that CubeMX reads, and that database is published in
+derived form. stm32duino's `PeripheralPins.c` for this exact part number is
+generated from it, and it is explicit:
 
-**Until those two rows are confirmed, no wire goes into the Nucleo.** This is
-not caution for its own sake. Putting a CAN transceiver's TX onto the wrong
-STM32 pin is a quiet failure if the pin is unused and a loud one if it is not,
-and either way it costs more than reading one table.
+```
+PinMap_CAN_RD[]:  PA_11 FDCAN1 AF9 | PB_8  FDCAN1 AF9 | PD_0 FDCAN1 AF9
+                  PB_5  FDCAN2 AF9 | PB_12 FDCAN2 AF9
+PinMap_CAN_TD[]:  PA_12 FDCAN1 AF9 | PB_9  FDCAN1 AF9 | PD_1 FDCAN1 AF9
+                  PB_6  FDCAN2 AF9 | PB_13 FDCAN2 AF9
+```
+
+So `PD0` is FDCAN1 RX and `PD1` is FDCAN1 TX, both on **AF9**, and there are two
+other choices for each `[vendor]`.
+
+**Why `PD0` and `PD1` are the right two of the three.** The alternatives are not
+equivalent:
+
+| Option | Why not | Source |
+|---|---|---|
+| `PA11` and `PA12` | The USB data pair on most STM32 designs, and on the Uno-compatible analog side of `CN7` here | `[vendor]` `variant_NUCLEO_H7A3ZI_Q.h` |
+| `PB8` and `PB9` | Arduino `D15` and `D14`, which are `SCL` and `SDA` on the Uno header. Using them costs the I2C pins | `[vendor]` `variant_NUCLEO_H7A3ZI_Q.h` |
+| **`PD0` and `PD1`** | **Adjacent, on one connector, claimed by nothing on the board** | `[vendor]` `variant_NUCLEO_H7A3ZI_Q.h` |
+
+**What answered the board question, partly.** Two independent published mappings
+agree that both pins are on `CN9`, with ZIO designators `D67` and `D66`
+`[vendor]`. What neither gives is the physical pin index within that connector,
+which lives only in UM2408.
+
+**That last gap is a photograph, not a document.** The Nucleo-144 silkscreens its
+connectors, so the two pins can be found by eye and the reading written down with
+a `[measured]` marker, exactly as the WS-28164's termination jumpers were.
+
+**One hazard while counting along `CN9`.** The pin immediately before `PD1` in
+that block is **`PB14`, which drives LD3, the red user LED** `[vendor]`. A
+miscount of one lands a CAN signal on an LED, which will do nothing and look like
+a dead transceiver.
+
+### The board itself, read on Wednesday 7 October 2026
+
+The physical layout was settled from the board rather than from UM2408, which
+st.com has not served in six attempts.
+
+```
+   NUCLEO-H7A3ZI-Q, MB1363D, held with the USB micro-AB at the TOP
+
+   LEFT edge                                        RIGHT edge
+
+   CN11                                                  CN12
+   bare holes,                                    bare holes,
+   ST morpho,                                      ST morpho,
+   unpopulated                                    unpopulated
+      ||                                                ||
+      ||   +--------+                      +--------+   ||
+      ||   |  CN8   |                      |  CN7   |   ||
+      ||   +--------+                      +--------+   ||
+      ||               [ STM32H7A3ZIT6Q ]               ||
+      ||   +--------+                      +--------+   ||
+      ||   |  CN9   |                      |  CN10  |   ||
+      ||   +--------+                      +--------+   ||
+
+      USER button, blue, bottom left    RESET, black, bottom right
+```
+
+| Observation | Source |
+|---|---|
+| `CN8` is the **upper left** black Zio connector | `[measured]` |
+| **`CN9` is the lower left** black Zio connector, directly below `CN8` | `[measured]` |
+| `CN7` upper right, `CN10` lower right | `[measured]` |
+| `CN11` and `CN12` are the **bare, unpopulated** morpho hole rows at the two edges | `[measured]` |
+| The **outer** column of `CN8`, nearest the left edge, carries the Arduino Uno **power** header: `NC`, `IOREF`, `NRST`, `3V3`, `5V`, `GND`, `GND`, `VIN`, in exact Uno order | `[measured]` |
+| The **outer** column of `CN9` carries the Arduino Uno **analog** header, starting `A0`, `A1` at its top | `[measured]` |
+| That outer column also carries a vertical group label **`CAN`** near its bottom, which is `PD1` and `PD0` | `[measured]` |
+
+**The two independent routes agree.** ST's variant file puts `A0`, `A1`, `A3` and
+`A5` in the same block as `PD1` and `PD0` `[vendor]`, and the board puts the
+Arduino analog header and the `CAN` group on the same physical column
+`[measured]`. Neither route needed the connector's pin numbering, and neither
+needed UM2408.
+
+```
+   CN9, OUTER column only, nearest the left board edge, top to bottom
+
+     A0          <- Arduino analog header starts here
+     A1
+     ...
+     COMP
+     I2C
+     GND
+     CAN  <----  PD1, FDCAN1 TX, alternate function 9
+          <----  PD0, FDCAN1 RX, alternate function 9
+     IO          <- bottom of the connector
+```
+
+Guard rails, from ST's variant file `[vendor]`: the pin immediately **before**
+`PD1` is `PB14`, the red LED LD3, and the pin immediately **after** `PD0` is
+`PF15`. If the pin you are about to touch has neither as a neighbour, you are in
+the wrong place.
+
+The **inner** column of `CN9`, the one facing the STM32, carries the `PD7` down
+to `PD3` run and nothing this volume needs `[vendor]`.
+
+**Until those two rows are confirmed, no wire goes into the NUCLEO-H7A3ZI-Q.**
+This is not caution for its own sake. Putting a CAN transceiver's TX onto the
+wrong STM32 pin is a quiet failure if the pin is unused and a loud one if it is
+not, and either way it costs more than reading one table.
 
 ## The loose Waveshare SN65HVD230 board
 
@@ -907,6 +1028,42 @@ arrangement is the same question `R3` answered for the HAT, and it has the same
 consequence: a slew limited transceiver has a longer loop delay, and the loop
 delay is an input to chapter 9's transmitter delay compensation. This board has
 its own schematic on the same wiki, and the same text layer trick will read it.
+
+### As wired on Wednesday 7 October 2026
+
+The board joined the bus. Its header and screw terminal, read off the board
+rather than from the wiki, with the Nucleo end of each wire named:
+
+| On the SN65HVD230 board | Goes to | Source |
+|---|---|---|
+| `3.3V` | NUCLEO-H7A3ZI-Q `CN8` `3V3` | `[measured]` |
+| `GND` | NUCLEO-H7A3ZI-Q `CN8` `GND` | `[measured]` |
+| `CAN_TX` | NUCLEO-H7A3ZI-Q `CN11` `PD1`, FDCAN1 TX | `[measured]` |
+| `CAN_RX` | NUCLEO-H7A3ZI-Q `CN11` `PD0`, FDCAN1 RX | `[measured]` |
+| `CANH` screw | WS-28164 terminal, `CAN FD` group, screw `H` | `[measured]` |
+| `CANL` screw | WS-28164 terminal, `CAN FD` group, screw `L` | `[measured]` |
+| `GND` screw | WS-28164 terminal, `CAN FD` group, screw `G` | `[measured]` |
+
+**Wire the ground before either bus wire, with both boards unpowered.** The two
+grounds are separately supplied and float relative to one another until they are
+joined, so whichever wire goes in last carries the accumulated difference, and
+the only safe candidate for that is the ground wire itself.
+
+**`CN11` rather than `CN9`, and the reason is printing, not electricity.** Both
+pins come out on `CN9` as well, ZIO `D67` and `D66` `[vendor]`, but the Zio
+connectors carry Arduino names and not port names. `CN11`, the bare morpho hole
+row at the left board edge, prints `PD0` and `PD1`, so wiring there removes a
+counting step. On `CN9` a miscount of one lands a CAN signal on `PB14`, which
+drives the red LED LD3 and would present as a dead transceiver `[vendor]`.
+
+**One thing this board does that nothing had checked.** With the Nucleo powered
+and no firmware configuring `PD1`, the transceiver's driver input is floating,
+and a floating driver input can hold a bus dominant. It does not here: a frame
+crossed the bus with the Nucleo powered, zero errors `[measured]`. Whether the
+recessive pull is on the Waveshare module or inside the part is **not**
+established, and the distinction matters, because a pull-up on the module is a
+component that another revision can omit. The measurement is in
+[first-light.md](first-light.md) part four.
 
 ### Why chapter 13 waits
 
@@ -961,18 +1118,29 @@ most.
 
 | # | Question | Why it matters | How to settle it |
 |---|---|---|---|
-| 1 | ~~Confirm `U6` `STBY` is tied low~~ | **Closed Tuesday 7 October 2026.** A frame left the transceiver onto a real bus and was acknowledged, which is impossible in standby | [first-light.md](first-light.md) part two |
-| 2 | Is `PD0` and `PD1` right for FDCAN1, and which connector pins? | No wire goes into the Nucleo until it is answered | The STM32H7A3ZI datasheet, then UM2408 |
+| 1 | ~~Confirm `U6` `STBY` is tied low~~ | **Closed Wednesday 7 October 2026.** A frame left the transceiver onto a real bus and was acknowledged, which is impossible in standby | [first-light.md](first-light.md) part two |
+| 2 | ~~Is `PD0` and `PD1` right for FDCAN1, and which connector pins?~~ | **Closed Wednesday 7 October 2026**, without either ST document. `PD0` is FDCAN1 RX and `PD1` is FDCAN1 TX at AF9, on the outer column of `CN9`, the lower left connector, in the group silkscreened `CAN` | ST's published pin database, then the board itself |
 | 3 | Does the loose SN65HVD230 board slew limit its transceiver? | It is an input to transmitter delay compensation | Its own schematic, same text layer method |
 | 4 | Does the DC terminal feed the Pi through `R43` and `R44`? | Decides whether two supplies may be connected at once | One power cycle, DC only, see if the Pi boots |
 | 5 | ~~What are `U7` `EN1` and `EN2` tied to?~~ | **Closed the same way.** Both channels carried traffic, so the isolator is enabled in both directions | [first-light.md](first-light.md) part two |
 | 6 | ~~What is `Y2` `OE` tied to?~~ | **Closed.** The driver reports `o:40.00MHz` and the bit timing works, so the oscillator is enabled | [first-light.md](first-light.md) part one |
-| 7 | **Closed Tuesday 7 October 2026.** MCP2562FD loop delay and supply ranges | | DS20005284A p9 and p13, in [datasheet-notes.md](datasheet-notes.md) |
+| 7 | **Closed Wednesday 7 October 2026.** MCP2562FD loop delay and supply ranges | | DS20005284A p9 and p13, in [datasheet-notes.md](datasheet-notes.md) |
 | 8 | The 520 against 560 bit disagreement | Chapter 9 step 7 and chapter 11 do not agree on a 64 byte frame's data portion | RM0455, the FDCAN chapter |
+| 9 | **There is no FDCAN firmware for the NUCLEO-H7A3ZI-Q anywhere in this repository** | It is now the only thing between a wired three node bus and a second talking node. The wiring is done and measured; the software half has not started | Write it. Every input it needs is already settled: the pins and their alternate function, the connector, and the bit timing and sample point the Pi end achieved |
+| 10 | Is the SN65HVD230 board's recessive pull on the module or in the part? | Decides whether a floating `PD1` is safe on this board only or on any board | Its own schematic, same text layer method as question 3 |
 
 Numbers 1, 5 and 6 are all the same task: three nets that the text layer did not
 carry, all readable by looking at the drawing itself for ten minutes. That is
 probably the single best use of the next short session.
+
+Numbers 3 and 10 are also one task, because both are answered by the loose
+SN65HVD230 board's own schematic: its `Rs` arrangement and whatever sits on its
+driver input are on the same drawing.
+
+**Number 9 is now the one that gates everything downstream.** It is not a
+reading question and it cannot be closed by opening a document. Until it is
+closed, every measurement in this chapter is one board talking to itself with a
+powered transceiver listening.
 
 Number 8 is the oldest open question in the volume and the one with the most
 specific answer waiting. RM0455 is the reference manual for this exact part, its

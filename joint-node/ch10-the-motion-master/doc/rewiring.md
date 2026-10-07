@@ -38,7 +38,7 @@ Each proposal below carries a verdict. The vocabulary is small on purpose:
 
 ### Wire the board to itself and get a real two node bus today
 
-**Verdict: Do. Done on Tuesday 7 October 2026, and it worked.**
+**Verdict: Do. Done on Wednesday 7 October 2026, and it worked.**
 
 Two jumper wires, five minutes, frames both directions, zero errors. The run is
 recorded in [first-light.md](first-light.md) part two. It also closed the
@@ -125,8 +125,8 @@ What it does **not** prove, and this list is as important as the one above:
   ground.
 - **Nothing about cable length, reflections or real world noise**, because the
   wire is 40 millimetres of jumper.
-- **Nothing about the node end.** The Nucleo and its firmware are still exactly
-  as far away as they were.
+- **Nothing about the node end.** The NUCLEO-H7A3ZI-Q and its firmware are
+  still exactly as far away as they were.
 
 So this is not a substitute for the real bus. It is a strictly better substitute
 for `vcan0`, available immediately, with no soldering and no parts. Chapters 10,
@@ -442,7 +442,7 @@ bring up and not a line in a table.
 
 ## The node end, where the decision is a purchase
 
-### Use the loose SN65HVD230 at the Nucleo end
+### Use the loose SN65HVD230 at the NUCLEO-H7A3ZI-Q end
 
 **Verdict: Do, with its ceiling stated.**
 
@@ -450,7 +450,49 @@ It is the transceiver that is on the bench, it is a 3.3 V part which matches the
 STM32's pins, and it makes the bus real for chapters 9, 10, 11, 12 and 19. Its
 rated 1 Mbit/s is comfortably above the planned 500 kbit/s arbitration rate.
 
-### Buy an FD rated transceiver for the Nucleo end
+### Wire the NUCLEO-H7A3ZI-Q's logic pins into the WS-28164's 40-pin header
+
+**Verdict: Do not. It was attempted on Wednesday 7 October 2026 and it cannot
+work.**
+
+This one is in here because it was actually built, and because the reason it is
+wrong is not obvious from looking at the board. The 40-pin header is the most
+inviting surface on the HAT: it is the only connector with a printed name beside
+every pin, including `3V3`, `GND` and a full set of GPIO numbers. Four jumpers
+from the Nucleo's `CN8` `3V3`, `CN8` `GND`, `CN11` `PD1` and `CN11` `PD0` went
+into it, with the reasonable-sounding thought that a header which names `3V3`
+must be a place to deliver 3.3 V.
+
+Three independent reasons it fails, and any one of them is enough:
+
+| # | Reason | Source |
+|---|---|---|
+| 1 | That header **is** the Raspberry Pi's own header, pin for pin. It is the HAT's seat, not an expansion port. Its `3V3` pin is the Pi's regulator **output**, so a second 3.3 V supply on it is two regulators pushing against each other | `[schematic]` |
+| 2 | Its GPIO pins go to the Pi's SoC. None of them is a transceiver input. Both of this board's CAN transceivers are hard wired to its own controllers on the far side of the isolation barrier, and nothing on the header reaches them | `[schematic]` |
+| 3 | The Pi cannot be seated on a header that is holding four jumper wires, so the HAT stops being a HAT | `[measured]` |
+
+**The general rule worth taking from it.** On a HAT, the 40-pin header is an
+input, never an output: it is where the host plugs in. The only surfaces that
+accept a wire from somewhere else are the ones the board puts on its own edge,
+which here is the 15 position terminal block. See
+[board-findings.md](board-findings.md) section 10 for what each of those
+positions is.
+
+**And the near miss that is worth naming.** The next idea after the header was
+the terminal block's `RS232` group, on the grounds that it has `TX`, `RX` and a
+ground and the Nucleo needs `TX`, `RX` and a ground. That would have been worse,
+not better: those three positions sit behind an SP3232EEN line driver and carry
+**RS-232 line levels**, which swing to roughly plus and minus 5 to 12 V
+`[schematic]`. The STM32H7A3ZI's absolute maximum on a 3.3 V I/O pin is nowhere
+near that, so `PD0` and `PD1` would have been the parts that paid. A connector
+whose signal names match what you need is not evidence that its levels do.
+
+**What is correct is three wires to the `CAN FD` group**, `H`, `L` and `G`, with
+the logic side going to the loose SN65HVD230 board instead. That is the section
+immediately above, and the built result is in
+[first-light.md](first-light.md) part four.
+
+### Buy an FD rated transceiver for the NUCLEO-H7A3ZI-Q end
 
 **Verdict: Later, and it is the only thing chapter 13 is waiting for.**
 
@@ -658,7 +700,11 @@ it is genuinely worth trying on the next unfamiliar board before any other step.
    tools against a real two node bus.
 7. Settle the three unread nets, `U6` `STBY`, `U7` `EN1` and `EN2`, and `Y2`
    `OE`, from the schematic drawing.
-8. Confirm `PD0` and `PD1` against UM2408 before any wire enters the Nucleo.
+8. Confirm `PD0` and `PD1` before any wire enters the NUCLEO-H7A3ZI-Q.
+   **Done on Wednesday 7 October 2026**, from ST's published pin database rather
+   than from UM2408, which st.com still does not serve. `PD0` is FDCAN1 RX and
+   `PD1` is FDCAN1 TX, both on alternate function 9, both on `CN9`. The
+   physical pin index within `CN9` is the one part still unread.
 
 Steps 1 through 6 need nothing that is not already here. Step 7 needs ten
 minutes. Step 8 is the gate on the real bus, and it is a reading, not a

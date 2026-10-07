@@ -38,10 +38,20 @@ Five rules, and every one of them has cost something on this bench already:
      cases the claim was plausible and nothing in the row said which page to go
      and check. Four characters converts an argument into a lookup.
 
+  6. Every date written as a weekday plus a day, month and year actually falls on
+     that weekday. This rule was added after twenty one occurrences of
+     "Tuesday 7 October 2026" went unnoticed across six files, and 7 October 2026
+     is a Wednesday. A wrong weekday is worse than no weekday, because the
+     redundancy exists precisely so that a reader can catch a wrong day number,
+     and a reader who spots the disagreement has no way to tell which half is
+     the error. The rule is cheap, it is total, and unlike the five above it can
+     be checked without opening a single datasheet.
+
 What this cannot check is whether any of it is still true. The schematic and the
 datasheets are the authority, the bench is the tiebreaker, and the open
 questions table is the honest list of what neither has been asked yet.
 """
+import datetime
 import re
 import sys
 from pathlib import Path
@@ -62,6 +72,7 @@ MARKERS = (
     "[measured]",
     "[inferred]",
     "[unconfirmed]",
+    "[vendor]",
     "[chapter]",
     "[arithmetic]",
 )
@@ -91,7 +102,7 @@ REQUIRED = {
         "## What this run did not prove",
         "## Corrections this run forced",
         "# Part one: internal loopback, no wire",
-        "# Part two: a real two node bus, Tuesday 7 October 2026",
+        "# Part two: a real two node bus, Wednesday 7 October 2026",
         "# Part three: the chapter's own tools, and a measured bus ceiling",
         "## The measured frame length",
         "## Backpressure, which behaved correctly all the way up",
@@ -128,6 +139,9 @@ CLAIM_DOCS = {
         "| # | Question | Why it matters | How to settle it |",
         "| Document | Where |",
         "| Document | Answers | Where |",
+        # Documents that were sought and not served. A list of what is
+        # missing, not a set of claims about the hardware.
+        "| Document | Would answer | Status |",
         "| End | Board | What it brings | What it lacks |",
     },
     FIRSTLIGHT: {
@@ -172,6 +186,15 @@ BARE_MARKER = re.compile(r"\[([a-z]+)\](?!\()")
 # A page reference, as "p8" or "p13". Deliberately loose about what precedes it,
 # because a row may name a revision too, as in "SLOS346K p8".
 PAGE_CITED = re.compile(r"\bp\d+\b")
+
+# A date written the way this volume writes dates: weekday, day, month, year.
+MONTHS = ("January", "February", "March", "April", "May", "June", "July",
+          "August", "September", "October", "November", "December")
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+            "Sunday")
+FULL_DATE = re.compile(
+    r"\b(" + "|".join(WEEKDAYS) + r") (\d{1,2}) (" + "|".join(MONTHS) + r") (\d{4})\b"
+)
 
 
 def without_code(text):
@@ -305,12 +328,47 @@ def check_verdicts(problems):
     return count
 
 
+def check_dates(problems):
+    """Rule 6. A weekday written beside a date has to be that date's weekday.
+
+    Every document in this directory is checked, not only the five with required
+    headings, because a wrong date in the chapter README is as misleading as a
+    wrong date in the findings.
+    """
+    count = 0
+    for path in sorted(DOC.parent.rglob("*.md")):
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").split("\n"), 1):
+            for m in FULL_DATE.finditer(line):
+                count += 1
+                weekday, day, month, year = m.groups()
+                try:
+                    actual = datetime.date(
+                        int(year), MONTHS.index(month) + 1, int(day)
+                    ).strftime("%A")
+                except ValueError:
+                    problems.append(
+                        f"{path.name}:{lineno}: not a real date: {m.group(0)}"
+                    )
+                    continue
+                if actual != weekday:
+                    problems.append(
+                        f"{path.name}:{lineno}: {m.group(0)} is a {actual}, "
+                        f"so it is either the weekday or the day that is wrong"
+                    )
+    if count == 0:
+        problems.append(
+            "no full dates found anywhere, which cannot be right for this chapter"
+        )
+    return count
+
+
 def main():
     problems = []
     check_headings(problems)
     rows = check_sources(problems)
     check_vocabulary(problems)
     verdicts = check_verdicts(problems)
+    dates = check_dates(problems)
 
     if problems:
         for p in problems:
@@ -321,6 +379,7 @@ def main():
     print(f"{rows} sourced claim rows checked, every one carries a marker")
     print("every [datasheet] row names the page it was read from")
     print(f"{verdicts} rewiring verdicts checked, every one is one of {VERDICTS}")
+    print(f"{dates} full dates checked, every weekday matches its date")
     print("chapter 10 hardware findings: shape and provenance intact")
     return 0
 
