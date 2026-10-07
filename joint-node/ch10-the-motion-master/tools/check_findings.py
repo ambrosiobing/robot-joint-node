@@ -92,6 +92,9 @@ REQUIRED = {
         "## Corrections this run forced",
         "# Part one: internal loopback, no wire",
         "# Part two: a real two node bus, Tuesday 7 October 2026",
+        "# Part three: the chapter's own tools, and a measured bus ceiling",
+        "## The measured frame length",
+        "## Backpressure, which behaved correctly all the way up",
         "## What this finally proves",
         "## What a two node bus on one board still cannot show",
     ],
@@ -135,6 +138,14 @@ CLAIM_DOCS = {
         # Limitations, which are reasoning about the measurements above rather
         # than measurements of their own.
         "| Not proved | Why |",
+        # The standard classic CAN frame format, carried as context so that the
+        # excess over it can be attributed to bit stuffing. The measured frame
+        # length does not depend on it: that came from dividing a bit rate by a
+        # measured frame rate and stands on its own.
+        "| Field | Bits |",
+        # Pure arithmetic from rows that are themselves sourced above.
+        "| Case | Bits per frame | Frames per second at 1 Mbit/s |",
+        "| Basis | Load at 4000 frames per second, 500 kbit/s |",
         "| Register | Range | Source |",
         "| Frame sent | `TX: packets` | `RX: packets` | Source |",
         "| Payload asked for | Legal CAN FD length? | `TX: bytes` increment | Source |",

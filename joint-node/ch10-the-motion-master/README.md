@@ -34,7 +34,7 @@ about it, in the order you would want them:
 | [doc/datasheet-notes.md](doc/datasheet-notes.md) | What the manufacturers specify, part by part, with a page number on every figure. Ten datasheets read; the three ST documents would not download |
 | [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus the two patterns behind six wrong readings |
 | [doc/bench-bring-up.md](doc/bench-bring-up.md) | The sequence. Card, configuration, order of operations, and what loopback does and does not prove |
-| [doc/first-light.md](doc/first-light.md) | **The measurements.** Two runs on Tuesday 7 October 2026 with photographs: internal loopback, then the board wired to itself as a real two node bus. The run that proved the isolated side is alive |
+| [doc/first-light.md](doc/first-light.md) | **The measurements.** Three runs on Tuesday 7 October 2026 with photographs: internal loopback, the board wired to itself as a real two node bus, then this chapter's own tools finding that bus's ceiling. 278,513 frames, zero errors, and the volume's first measured frame length |
 
 The first four were written before anything was wired, which is the whole point,
 and the fifth is what happened when it was. Reading
@@ -58,7 +58,7 @@ python tools/check_findings.py
 ```
 
 That checks what a program can check about those documents: that the headings
-they promise are present, that all 388 claim rows still carry a provenance
+they promise are present, that all 430 claim rows still carry a provenance
 marker, that **every `[datasheet]` row names the page it was read from**, that
 the marker vocabulary has not drifted, and that every rewiring verdict is one of
 the four words the document defines.
@@ -169,6 +169,11 @@ is the one that was typed in.
 There is no C compiler on the win11 aquamarine authoring laptop, so nothing in
 this directory has ever been built there. It is built by the workflow in
 `.github/workflows/checks.yml` and on the Pi 4.
+
+`test_bus` ran on the board itself for the first time on Tuesday 7 October 2026,
+and `jn-listen` and `jn-setpoint` were pointed at a real two node CAN bus the
+same day: 1000 frames sent, 1000 received, 1000 logged, and then a rate ramp that
+found the bus ceiling. See [doc/first-light.md](doc/first-light.md) part three.
 
 `test_bus` is a real test as of Thursday 1 October 2026 and no longer a skip.
 GitHub's runner image ships a kernel with no `vcan` module, so the first

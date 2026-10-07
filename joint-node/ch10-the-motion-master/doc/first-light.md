@@ -5,10 +5,12 @@ only one that contains measurements, and everything on it was taken on
 **Tuesday 7 October 2026** on a Raspberry Pi 4B carrying a Waveshare WS-28164,
 host name `eplepi`, user `bing`.
 
-It covers two runs. **Part one** is internal loopback with nothing wired, which
+It covers three runs. **Part one** is internal loopback with nothing wired, which
 proves the controller and the bit timing and cannot touch a wire. **Part two** is
 the board wired to itself as a two node bus, which is the run that finally shows
-the isolated side is alive.
+the isolated side is alive. **Part three** puts this chapter's own tools on that
+bus and finds its ceiling, which yields the first measured frame length this
+volume has.
 
 It is deliberately separate from [board-findings.md](board-findings.md) and
 [datasheet-notes.md](datasheet-notes.md), because a measurement and a
@@ -610,3 +612,301 @@ a friction contact. The first three frames arrived while the second wire was
 being moved rather than when a command was run, which is exactly how a friction
 contact announces itself. Strip the ends and clamp the bare copper before taking
 any measurement that matters.
+
+---
+
+# Part three: the chapter's own tools, and a measured bus ceiling
+
+Parts one and two used `cansend` and `candump`. This part runs **this chapter's
+own code** against the two node bus, which it had never met: `jn-listen` and
+`jn_bus.c` had only ever seen `vcan0` in a CI job.
+
+It produced the first measured number this volume has about a real bus, and the
+number turned out to be worth having.
+
+## Building on the board
+
+```bash
+sudo apt install -y build-essential git
+git clone https://github.com/ambrosiobing/robot-joint-node.git ~/src/robot-joint-node
+sudo modprobe vcan && sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0
+cd ~/src/robot-joint-node/joint-node/ch10-the-motion-master && make
+```
+
+| Test | Result | Source |
+|---|---|---|
+| `test_frame` | `ok  frame layout, identifier flags, length rules, printed form, and a fully written wire` | `[measured]` |
+| `test_log` | `ok  log format, file round trip, repeatable reads, and a deliberate gap` | `[measured]` |
+| `test_bus` | **`ok  two sockets on vcan0, classic and flexible-data, and a kernel filter`** | `[measured]` |
+
+**The third line is the one that had never happened outside CI.** `test_bus`
+exercises the socket, the flexible-data socket option, the 72 byte layout and a
+kernel filter, and it had reported a clean skip on every machine this volume is
+written on. `build-essential` was already installed on the image; only `git` had
+to be fetched.
+
+## The tools, end to end on the real bus
+
+```bash
+./build/jn-listen can0 --classic --out run.log --seconds 8 > /dev/null &
+sleep 1
+./build/jn-setpoint can1 --rate 200 --seconds 5
+```
+
+| Quantity | Value | Source |
+|---|---|---|
+| Frames sent | **1000** | `[measured]` |
+| Rate achieved against asked | **200.2 Hz against 200.0** | `[measured]` |
+| Frames seen by `jn-listen` | **1000** | `[measured]` |
+| Lines in `run.log` | **1000** | `[measured]` |
+| Inter-frame interval observed | about 4.98 ms, jitter around 20 us | `[measured]` |
+
+The payload is a 32 bit little-endian counter in bytes 0 to 3, and it arrived
+contiguous and uncorrupted:
+
+```
+can0  101#0000000000000000     counter 0
+can0  101#0100000000000000     counter 1
+...
+can0  101#FF00000000000000     counter 255
+can0  101#0001000000000000     counter 256
+```
+
+**A note on how not to run this.** The first attempts gave 150 and then 298
+frames against 1000 sent, which looked like catastrophic loss and was not: the
+listener's window and the generator's barely overlapped. Backgrounding the
+listener and sleeping one second before starting the generator fixed it. Two
+programs started by hand in two terminals do not overlap the way you think they
+do.
+
+## One ramp that was contaminated, and what it taught
+
+The first rate ramp was run while a separate 200 Hz test was still going in
+another terminal. Two generators on one bus. The job numbers gave it away.
+
+| Asked | What happened | Source |
+|---|---|---|
+| 500 Hz | 2500 sent, 2500 seen | `[measured]` |
+| 1000 Hz | 5000 sent, **6000 seen** | `[measured]` |
+| 2000 Hz | 10000 sent, 10000 seen | `[measured]` |
+| 3000 Hz | **`ENOBUFS` after 1126 frames** | `[measured]` |
+| 4000 Hz | 20000 sent, 20000 seen | `[measured]` |
+
+The 6000 is 5000 of its own plus the other run's 1000. And the 3000 Hz failure
+was **contention**, not a rate limit, which the clean ramp below confirms by
+passing 3000 Hz comfortably. A ceiling that bites at 3000 and not at 4000 is not
+a ceiling, and that inconsistency is what said the measurement was contaminated
+rather than surprising.
+
+## The clean ramp at 500 kbit/s
+
+```bash
+for r in 1000 2000 3000 3500 4000 4200 4400; do
+  ./build/jn-listen can0 --classic --seconds 7 > /dev/null &
+  sleep 1
+  ./build/jn-setpoint can1 --rate $r --seconds 5
+  wait
+done
+```
+
+| Asked | Sent | Achieved | Seen | Result | Source |
+|---|---|---|---|---|---|
+| 1000 Hz | 5000 | 1000.2 | 5000 | pass | `[measured]` |
+| 2000 Hz | 10000 | 2000.2 | 10000 | pass | `[measured]` |
+| 3000 Hz | 15000 | 3000.1 | 15000 | pass | `[measured]` |
+| 3500 Hz | 17500 | 3500.1 | 17500 | pass | `[measured]` |
+| **4000 Hz** | 20000 | 4000.1 | **20000** | **pass** | `[measured]` |
+| **4200 Hz** | 151 | | 151 | **`ENOBUFS`** | `[measured]` |
+| 4400 Hz | 134 | | 134 | `ENOBUFS` | `[measured]` |
+
+A sharp cliff between 4000 and 4200 frames per second.
+
+## The test that proved it was the bus
+
+A cliff at 4100 frames per second could be the bus at 500 kbit/s, or it could be
+the SPI link, or the Pi's own throughput. The arithmetic fitted the bus suspiciously
+well, which is a reason to check rather than to believe.
+
+**Double the bit rate. If the cliff doubles it is the bus; if it stays put it is
+the adapter or the host.**
+
+Both parts can do 1 Mbit/s classic: the MCP2515 is rated for it `[datasheet]`
+MCP2515 p1, and at a 125 ns quantum a 1000 ns bit is 8 quanta, inside its
+`tseg1 3..16` and `tseg2 2..8` ranges `[measured]`. The kernel picked
+`sample-point 0.750` at both ends, its default above 800 kbit/s, so the two
+matched again by policy rather than by luck `[measured]`.
+
+| Asked | Sent | Achieved | Seen | Result | Source |
+|---|---|---|---|---|---|
+| 4000 Hz | 20000 | 4000.1 | 20000 | pass | `[measured]` |
+| 6000 Hz | 30000 | 6000.1 | 30000 | pass | `[measured]` |
+| 7000 Hz | 35000 | 7000.1 | 35000 | pass | `[measured]` |
+| 8000 Hz | 40000 | 8000.1 | 40000 | pass | `[measured]` |
+| **8100 Hz** | 40500 | 8100.2 | **40500** | **pass** | `[measured]` |
+| **8200 Hz** | 842 | | 842 | **`ENOBUFS`** | `[measured]` |
+| 8300 Hz | 413 | | 413 | `ENOBUFS` | `[measured]` |
+| 8400 Hz | 278 | | 278 | `ENOBUFS` | `[measured]` |
+| 9000 Hz | 65 | | 65 | `ENOBUFS` | `[measured]` |
+
+**The cliff doubled.** Not approximately: 4000 to 4200 became 8000 to 8400, and
+narrowing put it between 8100 and 8200.
+
+So **the bus is the limit**. The SPI link at up to 17 MHz and the Pi 4 itself
+both have room to spare, and neither was ever the constraint `[inferred]`.
+
+## The measured frame length
+
+The ceiling is a frame rate. Divide the bit rate by it and the frame length in
+bits falls out.
+
+| From | Frame must be at most | Frame must be more than | Source |
+|---|---|---|---|
+| 500 kbit/s, 4000 passes | 500000/4000 = **125.0 bits** | | `[arithmetic]` |
+| 500 kbit/s, 4200 fails | | 500000/4200 = **119.0 bits** | `[arithmetic]` |
+| 1 Mbit/s, 8100 passes | 1000000/8100 = **123.5 bits** | | `[arithmetic]` |
+| 1 Mbit/s, 8200 fails | | 1000000/8200 = **122.0 bits** | `[arithmetic]` |
+
+**The on-wire frame is between 122.0 and 123.5 bits**, and the two bit rates give
+consistent, overlapping bounds. That consistency is what makes it a measurement
+rather than a coincidence: the constraint is a count of bits, so it scales with
+the bit rate while the count itself stays put.
+
+Against theory, an 8 byte classic standard frame is:
+
+| Field | Bits |
+|---|---|
+| Start of frame | 1 |
+| Identifier | 11 |
+| RTR, IDE, r0 | 3 |
+| Data length code | 4 |
+| Data | 64 |
+| CRC and delimiter | 16 |
+| Acknowledgement slot and delimiter | 2 |
+| End of frame | 7 |
+| Interframe space | 3 |
+| **Nominal total** | **111** |
+
+So the measurement says **11 to 12.5 bit stuffing bits**. The stuffed region runs
+from the start of frame to the end of the CRC, 98 bits, so that is about one
+stuffed bit in eight `[arithmetic]`.
+
+**The measured length does not depend on that table being right.** It came from
+dividing a bit rate by a measured frame rate, and it stands whether the nominal
+is 111 or something else. The breakdown is used only to attribute the excess to
+stuffing, and if the field widths were wrong the attribution would change while
+the 122 to 123.5 bits would not.
+
+| Case | Bits per frame | Frames per second at 1 Mbit/s |
+|---|---|---|
+| No stuffing at all | 111 | 9009 |
+| **Measured, this traffic** | **122 to 123.5** | **8100 to 8200** |
+| Worst case stuffing | 135 | 7407 |
+
+### The qualification that matters more than the number
+
+**This figure is payload dependent and must be quoted that way.**
+
+`jn-setpoint` sends a 32 bit little-endian counter in a 64 bit payload, so bytes
+4 to 7 are always zero and bytes 1 to 3 are usually zero. That is a long run of
+identical bits, and the stuffing rule inserts a bit after every five. The traffic
+is unusually stuff-heavy by construction.
+
+A high entropy payload would stuff less, the frame would shorten toward 111 bits,
+and the ceiling would rise toward 9000 frames per second. So **122 to 123.5 bits
+is a measurement of this traffic on this bus, not a property of 8 byte frames**,
+and anything that reuses it has to say so.
+
+Measuring the same ceiling with a random payload would bracket the other end of
+the range and is the obvious follow-up `[unconfirmed]`.
+
+### What this does to a bus load figure
+
+| Basis | Load at 4000 frames per second, 500 kbit/s |
+|---|---|
+| Nominal 111 bits | 88.8 per cent |
+| **Measured 123 bits** | **98.4 per cent** |
+
+**Using the nominal frame length understates bus load by about ten points here**,
+and the direction is the dangerous one. A design believed to fit at 89 per cent
+while really running at 98 has no margin left and does not know it.
+
+**What this does and does not say about chapter 11.** That chapter's `busload.py`
+computes a CAN FD figure from `ARB_BITS_DEFAULT = 67` and
+`DATA_OVERHEAD_DEFAULT = 48`, and its own docstring already says the arithmetic
+is approximate and claims to be wrong in the direction of pessimism. So this is
+not a correction to it. CAN FD stuffs differently from classic CAN, with fixed
+stuff bits and an explicit stuff count field, so the 122 to 123.5 bits measured
+here **does not transfer**.
+
+What does transfer is one caution: on classic CAN, with a stuff-heavy payload, a
+nominal frame length was **optimistic by ten to twelve per cent**, not
+pessimistic. Whether chapter 11's flexible-data constants are pessimistic as
+claimed is **not established by anything here** `[unconfirmed]`, and settling it
+needs the same measurement on an FD capable bus, which needs an FD capable second
+node. That is the same part chapter 13 is waiting for.
+
+## Backpressure, which behaved correctly all the way up
+
+The failure at every over-rate step was `ENOBUFS` at the **sender**, never an
+error on the wire.
+
+| Stage | What happens when the bus is full | Source |
+|---|---|---|
+| The wire | carries what it can, and nothing is corrupted | `[measured]` |
+| The driver | stops accepting from the queue | `[inferred]` |
+| The queue | `qlen 10`, the SocketCAN default, fills | `[measured]` |
+| `write()` | returns `ENOBUFS` rather than blocking | `[measured]` |
+| `jn-setpoint` | stops, reports the count and names the errno | `[measured]` |
+
+```
+jn-setpoint: sending stopped after 842 frames: the system call failed (No buffer space available)
+```
+
+**Nothing was lost silently anywhere in that chain.** The generator did not drop
+frames quietly, and it did not report a rate it had not achieved. That is the
+property this chapter is built around, observed doing its job under a condition
+the chapter had never actually reached.
+
+`qlen 10` is worth knowing on its own. Ten frames is a very shallow queue, so an
+application that outruns the bus finds out within milliseconds rather than
+buffering for a second and then collapsing.
+
+## The totals
+
+After every run above `[measured]`:
+
+| | packets | bytes | Source |
+|---|---|---|---|
+| `can1` transmitted | **278,513** | 2,228,088 | `[measured]` |
+| `can0` received | **278,513** | 2,228,088 | `[measured]` |
+| `can0` transmitted | 1 | 4 | `[measured]` |
+| `can1` received | 278,514 | 2,228,092 | `[measured]` |
+
+Every error counter on both interfaces: `re-started` 0, `bus-errors` 0,
+`arbit-lost` 0, `bus-off` 0, and `errors`, `dropped` and `missed` all 0
+`[measured]`. `can1`'s `berr-counter` is back to `tx 0 rx 0`, and its
+`error-warn 1` and `error-pass 1` are the historical pair from the unwired
+attempt in part two, unchanged by any of this.
+
+**278,513 frames, zero lost, zero errors, including sustained five second runs at
+about 99 per cent bus load.** The SN65HVD230 spent those runs at its rated
+maximum of 1 Mbit/s `[datasheet]` SLOS346K p2 and did not produce a single error.
+
+## What part three changes for the chapter
+
+| # | Before | After |
+|---|---|---|
+| 1 | `jn_bus.c` had run only in CI | It has run on real hardware, and `test_bus` passes on the board |
+| 2 | No measured frame length anywhere in the volume | 122 to 123.5 bits for this traffic, from two bit rates that agree |
+| 3 | Bus load computed from a nominal 111 bits | That understates it by about eleven points at this payload |
+| 4 | No measured bus ceiling | 4000 to 4200 frames per second at 500 kbit/s, 8100 to 8200 at 1 Mbit/s |
+| 5 | The ceiling might have been the adapter or the host | It is the bus, proved by doubling the bit rate and watching the cliff double |
+
+## What part three still does not show
+
+| Not proved | Why |
+|---|---|
+| Anything about CAN FD | Still classic throughout, because the MCP2515 cannot do otherwise |
+| Arbitration under contention | One sender at a time. The one accidental two sender run was discarded as contaminated rather than analysed |
+| A frame length for any other payload | The figure is specific to a counter with four trailing zero bytes |
+| Anything about the node end | The Nucleo is exactly as far away as it was this morning |
