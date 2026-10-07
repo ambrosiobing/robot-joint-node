@@ -222,6 +222,38 @@
       }
     },
     {
+      "label": "node first image, nominal 500 kbit/s from the 8 MHz HSE",
+      "kernel_hz": 8000000,
+      "bitrate": 500000,
+      "want_sp_permille": 800,
+      "phase": "nominal",
+      "ok": true,
+      "result": {
+        "prescaler": 1,
+        "tq_per_bit": 16,
+        "seg1": 12,
+        "seg2": 3,
+        "sjw": 3,
+        "sample_point_permille": 813
+      }
+    },
+    {
+      "label": "node fallback, nominal 250 kbit/s from the 8 MHz HSE",
+      "kernel_hz": 8000000,
+      "bitrate": 250000,
+      "want_sp_permille": 800,
+      "phase": "nominal",
+      "ok": true,
+      "result": {
+        "prescaler": 1,
+        "tq_per_bit": 32,
+        "seg1": 25,
+        "seg2": 6,
+        "sjw": 6,
+        "sample_point_permille": 813
+      }
+    },
+    {
       "label": "REFUSE, the bit rate does not divide the quantum rate",
       "kernel_hz": 80000000,
       "bitrate": 666667,
@@ -252,6 +284,15 @@
       "label": "REFUSE, 2 quanta a bit is below what the registers can hold",
       "kernel_hz": 80000000,
       "bitrate": 40000000,
+      "want_sp_permille": 750,
+      "phase": "data",
+      "ok": false,
+      "result": null
+    },
+    {
+      "label": "REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE",
+      "kernel_hz": 8000000,
+      "bitrate": 2000000,
       "want_sp_permille": 750,
       "phase": "data",
       "ok": false,

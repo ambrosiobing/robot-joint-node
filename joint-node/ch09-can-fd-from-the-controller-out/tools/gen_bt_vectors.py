@@ -141,6 +141,27 @@ CASES = [
     ("data, 5 Mbit/s at 80 MHz", 80_000_000, 5_000_000, 0.75, DATA),
     ("data, 8 Mbit/s at 80 MHz", 80_000_000, 8_000_000, 0.75, DATA),
 
+    # The clock the node will actually run on, settled Wednesday 7 October 2026.
+    #
+    # Every case above is a hypothetical kernel clock. These three are the one
+    # the board can reach on its first image, and they are here because the
+    # answer changed the plan.
+    #
+    # FDCANSEL, bits 29:28 of RCC_CDCCIP1R, selects the FDCAN kernel clock and
+    # offers exactly three sources: 00 HSE, 01 PLL1_Q, 10 PLL2_Q. There is no
+    # HSI option, so the 64 MHz the part boots on cannot clock this peripheral
+    # at all, and 00 is the reset value. The NUCLEO-H7A3ZI-Q's HSE is the
+    # on-board debugger's 8 MHz in bypass mode. So the shortest path to a frame
+    # is: enable HSE, leave FDCANSEL alone, and ask for 500 kbit/s.
+    #
+    # Source: ST's own HAL header, RCC_FDCANCLKSOURCE_HSE, _PLL and _PLL2 in
+    # stm32h7xx_hal_rcc_ex.h, which st.com's reference manual would also say if
+    # it were reachable from this bench.
+    ("node first image, nominal 500 kbit/s from the 8 MHz HSE",
+     8_000_000, 500_000, 0.80, NOMINAL),
+    ("node fallback, nominal 250 kbit/s from the 8 MHz HSE",
+     8_000_000, 250_000, 0.80, NOMINAL),
+
     # Refusals. Each one fails for a different reason, and each was checked to
     # be a refusal rather than assumed to be: the first draft of this list had
     # three cases labelled REFUSE and only one of them refused.
@@ -152,6 +173,16 @@ CASES = [
      6_000_000, 2_000_000, 0.75, DATA),
     ("REFUSE, 2 quanta a bit is below what the registers can hold",
      80_000_000, 40_000_000, 0.75, DATA),
+
+    # This one repeats the floor mechanism above on purpose, because it is not a
+    # probe of the rule but a design point: it is the data phase chapter 9's
+    # budget asks for, at the only kernel clock the first image can reach. Four
+    # quanta a bit is what 8 MHz gives at 2 Mbit/s, and that is below the eight
+    # quanta floor, so CAN FD's fast phase needs a PLL whatever transceiver is
+    # fitted. Chapter 13 was already waiting on a part. It is also waiting on a
+    # clock, and that is a second and independent reason.
+    ("REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE",
+     8_000_000, 2_000_000, 0.75, DATA),
 ]
 
 

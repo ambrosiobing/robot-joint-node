@@ -65,7 +65,16 @@ has to divide the kernel clock with no remainder, the quantum rate has to divide
 the bit rate the same way, and anything else is refused rather than rounded into
 place.
 
-Four of the fifteen vectors are refusals, each for a different reason:
+**And what it refuses is the bit rate, not the sample point.** That distinction
+was left vague here until Wednesday 7 October 2026 and it matters: `bt_compute`
+demands that the prescaler divide the kernel clock exactly and that the quantum
+rate divide the bit rate exactly, then it reports whichever sample point the
+quanta allow. An inexact sample point is reported, never refused. The reason is
+that two ends of a CAN bus must agree on the bit rate and are not required to
+sample at the same point, and the node's own first image lands on 81.3 per cent
+rather than 80 for exactly that reason. See [`doc/node-clock.md`](doc/node-clock.md).
+
+Five of the eighteen vectors are refusals:
 
 | Refused because | Case |
 |---|---|
@@ -73,11 +82,37 @@ Four of the fifteen vectors are refusals, each for a different reason:
 | no prescaler divides the clock into the rate | 2 Mbit/s from 33 MHz |
 | too few quanta a bit for a usable sample point | 2 Mbit/s from 6 MHz, 3 quanta |
 | fewer quanta than the registers can hold | 40 Mbit/s from 80 MHz, 2 quanta |
+| the same floor, at the clock the board can actually reach | 2 Mbit/s from 8 MHz, 4 quanta |
+
+The first four fail for four different reasons, which was the original point of
+the list. The fifth repeats the third's mechanism on purpose, because it is not
+a probe of the rule but a design point: it is the data phase this chapter's
+budget asks for, at the only kernel clock the first image can reach.
 
 The first draft of that list had three cases labelled REFUSE and only one of
 them refused. Two were legal timings with a disapproving name on them. They were
 corrected rather than quietly dropped, because the point of the list is that the
 refusal path has been exercised.
+
+## The node's clock, which is not one of the hypothetical ones
+
+Settled Wednesday 7 October 2026, and it shortened the first image considerably.
+
+`FDCANSEL` offers three sources and no more: HSE, `PLL1_Q` and `PLL2_Q`. **There
+is no HSI option**, so the 64 MHz the part boots on cannot clock this peripheral
+at all, and the 8 MHz HSE from the on-board debugger is the only source that
+needs no PLL. `00`, which selects it, is already the reset value.
+
+Eight MHz solves 500 kbit/s at a prescaler of one, sixteen quanta a bit, sample
+point 81.3 per cent. It does **not** solve a 2 Mbit/s data phase: four quanta a
+bit is below this volume's floor of eight. So CAN FD's fast phase needs a PLL
+whatever transceiver is fitted, which is a second and independent reason chapter
+13 waits, the first being a transceiver that does not specify loop delay
+symmetry.
+
+The full argument, the sources for the register field, the measured HSE
+deviation of about 0.14 per cent and the open question that deviation raises are
+in [`doc/node-clock.md`](doc/node-clock.md).
 
 ## The two phases do not share limits
 
@@ -148,7 +183,7 @@ caller passes in, converted once before anything is decided.
 | Criterion | Covered by |
 |---|---|
 | Both phases computed from the kernel clock | `bt_compute`, both limit sets |
-| Either phase refused when it cannot be solved exactly | 4 of 15 vectors, all checked to refuse |
+| Either phase refused when it cannot be solved exactly | 5 of 18 vectors, all checked to refuse |
 | The design points hit their stated sample points exactly | `test_bittiming.py`, asserted, not eyeballed |
 | A bit is the sync quantum plus the two segments | asserted in both tests |
 | The result fits the registers that must hold it | `test_bittiming.py`, against the field widths |

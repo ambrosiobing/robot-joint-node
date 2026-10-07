@@ -31,10 +31,13 @@ static const bt_vector_t BT_VECTORS[] = {
     { "nominal, 1 Mbit/s at 80 MHz", 80000000u, 1000000u, 800u, false, true, 1u, 63u, 16u, 16u, 800u },
     { "data, 5 Mbit/s at 80 MHz", 80000000u, 5000000u, 750u, true, true, 1u, 11u, 4u, 4u, 750u },
     { "data, 8 Mbit/s at 80 MHz", 80000000u, 8000000u, 750u, true, true, 1u, 7u, 2u, 2u, 800u },
+    { "node first image, nominal 500 kbit/s from the 8 MHz HSE", 8000000u, 500000u, 800u, false, true, 1u, 12u, 3u, 3u, 813u },
+    { "node fallback, nominal 250 kbit/s from the 8 MHz HSE", 8000000u, 250000u, 800u, false, true, 1u, 25u, 6u, 6u, 813u },
     { "REFUSE, the bit rate does not divide the quantum rate", 80000000u, 666667u, 800u, false, false, 0u, 0u, 0u, 0u, 0u },
     { "REFUSE, no prescaler divides this kernel clock into this bit rate", 33000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
     { "REFUSE, 3 quanta a bit is legal but below this volume's floor", 6000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
     { "REFUSE, 2 quanta a bit is below what the registers can hold", 80000000u, 40000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
+    { "REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE", 8000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
 };
 
 #define BT_VECTOR_COUNT ((int) (sizeof BT_VECTORS / sizeof BT_VECTORS[0]))
