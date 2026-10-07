@@ -113,6 +113,7 @@ Then two terminals:
 ```bash
 ./build/jn-listen vcan0
 ./build/jn-setpoint vcan0 --rate 200 --seconds 5
+./build/jn-setpoint vcan0 --rate 200 --seconds 5 --payload alternating
 ```
 
 The only thing that changes when an adapter arrives is the interface name.
@@ -147,6 +148,12 @@ microsecond resolution rather than pretending otherwise.
 It does not know what a frame means. Identifiers and bytes go in and out, and
 the names belong to chapter 11's description. Keeping the two apart is what lets
 these tools watch traffic from a node whose protocol they were never told.
+
+`--payload` is the one place that line gets interesting. The four modes are
+equally meaningless to a receiver and differ only in run structure, which is
+exactly what CAN's bit stuffing charges for. So a choice this chapter insists is
+semantically empty turns out to change how many frames a second the bus will
+carry, by about ten per cent. Opaque bytes are not free bytes.
 
 `jn-setpoint` reports the rate it achieved rather than the rate it was asked
 for, and says so plainly when the two differ by more than five per cent. A

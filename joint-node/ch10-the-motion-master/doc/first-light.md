@@ -816,8 +816,50 @@ and the ceiling would rise toward 9000 frames per second. So **122 to 123.5 bits
 is a measurement of this traffic on this bus, not a property of 8 byte frames**,
 and anything that reuses it has to say so.
 
-Measuring the same ceiling with a random payload would bracket the other end of
-the range and is the obvious follow-up `[unconfirmed]`.
+### The follow-up, with its predictions written down first
+
+`jn-setpoint` gained a `--payload` option so that the other end of the range can
+be measured rather than assumed. Four modes, differing only in run structure,
+which is the thing bit stuffing charges for:
+
+| Mode | Payload | Stuffing it should cause |
+|---|---|---|
+| `counter` | 32 bit sequence then four zero bytes | heavy. The default, and what every figure above was measured with |
+| `zeros` | all eight bytes `0x00` | the most a payload can cause |
+| `alternating` | `0x55` throughout | **none at all in the data field**, because no run of five ever occurs |
+| `random` | deterministic pseudo random, fixed seed | the average case |
+
+**The predictions, recorded before the run**, because a prediction written
+afterwards is not one:
+
+| Mode | Predicted frame | Predicted ceiling at 1 Mbit/s | Source |
+|---|---|---|---|
+| `alternating` | 112 to 115 bits | **8700 to 8900** | `[unconfirmed]` |
+| `random` | 114 to 118 bits | 8450 to 8750 | `[unconfirmed]` |
+| `counter` | 122 to 123.5 measured | 8100 to 8200 measured | `[measured]` |
+| `zeros` | 123 to 126 bits | 7900 to 8100 | `[unconfirmed]` |
+
+The robust part of the prediction is **the ordering**, not the figures:
+`alternating` highest, then `random`, then `counter` and `zeros` close together
+and lowest. `counter` and `zeros` should barely differ, because a counter below
+65536 already has its top six bytes at zero, so the two payloads share most of
+their run structure.
+
+**What each outcome would mean.** If `alternating` lands near 111 bits, then
+essentially all the excess in the counter case is data field stuffing and the
+nominal is exact for a frame that does not stuff. If it lands several bits above
+111, the remainder is stuffing in the identifier, control field and CRC, which no
+payload can avoid, and that residue is the honest floor for any traffic on this
+bus.
+
+Either way the pair of measurements turns "122 to 123.5 bits for this traffic"
+into a range with both ends measured, which is what a bus load calculation
+actually needs.
+
+Only `counter` carries a sequence number. With the other three a receiver can
+count frames but cannot see which went missing, so loss is measured by comparing
+counts rather than by looking for a gap. That is a real cost and it is why
+`counter` remains the default.
 
 ### What this does to a bus load figure
 

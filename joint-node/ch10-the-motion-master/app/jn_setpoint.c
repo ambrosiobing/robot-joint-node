@@ -13,6 +13,16 @@
  * generator that claims 1000 Hz while delivering 780 is the kind of instrument
  * that makes everything measured against it wrong, and it is the quiet sort of
  * wrong, because the number printed is the one that was typed in.
+ *
+ * It can also choose what goes in the payload, which sounds pointless for bytes
+ * this chapter declares opaque and is not. CAN inserts a stuff bit after five
+ * identical bits on the wire, so what you send changes how long the frame is and
+ * therefore how many frames a second the bus will carry. On Tuesday 7 October
+ * 2026 the default counter payload measured out at 122 to 123.5 bits against a
+ * nominal 111, which is ten to twelve stuff bits, and that number is a property
+ * of the traffic rather than of CAN. The payload modes exist so the two ends of
+ * that range can be measured instead of assumed. See
+ * doc/first-light.md part three.
  */
 #include "jn_bus.h"
 #include "jn_log.h"
@@ -26,15 +36,136 @@
  * second, and refused rather than silently halved if a file is longer. */
 #define REPLAY_MAX  200000u
 
+/* What goes in the eight payload bytes.
+ *
+ * Every one of these is equally meaningless to a receiver, which is the point:
+ * this chapter does not say what a payload means. They differ only in their run
+ * structure, and run structure is what bit stuffing charges for.
+ *
+ *   counter      a 32 bit sequence then four zero bytes. Stuff heavy, because
+ *                the tail is 32 zeros and the upper counter bytes are usually
+ *                zero too. The default, and what every figure recorded before
+ *                Tuesday 7 October 2026 was measured with.
+ *   zeros        all eight bytes zero. The most stuffing a payload can cause.
+ *   alternating  0x55 throughout, so no run of five ever occurs in the data
+ *                field and it contributes no stuff bits at all. The floor.
+ *   random       deterministic pseudo random, for the average case.
+ *
+ * Only the counter carries a sequence number. With the other three a receiver
+ * can tell how many frames arrived but not which ones went missing, so loss has
+ * to be measured by counting rather than by looking for a gap. That is a real
+ * cost of using them and it is why counter stays the default. */
+typedef enum {
+    PAYLOAD_COUNTER = 0,
+    PAYLOAD_ZEROS,
+    PAYLOAD_ALTERNATING,
+    PAYLOAD_RANDOM
+} payload_mode_t;
+
+/* Seeded with a constant, on purpose. A measurement nobody can repeat is an
+ * anecdote, so the random mode produces the same bytes on every run and on
+ * every machine. Any non-zero seed will do; this one is arbitrary. */
+#define PRNG_SEED  0x2545F491u
+
+/* xorshift32. This is not for anything that needs to be unpredictable. It needs
+ * to be reproducible, cheap enough not to pace the generator itself, and free
+ * of long runs of equal bits, and it is all three. */
+static uint32_t prng_next(uint32_t *state)
+{
+    uint32_t x = *state;
+
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    *state = x;
+    return x;
+}
+
+static void payload_fill(uint8_t *p, payload_mode_t mode, unsigned long i,
+                         uint32_t *rng)
+{
+    unsigned k;
+
+    switch (mode) {
+    case PAYLOAD_ZEROS:
+        for (k = 0u; k < 8u; k++) {
+            p[k] = 0x00u;
+        }
+        break;
+    case PAYLOAD_ALTERNATING:
+        for (k = 0u; k < 8u; k++) {
+            p[k] = 0x55u;
+        }
+        break;
+    case PAYLOAD_RANDOM:
+        for (k = 0u; k < 8u; k += 4u) {
+            uint32_t v = prng_next(rng);
+
+            p[k + 0u] = (uint8_t) (v & 0xFFu);
+            p[k + 1u] = (uint8_t) ((v >> 8) & 0xFFu);
+            p[k + 2u] = (uint8_t) ((v >> 16) & 0xFFu);
+            p[k + 3u] = (uint8_t) ((v >> 24) & 0xFFu);
+        }
+        break;
+    case PAYLOAD_COUNTER:
+    default:
+        /* The counter, little endian, then four bytes left at zero. Opaque on
+         * purpose: a receiver that reads meaning into this is reading meaning
+         * this chapter never put there. */
+        p[0] = (uint8_t) (i & 0xFFul);
+        p[1] = (uint8_t) ((i >> 8) & 0xFFul);
+        p[2] = (uint8_t) ((i >> 16) & 0xFFul);
+        p[3] = (uint8_t) ((i >> 24) & 0xFFul);
+        p[4] = 0u;
+        p[5] = 0u;
+        p[6] = 0u;
+        p[7] = 0u;
+        break;
+    }
+}
+
+static const char *payload_name(payload_mode_t mode)
+{
+    switch (mode) {
+    case PAYLOAD_ZEROS:       return "zeros";
+    case PAYLOAD_ALTERNATING: return "alternating";
+    case PAYLOAD_RANDOM:      return "random";
+    case PAYLOAD_COUNTER:
+    default:                  return "counter";
+    }
+}
+
+/* Returns 0 on a name it knows, and -1 otherwise without touching *mode. */
+static int payload_parse(const char *s, payload_mode_t *mode)
+{
+    if (strcmp(s, "counter") == 0) {
+        *mode = PAYLOAD_COUNTER;
+    } else if (strcmp(s, "zeros") == 0) {
+        *mode = PAYLOAD_ZEROS;
+    } else if (strcmp(s, "alternating") == 0) {
+        *mode = PAYLOAD_ALTERNATING;
+    } else if (strcmp(s, "random") == 0) {
+        *mode = PAYLOAD_RANDOM;
+    } else {
+        return -1;
+    }
+    return 0;
+}
+
 static void usage(void)
 {
     fputs("usage: jn-setpoint [interface] [--id N] [--rate HZ] [--seconds S]\n"
-          "                   [--replay FILE] [--drop-every N]\n"
+          "                   [--payload MODE] [--replay FILE] [--drop-every N]\n"
           "\n"
           "  interface      default vcan0\n"
           "  --id           identifier to send on, default 0x101\n"
           "  --rate         frames per second, default 100\n"
           "  --seconds      how long to send for, default 1\n"
+          "  --payload      counter, zeros, alternating or random.\n"
+          "                 Default counter, the only one that carries a\n"
+          "                 sequence number. The others differ in how much\n"
+          "                 bit stuffing they cause, which changes how many\n"
+          "                 frames a second the bus will carry\n"
           "  --replay       send the frames in this log file instead\n"
           "  --drop-every   with --replay, drop every nth frame on purpose\n",
           stderr);
@@ -44,8 +175,10 @@ static void usage(void)
  * interval accumulates every scheduling delay; sleeping until the next deadline
  * does not, which is the difference between drifting a second a minute and not
  * drifting at all. */
-static int generate(int sock, uint32_t id, double rate, double secs)
+static int generate(int sock, uint32_t id, double rate, double secs,
+                    payload_mode_t mode)
 {
+    uint32_t rng = PRNG_SEED;
     uint64_t interval_ns;
     uint64_t begin;
     uint64_t elapsed;
@@ -77,17 +210,7 @@ static int generate(int sock, uint32_t id, double rate, double secs)
             jn_sleep_ns(target - now);
         }
 
-        /* The counter, little endian, then four bytes left at zero. Opaque on
-         * purpose: a receiver that reads meaning into this is reading meaning
-         * this chapter never put there. */
-        payload[0] = (uint8_t) (i & 0xFFul);
-        payload[1] = (uint8_t) ((i >> 8) & 0xFFul);
-        payload[2] = (uint8_t) ((i >> 16) & 0xFFul);
-        payload[3] = (uint8_t) ((i >> 24) & 0xFFul);
-        payload[4] = 0u;
-        payload[5] = 0u;
-        payload[6] = 0u;
-        payload[7] = 0u;
+        payload_fill(payload, mode, i, &rng);
 
         rc = jn_frame_init(&f, id, payload, sizeof payload, 0);
         if (rc != JN_OK) {
@@ -110,9 +233,14 @@ static int generate(int sock, uint32_t id, double rate, double secs)
     }
 
     achieved = (double) count * 1e9 / (double) elapsed;
+    /* The payload mode is on this line because the frame length on the wire
+     * depends on it, so a rate quoted without it cannot be compared with
+     * another run. */
     fprintf(stderr, "jn-setpoint: %lu frames in %.3f s on this interface:"
-                    " %.1f Hz achieved against %.1f Hz asked for\n",
-            count, (double) elapsed / 1e9, achieved, rate);
+                    " %.1f Hz achieved against %.1f Hz asked for,"
+                    " payload %s\n",
+            count, (double) elapsed / 1e9, achieved, rate,
+            payload_name(mode));
     if (achieved < rate * 0.95 || achieved > rate * 1.05) {
         fprintf(stderr, "jn-setpoint: that is more than five per cent off, so"
                         " do not quote the asked-for rate anywhere\n");
@@ -215,6 +343,7 @@ int main(int argc, char **argv)
     const char *iface = "vcan0";
     const char *replay_path = NULL;
     unsigned long drop_every = 0ul;
+    payload_mode_t mode = PAYLOAD_COUNTER;
     uint32_t id = 0x101u;
     double rate = 100.0;
     double secs = 1.0;
@@ -230,6 +359,13 @@ int main(int argc, char **argv)
             rate = strtod(argv[++i], NULL);
         } else if (strcmp(argv[i], "--seconds") == 0 && i + 1 < argc) {
             secs = strtod(argv[++i], NULL);
+        } else if (strcmp(argv[i], "--payload") == 0 && i + 1 < argc) {
+            if (payload_parse(argv[++i], &mode) != 0) {
+                fprintf(stderr, "jn-setpoint: %s is not a payload mode I know."
+                                " Try counter, zeros, alternating or random\n",
+                        argv[i]);
+                return 2;
+            }
         } else if (strcmp(argv[i], "--replay") == 0 && i + 1 < argc) {
             replay_path = argv[++i];
         } else if (strcmp(argv[i], "--drop-every") == 0 && i + 1 < argc) {
@@ -263,7 +399,7 @@ int main(int argc, char **argv)
     if (replay_path != NULL) {
         status = replay(sock, replay_path, drop_every);
     } else {
-        status = generate(sock, id, rate, secs);
+        status = generate(sock, id, rate, secs, mode);
     }
 
     jn_bus_close(sock);

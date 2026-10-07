@@ -143,6 +143,11 @@ CLAIM_DOCS = {
         # length does not depend on it: that came from dividing a bit rate by a
         # measured frame rate and stands on its own.
         "| Field | Bits |",
+        # A description of the four payload modes the generator offers,
+        # which is a statement about this chapter's own code rather than
+        # about the hardware. The predictions it leads into are a claim
+        # table and do carry markers.
+        "| Mode | Payload | Stuffing it should cause |",
         # Pure arithmetic from rows that are themselves sourced above.
         "| Case | Bits per frame | Frames per second at 1 Mbit/s |",
         "| Basis | Load at 4000 frames per second, 500 kbit/s |",
