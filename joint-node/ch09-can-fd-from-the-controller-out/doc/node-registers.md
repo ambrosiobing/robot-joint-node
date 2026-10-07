@@ -1,9 +1,10 @@
 # The registers the first image writes
 
 Settled Wednesday 7 October 2026. Together with
-[node-clock.md](node-clock.md) this is everything the node's first image needs
-except the initialisation order, which is the one thing still missing at the
-end.
+[node-clock.md](node-clock.md) this is everything the node's first image needs:
+the addresses, the register map, the two timing words, the message RAM, and the
+order they go in. Three things are still open at the end and none of them blocks
+writing the image.
 
 Nothing here came from RM0455. st.com has not served a PDF to this bench in any
 attempt, so the route is the one that settled `PD0`, `PD1` and `FDCANSEL`: the
@@ -183,22 +184,90 @@ value the hardware will use 8 byte elements and the layout is wrong by a factor
 of more than four**, silently, with frames landing on top of one another. So
 they are written even in an image that only ever sends eight bytes.
 
-## Still missing, and it is one thing
+## The order, which was the last thing missing
 
-Everything above is a value. What is not settled is the **order**: the exact
-initialisation sequence from reset to a peripheral that will transmit. The
-pieces are known, `INIT`, then `CCE`, then the timing and the memory, then
-`INIT` cleared, but the constraints between them are not, and nor is what has to
-be true before `INIT` can be set at all.
+Everything above is a value. The order was open for about an hour and is now
+closed, from the same driver's configuration path read end to end rather than
+quoted in pieces. All four of the questions that stood here are answered below,
+and three of the answers were not what the guesses said.
 
-| # | Question | How to settle it |
+**The whole configuration happens with `INIT` set, and `INIT` is cleared last
+and separately.** The driver splits it exactly that way: one function configures
+and leaves the peripheral stopped, another starts it with a single write. That
+separation is worth copying, because it means a configuration that fails leaves
+a stopped peripheral rather than a running and wrongly configured one.
+
+| # | Step | Note |
 |---|---|---|
-| 1 | The initialisation order, and what each step must wait on | the driver's probe and open paths, read end to end rather than quoted in pieces |
-| 2 | Whether `TEST` needs `CCCR.TEST` set first, and whether `LBCK` alone gives internal or external loopback | ST's HAL distinguishes internal from external loopback as modes 3 and 4, so the raw bits differ by one more; `MON` is the likely second bit and that is a guess |
-| 3 | Whether the message RAM has to be cleared before use | some M_CAN parts need it and some do not, and a stale element looks like a received frame |
-| 4 | What `GFC` should do with unmatched frames | a filter configuration that rejects everything is indistinguishable from a dead bus |
+| 1 | **Clear the message RAM**, every word from the first filter to the end of the transmit buffers | before `CCE`, before anything |
+| 2 | Set `CCE` | only legal while `INIT` is set |
+| 3 | `RXESC` | `0x7` in all three fields, 64 byte elements |
+| 4 | `GFC` = `0` | accept non-matching frames into FIFO 0 |
+| 5 | `TXBC` | element count and the offset |
+| 6 | `TXESC` | `0x7`, 64 byte elements |
+| 7 | `TXEFC` | the transmit event FIFO |
+| 8 | `RXF0C`, then `RXF1C` | the two receive FIFOs |
+| 9 | Read `CCCR` and `TEST`, clear the mode bits in both | read, modify, write, never a blind write |
+| 10 | Set the mode bits wanted | loopback, monitoring, one shot, FD |
+| 11 | Write `CCCR`, **then** write `TEST` | that order matters, see below |
+| 12 | Interrupts, and route them to one line | `ILS` |
+| 13 | **`NBTP`, and `DBTP` if there is a data phase** | late, and still inside the `CCE` window |
+| 14 | Timestamp counter, if wanted | optional |
+| 15 | Clear `CCE` | configuration closed |
+| 16 | Clear `INIT` | and only now is the peripheral on the bus |
 
-Number 2 is the one that matters for the very first test, because internal
-loopback is how the peripheral gets exercised with no bus at all, which is
-exactly what [the controller end's part one](../ch10-the-motion-master/doc/first-light.md)
-did before any wire existed.
+### The four answers
+
+**1. The message RAM must be cleared, and it is the very first thing.** The
+driver walks it word by word from the standard filter section to the end of the
+transmit buffers, writing zero. The reason it gives is ECC and parity errors
+when reading a buffer that was never initialised, which is a failure that
+appears as a receive error on a bus that is working perfectly. This chapter had
+laid the RAM out and never considered clearing it, so a first image built from
+the layout alone would have had this waiting in it.
+
+**2. Internal loopback is three bits, not one.** `CCCR.TEST`, `CCCR.MON` and
+`TEST.LBCK`, all together. `MON` is the one that makes it internal: it stops the
+transmitter driving the bus, so the frame goes round inside the peripheral and
+nothing appears on the wire. Listen only is `MON` alone, with no `TEST` and no
+`LBCK`.
+
+`[inferred]` **External loopback is therefore the same without `MON`**, which
+would put the frame on the real wire and read it back. The driver does not
+implement it, so this is reasoning from what `MON` does rather than a reading,
+and ST's HAL distinguishing internal from external loopback as two separate
+modes is consistent with it. It is marked as inference and should be confirmed
+on the board, where the difference is visible: external loopback with the
+controller end listening either shows the frame at the Pi or does not.
+
+**3. `CCCR` is written before `TEST`, and that is not arbitrary.** `CCCR.TEST`
+is what makes the `TEST` register writable at all, so writing `TEST` first
+writes to a register that is still locked, which fails silently and leaves
+loopback off while every other bit reads back correctly.
+
+**4. `GFC` = `0` accepts everything.** The name suggests a gate that has to be
+opened, and the reset value suggests a safe default. It is the opposite way
+round from what a reader expects: zero means non-matching frames go to receive
+FIFO 0, which is exactly what a first image wants, and a filter configuration
+that rejects everything is indistinguishable from a dead bus.
+
+### And one piece of ordering that contradicts the obvious
+
+**The bit timing goes in at step 13, long after the memory and the mode bits.**
+The instinct is to write the timing first, because it is the thing the chapter
+has spent its whole length computing. The driver writes it near the end, inside
+the `CCE` window but after `CCCR`. Nothing here says the early position would
+fail, and this volume's rule is to follow the working code rather than to
+rationalise a different order, so step 13 is where it goes.
+
+## Still open
+
+| # | Question | Why it is open |
+|---|---|---|
+| 1 | Is `CCCR.INIT` set at reset, or must it be set and waited on? | The M_CAN is believed to come out of reset in `INIT`, and ST's HAL sets it and waits anyway rather than assuming. The safe form is to set it, read it back and refuse if it does not take, which costs nothing |
+| 2 | Does external loopback really differ from internal only by `MON`? | Inferred above, not read. Visible on the board |
+| 3 | What `TXBC.TFQS` does with a single transmit buffer, versus the older `NDTB` form | The driver branches on an IP core version, and which version this part carries is unread. `CREL` at offset `0x00` reports it, so one register read on the board settles it |
+
+Number 3 is the only one that can change code, and it is answered by the first
+image printing `CREL` before it does anything else, which it should do anyway as
+proof that the register block is answering at all.

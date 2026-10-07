@@ -141,10 +141,20 @@ widths in the mainline driver for this peripheral agree on every one: 512, 256,
 closes a soft spot nobody had flagged.
 
 The addresses, the full register map, the `CCCR` gate, the message RAM
-addressing question and the four things still unread are in
+addressing question and **the sixteen step initialisation order** are in
 [`doc/node-registers.md`](doc/node-registers.md). **The peripheral is not ST's
 design**, it is the Bosch M_CAN, and the mainline Linux driver for it is code
 that runs rather than a vendor summary, which is why it is the source here.
+
+Four things that had been open there closed the same evening, and three of the
+answers were not what the guesses said. The message RAM has to be **cleared**
+before anything else, word by word, or an uninitialised buffer reads back as a
+parity error that looks like a bus fault. Internal loopback is **three** bits and
+not one, `CCCR.TEST`, `CCCR.MON` and `TEST.LBCK`, and `MON` is the one that keeps
+the frame off the wire. `CCCR` must be written **before** `TEST`, because
+`CCCR.TEST` is what makes `TEST` writable at all, so the obvious order fails
+silently. And `GFC` = `0` **accepts** every non-matching frame rather than
+rejecting it, which is the opposite way round from what the name suggests.
 
 ## The two phases do not share limits
 
