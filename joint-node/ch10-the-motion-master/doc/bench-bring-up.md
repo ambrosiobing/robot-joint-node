@@ -4,7 +4,7 @@ What was settled before a wire was connected, and how. Written Tuesday 7 October
 2026, the day after the parts arrived, so that the next person does not repeat
 the questions.
 
-This page is the sequence. Two companions carry the detail, and if you only have
+This page is the sequence. Three companions carry the detail, and if you only have
 time for one, the first is the one that stops an evening being lost:
 
 - [board-findings.md](board-findings.md) is the full inventory, device by
@@ -15,6 +15,8 @@ time for one, the first is the one that stops an evening being lost:
   page were corrected.
 - [rewiring.md](rewiring.md) asks what of all that should be changed, and
   answers mostly no, with the reasons.
+- [first-light.md](first-light.md) is what the hardware actually did when this
+  sequence was run, with photographs. It corrected four things on this page.
 
 Everything here concerns the controller end: a Raspberry Pi 4B with a Waveshare
 WS-28164. The node end, the NUCLEO-H7A3ZI-Q, is chapter 9 and has no firmware
@@ -59,6 +61,10 @@ silkscreen prints `120R` and `NC` beside its terminal. `120R` is terminated.
 
 Termination belongs at the two ends of the bus and nowhere else. With two nodes
 both ends carry it; a third node in the middle must not.
+
+**Read off the board on Tuesday 7 October 2026: both CAN caps are on `120R`**,
+so both channels are terminated as they stand. The photograph and the reading
+are in [first-light.md](first-light.md).
 
 **Which interrupt goes where?** `R35`, a fitted 0 ohm link, puts the classic
 channel's interrupt on GPIO 23, and `R36`, also fitted, puts the CAN FD
@@ -138,8 +144,9 @@ nothing:
 ls /boot/firmware/overlays/ | grep -i mcp251
 ```
 
-`mcp251xfd.dtbo` was confirmed present in a Bookworm Lite 64-bit image on
-Tuesday 6 October 2026.
+`mcp251xfd.dtbo` was confirmed present on Tuesday 6 October 2026. The running
+system turned out to be **Debian trixie**, not Bookworm as this line first said;
+see [first-light.md](first-light.md).
 
 ## Enabling everything is the wrong first move
 

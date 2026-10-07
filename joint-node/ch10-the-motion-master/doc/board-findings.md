@@ -832,6 +832,18 @@ jumper caps are right now.** A jumper position is a state, not a specification.
 look at the board, which is why this is a step in the bring up sequence and not
 a line in a table.
 
+**Looked at, Tuesday 7 October 2026.** A photograph enlarged on the two CAN
+jumpers reads them unambiguously:
+
+| Channel | Jumper | Cap position | Terminated? | Source |
+|---|---|---|---|---|
+| Classic CAN | `J2` | **`120R`** | yes | `[measured]` |
+| CAN FD | `J1` | **`120R`** | yes | `[measured]` |
+
+Both sit over their `120R` silkscreen with the `NC` pin bare beside them. The
+image and the reading are in [first-light.md](first-light.md). The two RS485
+jumpers, `J3` and `J4`, have not been read `[unconfirmed]`.
+
 ### Also read, and unexpected
 
 `U10` pin 9 is strapped high by `R34`, a fitted 1K pull up, which selects SPI

@@ -3,7 +3,7 @@
 
     python tools/check_findings.py
 
-Chapter 10's doc directory holds four documents that no program can verify for
+Chapter 10's doc directory holds five documents that no program can verify for
 truth: what a resistor's value is, where a net goes, whether a jumper cap is on.
 A person has to open the schematic and look. So this checks the one thing a
 program can check, which is whether each claim still says where it came from.
@@ -50,6 +50,7 @@ DOC = Path(__file__).resolve().parent.parent / "doc"
 
 FINDINGS = DOC / "board-findings.md"
 NOTES = DOC / "datasheet-notes.md"
+FIRSTLIGHT = DOC / "first-light.md"
 REWIRING = DOC / "rewiring.md"
 BRINGUP = DOC / "bench-bring-up.md"
 
@@ -83,6 +84,13 @@ REQUIRED = {
         "## What is still unread",
         "## The documents, with their addresses",
     ],
+    FIRSTLIGHT: [
+        "## How to read a line",
+        "## The configuration under test",
+        "## The termination jumpers, read off the board",
+        "## What this run did not prove",
+        "## Corrections this run forced",
+    ],
     REWIRING: [
         "## The one that changes the plan",
         "## The zero ohm links",
@@ -114,6 +122,14 @@ CLAIM_DOCS = {
         "| Document | Where |",
         "| Document | Answers | Where |",
         "| End | Board | What it brings | What it lacks |",
+    },
+    FIRSTLIGHT: {
+        "| Marker | Means |",
+        "| Register | Range | Source |",
+        "| Frame sent | `TX: packets` | `RX: packets` | Source |",
+        "| Payload asked for | Legal CAN FD length? | `TX: bytes` increment | Source |",
+        "| Not proved | Why | Source |",
+        "| # | Before | After |",
     },
     NOTES: {
         "| Marker | Means |",
