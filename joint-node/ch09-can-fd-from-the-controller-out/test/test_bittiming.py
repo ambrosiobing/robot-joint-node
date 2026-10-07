@@ -70,6 +70,26 @@ def main():
             fail(f"{c['label']}: {r['tq_per_bit']} quanta is below the "
                  f"floor of {lim.min_tq}")
 
+        # The register word, and then the same four numbers read back out of
+        # it. A solved timing that cannot be written is not a solved timing,
+        # and a word that does not unpack to what went in is an off-by-one in
+        # a shift that no amount of staring at the arithmetic would find.
+        fields = g.DBTP_FIELDS if c["phase"] == "data" else g.NBTP_FIELDS
+        packer = g.pack_dbtp if c["phase"] == "data" else g.pack_nbtp
+        word = packer(r)
+        if word is None:
+            fail(f"{c['label']}: solved, but will not fit its register")
+        elif word != c["register_word"]:
+            fail(f"{c['label']}: packs to 0x{word:08X}, the file says "
+                 f"0x{c['register_word']:08X}")
+        else:
+            back = g.unpack(word, fields)
+            for key in ("prescaler", "seg1", "seg2", "sjw", "tq_per_bit",
+                        "sample_point_permille"):
+                if back[key] != r[key]:
+                    fail(f"{c['label']}: {key} went in as {r[key]} and came "
+                         f"back out of 0x{word:08X} as {back[key]}")
+
         # The bit rate has to come back out exactly. This is the property the
         # whole refusal rule exists to protect, so it is worth asserting rather
         # than trusting the loop that produced it.
@@ -97,6 +117,33 @@ def main():
 
     if refused == 0:
         fail("not one case was refused, so the refusal path is untested")
+
+    # The packing has its own refusal path, and it is the one that matters most,
+    # because the failure it prevents is silent. A nominal timing at 80 MHz has
+    # a segment 1 of 127; the data field is five bits wide and would truncate it
+    # to 31, configuring a bit rate nobody chose with no error reported. So
+    # packing a nominal timing as a data word must refuse rather than truncate.
+    wide = next(x for x in cases if x["label"] == "design nominal, 80 MHz")
+    if g.pack_dbtp(wide["result"]) is not None:
+        fail("a nominal timing packed as a data word was accepted, and "
+             "truncating it silently is the failure this guard exists for")
+
+    # And the other direction is legal, because a data timing is small. This is
+    # here so the guard above is known to be refusing for the right reason
+    # rather than refusing everything.
+    narrow = next(x for x in cases if x["label"] == "design data, 80 MHz")
+    if g.pack_nbtp(narrow["result"]) is None:
+        fail("a data timing refused by the nominal packer, which has wider "
+             "fields, so the packer is rejecting valid input")
+
+    # The transmitter delay compensation bit is the only thing in these two
+    # words that is not a timing, so it is checked separately: setting it must
+    # change exactly one bit and nothing else.
+    plain = g.pack_dbtp(narrow["result"], tdc=False)
+    with_tdc = g.pack_dbtp(narrow["result"], tdc=True)
+    if plain ^ with_tdc != g.DBTP_TDC:
+        fail(f"the TDC flag changed 0x{plain ^ with_tdc:08X} rather than "
+             f"only 0x{g.DBTP_TDC:08X}")
 
     if failures:
         print(f"test_bittiming: {len(failures)} failure(s)")

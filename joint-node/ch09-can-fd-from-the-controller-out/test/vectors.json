@@ -59,7 +59,8 @@
         "seg2": 32,
         "sjw": 32,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 1040219679
     },
     {
       "label": "design data, 80 MHz",
@@ -75,7 +76,8 @@
         "seg2": 10,
         "sjw": 10,
         "sample_point_permille": 750
-      }
+      },
+      "register_word": 7321
     },
     {
       "label": "nominal at 100 MHz",
@@ -91,7 +93,8 @@
         "seg2": 40,
         "sjw": 40,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 1308663335
     },
     {
       "label": "data at 100 MHz",
@@ -107,7 +110,8 @@
         "seg2": 6,
         "sjw": 6,
         "sample_point_permille": 760
-      }
+      },
+      "register_word": 69973
     },
     {
       "label": "nominal at 60 MHz",
@@ -123,7 +127,8 @@
         "seg2": 24,
         "sjw": 24,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 771776023
     },
     {
       "label": "data at 60 MHz",
@@ -139,7 +144,8 @@
         "seg2": 7,
         "sjw": 7,
         "sample_point_permille": 767
-      }
+      },
+      "register_word": 5478
     },
     {
       "label": "nominal at 40 MHz",
@@ -155,7 +161,8 @@
         "seg2": 16,
         "sjw": 16,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 503332367
     },
     {
       "label": "data at 40 MHz",
@@ -171,7 +178,8 @@
         "seg2": 5,
         "sjw": 5,
         "sample_point_permille": 750
-      }
+      },
+      "register_word": 3396
     },
     {
       "label": "nominal, 1 Mbit/s at 80 MHz",
@@ -187,7 +195,8 @@
         "seg2": 16,
         "sjw": 16,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 503332367
     },
     {
       "label": "data, 5 Mbit/s at 80 MHz",
@@ -203,7 +212,8 @@
         "seg2": 4,
         "sjw": 4,
         "sample_point_permille": 750
-      }
+      },
+      "register_word": 2611
     },
     {
       "label": "data, 8 Mbit/s at 80 MHz",
@@ -219,7 +229,8 @@
         "seg2": 2,
         "sjw": 2,
         "sample_point_permille": 800
-      }
+      },
+      "register_word": 1553
     },
     {
       "label": "node first image, nominal 500 kbit/s from the 8 MHz HSE",
@@ -235,7 +246,8 @@
         "seg2": 3,
         "sjw": 3,
         "sample_point_permille": 813
-      }
+      },
+      "register_word": 67111682
     },
     {
       "label": "node fallback, nominal 250 kbit/s from the 8 MHz HSE",
@@ -251,7 +263,8 @@
         "seg2": 6,
         "sjw": 6,
         "sample_point_permille": 813
-      }
+      },
+      "register_word": 167778309
     },
     {
       "label": "REFUSE, the bit rate does not divide the quantum rate",
@@ -260,7 +273,8 @@
       "want_sp_permille": 800,
       "phase": "nominal",
       "ok": false,
-      "result": null
+      "result": null,
+      "register_word": null
     },
     {
       "label": "REFUSE, no prescaler divides this kernel clock into this bit rate",
@@ -269,7 +283,8 @@
       "want_sp_permille": 750,
       "phase": "data",
       "ok": false,
-      "result": null
+      "result": null,
+      "register_word": null
     },
     {
       "label": "REFUSE, 3 quanta a bit is legal but below this volume's floor",
@@ -278,7 +293,8 @@
       "want_sp_permille": 750,
       "phase": "data",
       "ok": false,
-      "result": null
+      "result": null,
+      "register_word": null
     },
     {
       "label": "REFUSE, 2 quanta a bit is below what the registers can hold",
@@ -287,7 +303,8 @@
       "want_sp_permille": 750,
       "phase": "data",
       "ok": false,
-      "result": null
+      "result": null,
+      "register_word": null
     },
     {
       "label": "REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE",
@@ -296,7 +313,8 @@
       "want_sp_permille": 750,
       "phase": "data",
       "ok": false,
-      "result": null
+      "result": null,
+      "register_word": null
     }
   ]
 }

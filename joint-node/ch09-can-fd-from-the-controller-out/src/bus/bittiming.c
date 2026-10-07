@@ -111,3 +111,100 @@ bool bt_compute(uint32_t kernel_hz, uint32_t bitrate, float want_sp,
 
     return false;                                  /* caller must fail */
 }
+
+
+/* ------------------------------------------------------- the register words */
+
+/* Does `value`, stored as value minus one, fit a field of `bits` bits?
+ * `value` of 0 is rejected before the subtraction, because 0 minus 1 in
+ * unsigned arithmetic is 0xFFFFFFFF and fits nothing, which would be the right
+ * answer by accident rather than on purpose. */
+static bool fits(uint32_t value, uint32_t bits)
+{
+    if (value == 0u) {
+        return false;
+    }
+    const uint32_t max = (bits >= 32u) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
+    return (value - 1u) <= max;
+}
+
+static uint32_t field(uint32_t value, uint32_t shift)
+{
+    return (value - 1u) << shift;
+}
+
+bool bt_pack_nbtp(const bt_t *bt, uint32_t *out)
+{
+    if (bt == 0 || out == 0) {
+        return false;
+    }
+    if (!fits(bt->sjw, BT_NBTP_NSJW_BITS)) return false;
+    if (!fits(bt->prescaler, BT_NBTP_NBRP_BITS)) return false;
+    if (!fits(bt->seg1, BT_NBTP_NTSEG1_BITS)) return false;
+    if (!fits(bt->seg2, BT_NBTP_NTSEG2_BITS)) return false;
+
+    *out = field(bt->sjw, BT_NBTP_NSJW_SHIFT)
+         | field(bt->prescaler, BT_NBTP_NBRP_SHIFT)
+         | field(bt->seg1, BT_NBTP_NTSEG1_SHIFT)
+         | field(bt->seg2, BT_NBTP_NTSEG2_SHIFT);
+    return true;
+}
+
+bool bt_pack_dbtp(const bt_t *bt, bool tdc, uint32_t *out)
+{
+    if (bt == 0 || out == 0) {
+        return false;
+    }
+    if (!fits(bt->sjw, BT_DBTP_DSJW_BITS)) return false;
+    if (!fits(bt->prescaler, BT_DBTP_DBRP_BITS)) return false;
+    if (!fits(bt->seg1, BT_DBTP_DTSEG1_BITS)) return false;
+    if (!fits(bt->seg2, BT_DBTP_DTSEG2_BITS)) return false;
+
+    *out = field(bt->sjw, BT_DBTP_DSJW_SHIFT)
+         | field(bt->prescaler, BT_DBTP_DBRP_SHIFT)
+         | field(bt->seg1, BT_DBTP_DTSEG1_SHIFT)
+         | field(bt->seg2, BT_DBTP_DTSEG2_SHIFT)
+         | (tdc ? BT_DBTP_TDC : 0u);
+    return true;
+}
+
+static uint32_t take(uint32_t word, uint32_t shift, uint32_t bits)
+{
+    const uint32_t mask = (bits >= 32u) ? 0xFFFFFFFFu : ((1u << bits) - 1u);
+    return ((word >> shift) & mask) + 1u;
+}
+
+/* The sample point is recomputed here rather than carried, by the same integer
+ * expression bt_compute uses, so an unpacked timing can be compared with a
+ * solved one field for field. */
+static void finish(bt_t *out)
+{
+    out->tq_per_bit = 1u + out->seg1 + out->seg2;
+    out->sample_point_permille =
+        (uint32_t) (((uint64_t) (1u + out->seg1) * 1000u + out->tq_per_bit / 2u)
+                    / out->tq_per_bit);
+}
+
+void bt_unpack_nbtp(uint32_t word, bt_t *out)
+{
+    if (out == 0) {
+        return;
+    }
+    out->sjw       = take(word, BT_NBTP_NSJW_SHIFT, BT_NBTP_NSJW_BITS);
+    out->prescaler = take(word, BT_NBTP_NBRP_SHIFT, BT_NBTP_NBRP_BITS);
+    out->seg1      = take(word, BT_NBTP_NTSEG1_SHIFT, BT_NBTP_NTSEG1_BITS);
+    out->seg2      = take(word, BT_NBTP_NTSEG2_SHIFT, BT_NBTP_NTSEG2_BITS);
+    finish(out);
+}
+
+void bt_unpack_dbtp(uint32_t word, bt_t *out)
+{
+    if (out == 0) {
+        return;
+    }
+    out->sjw       = take(word, BT_DBTP_DSJW_SHIFT, BT_DBTP_DSJW_BITS);
+    out->prescaler = take(word, BT_DBTP_DBRP_SHIFT, BT_DBTP_DBRP_BITS);
+    out->seg1      = take(word, BT_DBTP_DTSEG1_SHIFT, BT_DBTP_DTSEG1_BITS);
+    out->seg2      = take(word, BT_DBTP_DTSEG2_SHIFT, BT_DBTP_DTSEG2_BITS);
+    finish(out);
+}

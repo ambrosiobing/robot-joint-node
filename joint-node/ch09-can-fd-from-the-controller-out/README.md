@@ -114,6 +114,38 @@ The full argument, the sources for the register field, the measured HSE
 deviation of about 0.14 per cent and the open question that deviation raises are
 in [`doc/node-clock.md`](doc/node-clock.md).
 
+## The registers, and the one trap that fails silently
+
+Also Wednesday 7 October 2026. A timing that has been solved still has to be
+written, and `bt_compute` stopped one step short of that until now.
+
+`bt_pack_nbtp` and `bt_pack_dbtp` produce the register word, and
+`bt_unpack_nbtp` and `bt_unpack_dbtp` read the four numbers back out of it, so a
+configuration can be verified against what was intended rather than against the
+fact of having written it. Every solved vector now carries its word, and both
+implementations pack it, unpack it and compare.
+
+**The two phases pack into different widths, and mixing them up is silent.** A
+nominal timing at 80 MHz has a segment 1 of 127; the data field is five bits
+wide and would truncate it to 31, configuring a bit rate nobody chose with
+nothing reported anywhere. So both packers return a boolean and write nothing
+when a value will not fit, and the caller must check it. The test packs a
+nominal timing as a data word and requires the refusal, and that check was
+watched turning red with the guard removed.
+
+**The field widths confirm all eight of this chapter's limit constants**, from a
+source that is not the one they came from. `BT_NOMINAL` and `BT_DATA` were
+filled in from the register field definitions when this chapter was written. The
+widths in the mainline driver for this peripheral agree on every one: 512, 256,
+128 and 128 for the nominal phase, 32, 32, 16 and 16 for the data phase. That
+closes a soft spot nobody had flagged.
+
+The addresses, the full register map, the `CCCR` gate, the message RAM
+addressing question and the four things still unread are in
+[`doc/node-registers.md`](doc/node-registers.md). **The peripheral is not ST's
+design**, it is the Bosch M_CAN, and the mainline Linux driver for it is code
+that runs rather than a vendor summary, which is why it is the source here.
+
 ## The two phases do not share limits
 
 This is the part that is easy to get wrong, and the chapter's printed snippet
@@ -188,6 +220,9 @@ caller passes in, converted once before anything is decided.
 | A bit is the sync quantum plus the two segments | asserted in both tests |
 | The result fits the registers that must hold it | `test_bittiming.py`, against the field widths |
 | A hand edit of the vectors does not survive | `--check` |
+| A solved timing packs into the register that must hold it | `bt_pack_nbtp` and `bt_pack_dbtp`, every solved vector |
+| A packed word reads back as what went into it | `bt_unpack_nbtp` and `bt_unpack_dbtp`, six fields per vector |
+| A timing too wide for its field is refused, not truncated | asserted in both tests, and watched failing with the guard removed |
 | The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
 | The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
 | The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |

@@ -17,27 +17,28 @@ typedef struct {
     uint32_t    seg2;
     uint32_t    sjw;
     uint32_t    sample_point_permille;
+    uint32_t    register_word;  /* NBTP or DBTP, by phase; 0 if refused */
 } bt_vector_t;
 
 static const bt_vector_t BT_VECTORS[] = {
-    { "design nominal, 80 MHz", 80000000u, 500000u, 800u, false, true, 1u, 127u, 32u, 32u, 800u },
-    { "design data, 80 MHz", 80000000u, 2000000u, 750u, true, true, 1u, 29u, 10u, 10u, 750u },
-    { "nominal at 100 MHz", 100000000u, 500000u, 800u, false, true, 1u, 159u, 40u, 40u, 800u },
-    { "data at 100 MHz", 100000000u, 2000000u, 750u, true, true, 2u, 18u, 6u, 6u, 760u },
-    { "nominal at 60 MHz", 60000000u, 500000u, 800u, false, true, 1u, 95u, 24u, 24u, 800u },
-    { "data at 60 MHz", 60000000u, 2000000u, 750u, true, true, 1u, 22u, 7u, 7u, 767u },
-    { "nominal at 40 MHz", 40000000u, 500000u, 800u, false, true, 1u, 63u, 16u, 16u, 800u },
-    { "data at 40 MHz", 40000000u, 2000000u, 750u, true, true, 1u, 14u, 5u, 5u, 750u },
-    { "nominal, 1 Mbit/s at 80 MHz", 80000000u, 1000000u, 800u, false, true, 1u, 63u, 16u, 16u, 800u },
-    { "data, 5 Mbit/s at 80 MHz", 80000000u, 5000000u, 750u, true, true, 1u, 11u, 4u, 4u, 750u },
-    { "data, 8 Mbit/s at 80 MHz", 80000000u, 8000000u, 750u, true, true, 1u, 7u, 2u, 2u, 800u },
-    { "node first image, nominal 500 kbit/s from the 8 MHz HSE", 8000000u, 500000u, 800u, false, true, 1u, 12u, 3u, 3u, 813u },
-    { "node fallback, nominal 250 kbit/s from the 8 MHz HSE", 8000000u, 250000u, 800u, false, true, 1u, 25u, 6u, 6u, 813u },
-    { "REFUSE, the bit rate does not divide the quantum rate", 80000000u, 666667u, 800u, false, false, 0u, 0u, 0u, 0u, 0u },
-    { "REFUSE, no prescaler divides this kernel clock into this bit rate", 33000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
-    { "REFUSE, 3 quanta a bit is legal but below this volume's floor", 6000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
-    { "REFUSE, 2 quanta a bit is below what the registers can hold", 80000000u, 40000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
-    { "REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE", 8000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u },
+    { "design nominal, 80 MHz", 80000000u, 500000u, 800u, false, true, 1u, 127u, 32u, 32u, 800u, 0x3E007E1Fu },
+    { "design data, 80 MHz", 80000000u, 2000000u, 750u, true, true, 1u, 29u, 10u, 10u, 750u, 0x00001C99u },
+    { "nominal at 100 MHz", 100000000u, 500000u, 800u, false, true, 1u, 159u, 40u, 40u, 800u, 0x4E009E27u },
+    { "data at 100 MHz", 100000000u, 2000000u, 750u, true, true, 2u, 18u, 6u, 6u, 760u, 0x00011155u },
+    { "nominal at 60 MHz", 60000000u, 500000u, 800u, false, true, 1u, 95u, 24u, 24u, 800u, 0x2E005E17u },
+    { "data at 60 MHz", 60000000u, 2000000u, 750u, true, true, 1u, 22u, 7u, 7u, 767u, 0x00001566u },
+    { "nominal at 40 MHz", 40000000u, 500000u, 800u, false, true, 1u, 63u, 16u, 16u, 800u, 0x1E003E0Fu },
+    { "data at 40 MHz", 40000000u, 2000000u, 750u, true, true, 1u, 14u, 5u, 5u, 750u, 0x00000D44u },
+    { "nominal, 1 Mbit/s at 80 MHz", 80000000u, 1000000u, 800u, false, true, 1u, 63u, 16u, 16u, 800u, 0x1E003E0Fu },
+    { "data, 5 Mbit/s at 80 MHz", 80000000u, 5000000u, 750u, true, true, 1u, 11u, 4u, 4u, 750u, 0x00000A33u },
+    { "data, 8 Mbit/s at 80 MHz", 80000000u, 8000000u, 750u, true, true, 1u, 7u, 2u, 2u, 800u, 0x00000611u },
+    { "node first image, nominal 500 kbit/s from the 8 MHz HSE", 8000000u, 500000u, 800u, false, true, 1u, 12u, 3u, 3u, 813u, 0x04000B02u },
+    { "node fallback, nominal 250 kbit/s from the 8 MHz HSE", 8000000u, 250000u, 800u, false, true, 1u, 25u, 6u, 6u, 813u, 0x0A001805u },
+    { "REFUSE, the bit rate does not divide the quantum rate", 80000000u, 666667u, 800u, false, false, 0u, 0u, 0u, 0u, 0u, 0x00000000u },
+    { "REFUSE, no prescaler divides this kernel clock into this bit rate", 33000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u, 0x00000000u },
+    { "REFUSE, 3 quanta a bit is legal but below this volume's floor", 6000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u, 0x00000000u },
+    { "REFUSE, 2 quanta a bit is below what the registers can hold", 80000000u, 40000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u, 0x00000000u },
+    { "REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE", 8000000u, 2000000u, 750u, true, false, 0u, 0u, 0u, 0u, 0u, 0x00000000u },
 };
 
 #define BT_VECTOR_COUNT ((int) (sizeof BT_VECTORS / sizeof BT_VECTORS[0]))

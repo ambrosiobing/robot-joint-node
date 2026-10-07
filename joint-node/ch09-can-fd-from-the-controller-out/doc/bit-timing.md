@@ -8,23 +8,23 @@ to start if either phase cannot be solved exactly. Every row below divides
 exactly; the refused rows are there because a calculator that has never refused
 anything has not been tested.
 
-| Case | Phase | Kernel | Bit rate | Prescaler | tq | seg1 | seg2 | SJW | Sample point |
-|---|---|---|---|---|---|---|---|---|---|
-| design nominal, 80 MHz | nominal | 80 MHz | 0.5 Mbit/s | 1 | 160 | 127 | 32 | 32 | 80 per cent |
-| design data, 80 MHz | data | 80 MHz | 2 Mbit/s | 1 | 40 | 29 | 10 | 10 | 75 per cent |
-| nominal at 100 MHz | nominal | 100 MHz | 0.5 Mbit/s | 1 | 200 | 159 | 40 | 40 | 80 per cent |
-| data at 100 MHz | data | 100 MHz | 2 Mbit/s | 2 | 25 | 18 | 6 | 6 | 76 per cent |
-| nominal at 60 MHz | nominal | 60 MHz | 0.5 Mbit/s | 1 | 120 | 95 | 24 | 24 | 80 per cent |
-| data at 60 MHz | data | 60 MHz | 2 Mbit/s | 1 | 30 | 22 | 7 | 7 | 76.7 per cent |
-| nominal at 40 MHz | nominal | 40 MHz | 0.5 Mbit/s | 1 | 80 | 63 | 16 | 16 | 80 per cent |
-| data at 40 MHz | data | 40 MHz | 2 Mbit/s | 1 | 20 | 14 | 5 | 5 | 75 per cent |
-| nominal, 1 Mbit/s at 80 MHz | nominal | 80 MHz | 1 Mbit/s | 1 | 80 | 63 | 16 | 16 | 80 per cent |
-| data, 5 Mbit/s at 80 MHz | data | 80 MHz | 5 Mbit/s | 1 | 16 | 11 | 4 | 4 | 75 per cent |
-| data, 8 Mbit/s at 80 MHz | data | 80 MHz | 8 Mbit/s | 1 | 10 | 7 | 2 | 2 | 80 per cent |
-| node first image, nominal 500 kbit/s from the 8 MHz HSE | nominal | 8 MHz | 0.5 Mbit/s | 1 | 16 | 12 | 3 | 3 | 81.3 per cent |
-| node fallback, nominal 250 kbit/s from the 8 MHz HSE | nominal | 8 MHz | 0.25 Mbit/s | 1 | 32 | 25 | 6 | 6 | 81.3 per cent |
-| REFUSE, the bit rate does not divide the quantum rate | nominal | 80 MHz | 0.666667 Mbit/s | refused | refused | refused | refused | refused | no exact solution |
-| REFUSE, no prescaler divides this kernel clock into this bit rate | data | 33 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution |
-| REFUSE, 3 quanta a bit is legal but below this volume's floor | data | 6 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution |
-| REFUSE, 2 quanta a bit is below what the registers can hold | data | 80 MHz | 40 Mbit/s | refused | refused | refused | refused | refused | no exact solution |
-| REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE | data | 8 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution |
+| Case | Phase | Kernel | Bit rate | Prescaler | tq | seg1 | seg2 | SJW | Sample point | Register word |
+|---|---|---|---|---|---|---|---|---|---|---|
+| design nominal, 80 MHz | nominal | 80 MHz | 0.5 Mbit/s | 1 | 160 | 127 | 32 | 32 | 80 per cent | `0x3E007E1F` |
+| design data, 80 MHz | data | 80 MHz | 2 Mbit/s | 1 | 40 | 29 | 10 | 10 | 75 per cent | `0x00001C99` |
+| nominal at 100 MHz | nominal | 100 MHz | 0.5 Mbit/s | 1 | 200 | 159 | 40 | 40 | 80 per cent | `0x4E009E27` |
+| data at 100 MHz | data | 100 MHz | 2 Mbit/s | 2 | 25 | 18 | 6 | 6 | 76 per cent | `0x00011155` |
+| nominal at 60 MHz | nominal | 60 MHz | 0.5 Mbit/s | 1 | 120 | 95 | 24 | 24 | 80 per cent | `0x2E005E17` |
+| data at 60 MHz | data | 60 MHz | 2 Mbit/s | 1 | 30 | 22 | 7 | 7 | 76.7 per cent | `0x00001566` |
+| nominal at 40 MHz | nominal | 40 MHz | 0.5 Mbit/s | 1 | 80 | 63 | 16 | 16 | 80 per cent | `0x1E003E0F` |
+| data at 40 MHz | data | 40 MHz | 2 Mbit/s | 1 | 20 | 14 | 5 | 5 | 75 per cent | `0x00000D44` |
+| nominal, 1 Mbit/s at 80 MHz | nominal | 80 MHz | 1 Mbit/s | 1 | 80 | 63 | 16 | 16 | 80 per cent | `0x1E003E0F` |
+| data, 5 Mbit/s at 80 MHz | data | 80 MHz | 5 Mbit/s | 1 | 16 | 11 | 4 | 4 | 75 per cent | `0x00000A33` |
+| data, 8 Mbit/s at 80 MHz | data | 80 MHz | 8 Mbit/s | 1 | 10 | 7 | 2 | 2 | 80 per cent | `0x00000611` |
+| node first image, nominal 500 kbit/s from the 8 MHz HSE | nominal | 8 MHz | 0.5 Mbit/s | 1 | 16 | 12 | 3 | 3 | 81.3 per cent | `0x04000B02` |
+| node fallback, nominal 250 kbit/s from the 8 MHz HSE | nominal | 8 MHz | 0.25 Mbit/s | 1 | 32 | 25 | 6 | 6 | 81.3 per cent | `0x0A001805` |
+| REFUSE, the bit rate does not divide the quantum rate | nominal | 80 MHz | 0.666667 Mbit/s | refused | refused | refused | refused | refused | no exact solution | none |
+| REFUSE, no prescaler divides this kernel clock into this bit rate | data | 33 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution | none |
+| REFUSE, 3 quanta a bit is legal but below this volume's floor | data | 6 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution | none |
+| REFUSE, 2 quanta a bit is below what the registers can hold | data | 80 MHz | 40 Mbit/s | refused | refused | refused | refused | refused | no exact solution | none |
+| REFUSE, the 2 Mbit/s data phase cannot come from the 8 MHz HSE | data | 8 MHz | 2 Mbit/s | refused | refused | refused | refused | refused | no exact solution | none |
