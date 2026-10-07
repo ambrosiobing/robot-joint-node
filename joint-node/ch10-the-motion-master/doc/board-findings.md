@@ -961,12 +961,12 @@ most.
 
 | # | Question | Why it matters | How to settle it |
 |---|---|---|---|
-| 1 | Confirm `U6` `STBY` is tied low | Mostly settled by counting isolator channels, worth confirming by eye | Find `STBY` on the schematic drawing |
+| 1 | ~~Confirm `U6` `STBY` is tied low~~ | **Closed Tuesday 7 October 2026.** A frame left the transceiver onto a real bus and was acknowledged, which is impossible in standby | [first-light.md](first-light.md) part two |
 | 2 | Is `PD0` and `PD1` right for FDCAN1, and which connector pins? | No wire goes into the Nucleo until it is answered | The STM32H7A3ZI datasheet, then UM2408 |
 | 3 | Does the loose SN65HVD230 board slew limit its transceiver? | It is an input to transmitter delay compensation | Its own schematic, same text layer method |
 | 4 | Does the DC terminal feed the Pi through `R43` and `R44`? | Decides whether two supplies may be connected at once | One power cycle, DC only, see if the Pi boots |
-| 5 | What are `U7` `EN1` and `EN2` tied to? | Both CAN channels share this isolator | The schematic drawing |
-| 6 | What is `Y2` `OE` tied to? | A disabled oscillator is a dead controller with a healthy SPI bus | The schematic drawing |
+| 5 | ~~What are `U7` `EN1` and `EN2` tied to?~~ | **Closed the same way.** Both channels carried traffic, so the isolator is enabled in both directions | [first-light.md](first-light.md) part two |
+| 6 | ~~What is `Y2` `OE` tied to?~~ | **Closed.** The driver reports `o:40.00MHz` and the bit timing works, so the oscillator is enabled | [first-light.md](first-light.md) part one |
 | 7 | **Closed Tuesday 7 October 2026.** MCP2562FD loop delay and supply ranges | | DS20005284A p9 and p13, in [datasheet-notes.md](datasheet-notes.md) |
 | 8 | The 520 against 560 bit disagreement | Chapter 9 step 7 and chapter 11 do not agree on a 64 byte frame's data portion | RM0455, the FDCAN chapter |
 

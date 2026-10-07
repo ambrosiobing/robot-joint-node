@@ -34,7 +34,7 @@ about it, in the order you would want them:
 | [doc/datasheet-notes.md](doc/datasheet-notes.md) | What the manufacturers specify, part by part, with a page number on every figure. Ten datasheets read; the three ST documents would not download |
 | [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus the two patterns behind six wrong readings |
 | [doc/bench-bring-up.md](doc/bench-bring-up.md) | The sequence. Card, configuration, order of operations, and what loopback does and does not prove |
-| [doc/first-light.md](doc/first-light.md) | **The measurements.** What the hardware actually did on Tuesday 7 October 2026, with photographs of the assembly it was measured on |
+| [doc/first-light.md](doc/first-light.md) | **The measurements.** Two runs on Tuesday 7 October 2026 with photographs: internal loopback, then the board wired to itself as a real two node bus. The run that proved the isolated side is alive |
 
 The first four were written before anything was wired, which is the whole point,
 and the fifth is what happened when it was. Reading
@@ -58,7 +58,7 @@ python tools/check_findings.py
 ```
 
 That checks what a program can check about those documents: that the headings
-they promise are present, that all 353 claim rows still carry a provenance
+they promise are present, that all 388 claim rows still carry a provenance
 marker, that **every `[datasheet]` row names the page it was read from**, that
 the marker vocabulary has not drifted, and that every rewiring verdict is one of
 the four words the document defines.

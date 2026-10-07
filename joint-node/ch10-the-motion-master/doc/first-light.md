@@ -1,9 +1,14 @@
 # First light: the controller answers, measured
 
-The first three pages in this directory are about documents. This one is the
+The other pages in this directory are about documents. This one is the
 only one that contains measurements, and everything on it was taken on
 **Tuesday 7 October 2026** on a Raspberry Pi 4B carrying a Waveshare WS-28164,
 host name `eplepi`, user `bing`.
+
+It covers two runs. **Part one** is internal loopback with nothing wired, which
+proves the controller and the bit timing and cannot touch a wire. **Part two** is
+the board wired to itself as a two node bus, which is the run that finally shows
+the isolated side is alive.
 
 It is deliberately separate from [board-findings.md](board-findings.md) and
 [datasheet-notes.md](datasheet-notes.md), because a measurement and a
@@ -44,6 +49,10 @@ left has nothing in it.*
 The operating system line is a correction. An earlier note in this directory
 said `mcp251xfd.dtbo` was confirmed present in a **Bookworm** Lite 64-bit image.
 The running system is **trixie**.
+
+---
+
+# Part one: internal loopback, no wire
 
 ## 1. The controller answered
 
@@ -345,15 +354,259 @@ delay symmetry. Both were settled by going and looking rather than by thinking
 harder, which is the whole argument of
 [rewiring.md](rewiring.md)'s reflections section.
 
-## The next thing that would teach something
+---
 
-In order, cheapest first.
+# Part two: a real two node bus, Tuesday 7 October 2026
 
-1. ~~Photograph the two jumpers and record which position each cap is in.~~
-   **Done.** Both on `120R`, recorded above.
-2. **Join terminal position 1 to 4 and 2 to 5**, both caps already on `120R`, turn
-   `loopback off`, and run the two node self bus from
-   [rewiring.md](rewiring.md). That is the first test that puts a frame on a
-   wire, and therefore the first that can prove the isolated side is alive.
-3. Settle `PD0` and `PD1` against the STM32H7A3ZI datasheet and UM2408 before
-   any wire enters the Nucleo. That gate is still shut.
+Everything above was internal loopback, where the frame never leaves the
+controller. This part is the same board wired to itself, so that frames cross
+both transceivers, the isolation barrier twice, and an actual wire.
+
+It is the test that settles the question the whole of
+[board-findings.md](board-findings.md) was built around, and it needed no parts:
+two jumper wires and five minutes.
+
+## The wiring, and the terminal legend
+
+![The terminal block with its full printed legend, and the two jumper wires joining CAN FD to CAN](figures/ws28164-two-node-wiring.jpg)
+
+| Wire | From | To | Source |
+|---|---|---|---|
+| black | `CAN FD` **H** | `CAN` **H** | `[measured]` |
+| blue | `CAN FD` **L** | `CAN` **L** | `[measured]` |
+| none | `G` between them | left empty, both channels already share `SGND` | `[measured]` |
+
+Both termination caps stayed on `120R`, which is correct: the two channels are
+now the two ends of one very short bus.
+
+**The printed legend is better documentation than anything derived from the
+schematic, and it confirms the fifteen position order screw for screw**
+`[measured]`:
+
+| Printed | Group | Schematic position | Source |
+|---|---|---|---|
+| `V+` `V-` | `7~36V` | 15, 14 | `[measured]` |
+| `G` `TX` `RX` | `RS232` | 13, 12, 11 | `[measured]` |
+| `B` `A` | `RS485_2` | 10, 9 | `[measured]` |
+| **`PE`** | between the two RS485 groups | 8 | `[measured]` |
+| `B` `A` | `RS485_1` | 7, 6 | `[measured]` |
+| **`L` `H`** | **`CAN FD`** | 5, 4 | `[measured]` |
+| `G` | shared | 3 | `[measured]` |
+| **`L` `H`** | **`CAN`** | 2, 1 | `[measured]` |
+
+One correction falls out of it: position 8's isolated ground is printed **`PE`**,
+protective earth, not `G` `[measured]`. The schematic calls it `SGND` like the
+others.
+
+## Both controllers, and the interface names moved
+
+Adding the classic channel needs one more line in `config.txt`:
+
+```
+dtoverlay=mcp2515,spi0-0,oscillator=16000000,interrupt=23
+```
+
+It needs its `oscillator=` because 16 MHz is not the driver's default, and
+`interrupt=23` matches `R35`, the fitted zero ohm link.
+
+```
+mcp251x    spi0.0 can0: MCP2515 successfully initialized.
+mcp251xfd  spi0.1 can1: MCP2518FD rev0.0 (...) successfully initialized.
+```
+
+**The CAN FD channel was `can0` when it was the only one. It is `can1` now.**
+`[measured]` The classic controller probes first and takes the lower number. That
+is the probe order trap from [board-findings.md](board-findings.md) happening for
+real, within one afternoon, on one machine, with no change but an added overlay.
+
+So the identity check is not pedantry:
+
+```bash
+for i in /sys/class/net/can*; do
+  echo "$i -> $(basename $(readlink -f $i/device/driver))"
+done
+```
+
+| Interface | Driver | Channel | Terminal group | Source |
+|---|---|---|---|---|
+| `can0` | `mcp251x` | classic CAN | `CAN` | `[measured]` |
+| `can1` | `mcp251xfd` | CAN FD | `CAN FD` | `[measured]` |
+
+## Bit timing: the same sample point by different arithmetic
+
+Both channels at 500 kbit/s, classic, no sample point requested:
+
+| | reported clock | tq | sync, prop, phase1, phase2 | total | sample point | Source |
+|---|---|---|---|---|---|---|
+| `can0` MCP2515 | **8 MHz** | 125 ns | 1, 6, 7, 2 | **16 tq** | 14/16 = **0.875** | `[measured]` |
+| `can1` MCP2518FD | 40 MHz | 25 ns | 1, 34, 35, 10 | **80 tq** | 70/80 = **0.875** | `[measured]` |
+
+Two things worth noticing.
+
+**The MCP2515 reports its clock as 8 MHz, not 16.** Its time quantum is
+`2 x (BRP+1) / Fosc` `[datasheet]` MCP2515 p42, so the driver presents the CAN
+clock as half the crystal. The datasheet formula showing up in `ip` output.
+
+**0.800 is not achievable on that controller at this bit rate**, and this was
+predicted before the run rather than discovered after. With a 125 ns minimum
+quantum a 2000 ns bit is at most 16 quanta, and 80 per cent of 16 is 12.8, not a
+whole number. 87.5 per cent is 14/16 exactly `[arithmetic]`. So the kernel's
+default was the only sensible choice here, and the two controllers reached the
+same sample point from 16 quanta and from 80.
+
+Its register ranges are correspondingly tight `[measured]`:
+
+| Register | `mcp251x` | `mcp251xfd` | Source |
+|---|---|---|---|
+| `tseg1` | **3 to 16** | 2 to 256 | `[measured]` |
+| `tseg2` | **2 to 8** | 1 to 128 | `[measured]` |
+| `sjw` | **1 to 4** | 1 to 128 | `[measured]` |
+| `brp` | 1 to 64 | 1 to 256 | `[measured]` |
+
+A bit can be at most 25 quanta on the classic part against 385 on the flexible
+data one. That is the whole reason one has 16 and the other 80.
+
+## The failure first, because it is the more useful half
+
+The wires were not fitted on the first attempt, and the result is worth keeping
+as a worked example of reading CAN error counters.
+
+| Interface | State | Counters | Source |
+|---|---|---|---|
+| `can1`, transmitting | **`ERROR-PASSIVE`** | **`berr-counter tx 128`**, `error-warn 1`, `error-pass 1` | `[measured]` |
+| `can0`, listening | `ERROR-ACTIVE` | **everything zero**, RX 0 | `[measured]` |
+
+**TEC rises by 8 per failed attempt, so 128 is exactly 16 failed transmissions**
+`[arithmetic]`. It then stopped climbing, which is correct: an error passive
+transmitter that receives no acknowledgement does not keep incrementing. It was
+still retrying, which is why `TX: packets` stayed at 0 rather than counting a
+failure.
+
+**The asymmetry is the diagnosis.** A transmitter in trouble and a listener with
+pristine counters means nothing reached the listener's receiver at all, not even
+a corrupted frame. Four things produce that signature and the data cannot
+separate them:
+
+| Candidate | Why it fits |
+|---|---|
+| no wire at all | nothing to carry the frame. **This was the actual cause** |
+| wires on the wrong terminals | same |
+| `H` and `L` swapped | a dominant arrives as a negative differential, reads as permanently recessive, so the listener sees silence and reports no error |
+| the isolated side unpowered | both transceivers dead |
+
+The test that would have separated the last one from the first three is
+`berr-reporting on`, which makes the controller name the error: **`ack-error`**
+means the transceiver drives the bus and reads itself back, so the fault is
+between the nodes; **`bit-error`** means the transceiver cannot read back its own
+dominant bit, which points at the isolated supply. It was not needed in the end.
+
+**A thing worth noticing about `TX: packets`.** It counts successful
+transmissions, not attempts. A CAN controller with nothing to talk to retries
+forever and that counter never moves, so a reading of zero is not evidence of a
+software problem. The error counters are where the information is.
+
+## The bus working
+
+The moment the second wire made contact, the frames `can1` had been retrying
+flushed out at once:
+
+```
+(1791370881.125692) can0 123#DEADBEEF
+(1791370881.126466) can0 123#DEADBEEF
+(1791370881.126639) can0 123#DEADBEEF
+```
+
+173 microseconds between the last two, which is about one 4-byte classic frame
+at 500 kbit/s `[arithmetic]`. Then deliberately, in both directions:
+
+| Direction | Sent | `candump` lines | Source |
+|---|---|---|---|
+| `can1` to `can0` | `123#DEADBEEF` | **1** | `[measured]` |
+| `can0` to `can1` | `456#CAFEBABE` | **1** | `[measured]` |
+
+Counters after both, with every error counter still at zero and both interfaces
+`ERROR-ACTIVE` `[measured]`:
+
+| | TX packets | RX packets | Source |
+|---|---|---|---|
+| `can0`, `mcp251x` | 1 | 4 | `[measured]` |
+| `can1`, `mcp251xfd` | 4 | 5 | `[measured]` |
+
+`can1`'s `berr-counter tx` went back to **0** from 128. The `error-warn 1` and
+`error-pass 1` entries are cumulative history of the unwired attempts, not the
+current state, and that distinction is easy to misread.
+
+## What this finally proves
+
+Every row here was open before this run and could not be closed by any amount of
+loopback.
+
+| Question | Answer | Why this run settles it | Source |
+|---|---|---|---|
+| **Is the isolated side powered at all?** | **Yes** | A frame crossed the barrier twice and came back acknowledged | `[measured]` |
+| Does the MCP2562FD work? | **Yes** | It drove the bus | `[measured]` |
+| Is `U6` `STBY` tied low? | **Yes** | In standby its transmitter is disabled, so nothing would have left | `[measured]` |
+| Does the SN65HVD230 work? | **Yes** | It received, and it acknowledged | `[measured]` |
+| Are the terminations right? | **Yes** | Both `120R`, and the bus works at 500 kbit/s | `[measured]` |
+| Is the wiring correct? | **Yes** | Both directions, zero errors | `[measured]` |
+
+The `STBY` row is the satisfying one. It was inferred by counting isolator
+channels, finding all four already carrying transmit and receive for the two CAN
+sections, and concluding there was no path across the barrier for a standby
+signal so it must be strapped low. A frame leaving the transceiver confirms the
+inference without anybody reading that net.
+
+## The double delivery, resolved
+
+Under internal loopback every frame arrived twice. With `loopback off` and a real
+second node it arrives once:
+
+| Configuration | `candump` lines per frame | Sender's RX per TX | Source |
+|---|---|---|---|
+| `loopback on`, one node | **2** | 2 | `[measured]` |
+| `loopback off`, two nodes | **1** | 1 | `[measured]` |
+
+So the duplicate really was the controller's hardware loopback plus SocketCAN's
+local echo, as inferred earlier, and only the echo remains when the hardware is
+not looping back.
+
+**`jn-listen` is therefore safe on this two node bus and unsafe on a loopback
+interface**, where it would report double the true frame count and double the
+true rate.
+
+## A counter difference between the two drivers
+
+| Interface | Driver | Sent | Own RX changed by | Source |
+|---|---|---|---|---|
+| `can1` | `mcp251xfd` | 4 frames | **+4** | `[measured]` |
+| `can0` | `mcp251x` | 1 frame | **+0** | `[measured]` |
+
+`mcp251xfd` counts its own local echo in the interface's RX statistics.
+`mcp251x` does not. The reason is somewhere in the two drivers and has not been
+looked up `[unconfirmed]`.
+
+**The practical consequence is immediate: RX packet counts cannot be compared
+between these two interfaces.** Anything in this chapter that counts frames has
+to know which driver it is looking at, or count at the socket rather than at the
+interface.
+
+## What a two node bus on one board still cannot show
+
+| Not proved | Why |
+|---|---|
+| Anything about CAN FD | The MCP2515 is classic only, so the bus runs classic. No rate switch, no 64 byte payload, no length code |
+| Anything about isolation as isolation | Both nodes sit on the same isolated rail and the same `SGND`. There is no ground offset between them because it is the same ground |
+| Anything about cable length, reflections or noise | The wire is two jumper leads |
+| Arbitration under contention | Both nodes can transmit, but nothing here made them transmit at the same instant |
+| Anything about the node end | The Nucleo is exactly as far away as it was |
+
+So this replaces `vcan0`, not the real bus. It is a strictly better substitute:
+real bit timing, real transceivers, real termination, real acknowledgement, real
+error counters that mean something. Chapters 10, 11, 12 and 19 can use it today.
+
+**One mechanical caution before trusting any number from it.** The jumper leads
+are pushed into the terminal block rather than clamped under the screws, which is
+a friction contact. The first three frames arrived while the second wire was
+being moved rather than when a command was run, which is exactly how a friction
+contact announces itself. Strip the ends and clamp the bare copper before taking
+any measurement that matters.

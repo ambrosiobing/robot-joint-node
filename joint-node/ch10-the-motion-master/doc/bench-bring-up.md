@@ -236,11 +236,15 @@ until those exist this is a bus with one node.
 
 A one node bus is not a small limitation. Nothing acknowledges a frame, so every
 transmission fails and the controller retries, which is physics rather than a
-fault and is the classic confusing first hour of a CAN bring up.
+fault and is the classic confusing first hour of a CAN bring up. It was observed
+exactly that way on Tuesday 7 October 2026 before the wires went in: the
+transmitter sat in `ERROR-PASSIVE` with a transmit error counter of 128, which is
+sixteen failed attempts, while `TX: packets` stayed at 0. See
+[first-light.md](first-light.md) part two.
 
 There is a way around it that needs no firmware and no parts, and it came out of
 reading the schematic rather than out of planning: **this board can be its own
-two node bus.** It carries two complete controllers with separate oscillators,
+two node bus. Done on Tuesday 7 October 2026, and it works.** It carries two complete controllers with separate oscillators,
 separate transceivers and separate terminal positions, so joining terminal
 position 1 to 4 and 2 to 5 with two jumper wires gives a real bus with real
 arbitration, real error frames, real termination and a real acknowledgement. It

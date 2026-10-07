@@ -90,6 +90,10 @@ REQUIRED = {
         "## The termination jumpers, read off the board",
         "## What this run did not prove",
         "## Corrections this run forced",
+        "# Part one: internal loopback, no wire",
+        "# Part two: a real two node bus, Tuesday 7 October 2026",
+        "## What this finally proves",
+        "## What a two node bus on one board still cannot show",
     ],
     REWIRING: [
         "## The one that changes the plan",
@@ -125,6 +129,12 @@ CLAIM_DOCS = {
     },
     FIRSTLIGHT: {
         "| Marker | Means |",
+        # A list of hypotheses that fit one observation, not a set of claims.
+        # Naming them is the point; only one of them turned out to be true.
+        "| Candidate | Why it fits |",
+        # Limitations, which are reasoning about the measurements above rather
+        # than measurements of their own.
+        "| Not proved | Why |",
         "| Register | Range | Source |",
         "| Frame sent | `TX: packets` | `RX: packets` | Source |",
         "| Payload asked for | Legal CAN FD length? | `TX: bytes` increment | Source |",

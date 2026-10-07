@@ -38,7 +38,17 @@ Each proposal below carries a verdict. The vocabulary is small on purpose:
 
 ### Wire the board to itself and get a real two node bus today
 
-**Verdict: Do.**
+**Verdict: Do. Done on Tuesday 7 October 2026, and it worked.**
+
+Two jumper wires, five minutes, frames both directions, zero errors. The run is
+recorded in [first-light.md](first-light.md) part two. It also closed the
+question this whole chapter was built around, because a frame that is
+acknowledged has crossed the isolation barrier twice: **the isolated side is
+alive, and both transceivers work.**
+
+The rest of this section is the argument as it was made beforehand, left
+unchanged because the prediction and the result are more useful together than
+the result alone.
 
 This is the proposal that came out of reading the inventory, and it was not
 obvious beforehand, so it is worth setting out carefully.
