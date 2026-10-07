@@ -112,6 +112,14 @@ jobs:
           pip install -r requirements.txt
           python check_layers.py
 
+      # Deliberately placed ahead of the virtual interface step below, which
+      # can sit for ten minutes on a kernel module download. This one needs
+      # nothing but Python, so there is no reason for its answer to wait behind
+      # an apt mirror.
+      - name: Chapter 10, the hardware findings keep their provenance
+        working-directory: joint-node/ch10-the-motion-master
+        run: python tools/check_findings.py
+
       # The runner image ships a kernel with no vcan module, so the first
       # modprobe fails and the extra modules package for the running kernel is
       # installed before trying again.
@@ -148,12 +156,25 @@ jobs:
         working-directory: joint-node/ch10-the-motion-master
         run: make
 
+      # Chapter 10 was written in Python first and ported to C, so this guard
+      # exists to stop the Python half coming back. It used to forbid every .py
+      # file in the chapter, which was too broad and went red the first time the
+      # chapter gained a document checker. The rule it is really enforcing is
+      # the repository's own: the chapter's CODE is C, and Python is allowed for
+      # orchestration and CI, which is how chapters 9, 11 and 17 are built. So
+      # the four code directories are what it checks, and tools/ is not one of
+      # them. A main.py under src/ still fails, which is the case it was for.
       - name: Chapter 10, no Python left behind
         working-directory: joint-node/ch10-the-motion-master
         run: |
           set -e
-          if git ls-files | grep -E '\.py$|^requirements\.txt$'; then
-            echo "this chapter is C; a Python file here is a leftover"
+          if git ls-files 'src/*' 'app/*' 'test/*' 'include/*' | grep -E '\.py$'; then
+            echo "this chapter's code is C; a Python file in src, app, test or"
+            echo "include is a leftover from the port"
+            exit 1
+          fi
+          if git ls-files | grep -E '^requirements\.txt$'; then
+            echo "this chapter needs no Python dependencies"
             exit 1
           fi
           echo "none, as intended"

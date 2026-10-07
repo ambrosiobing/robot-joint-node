@@ -29,11 +29,18 @@ OBJS = $(BUILD)/jn_frame.o $(BUILD)/jn_log.o $(BUILD)/jn_bus.o
 TESTS = $(BUILD)/test_frame $(BUILD)/test_log $(BUILD)/test_bus
 TOOLS = $(BUILD)/jn-listen $(BUILD)/jn-setpoint
 
-.PHONY: all test tools clean
-all: test tools
+.PHONY: all test tools docs clean
+all: docs test tools
 	@echo
 	@echo "chapter 10 built: the frame layout and the log format are proved,"
 	@echo "and the socket is proved wherever the interface was up"
+
+# The hardware pages in doc/ are a deliverable of this chapter too, and the one
+# thing a program can check about them is whether every claim still says where
+# it came from. This target needs Python and no compiler, so it is the half of
+# the chapter that runs on the authoring laptop.
+docs:
+	@python3 tools/check_findings.py 2>/dev/null || python tools/check_findings.py
 
 # An order-only prerequisite, after the bar. Without it the directory's own
 # timestamp changes every time a file is written into it, and everything that

@@ -8,6 +8,17 @@ This is the arithmetic half of chapter 9. It needs no board, no transceiver and
 no bus, which is why it was written first. The loopback, the message memory
 layout and the first frame need the Nucleo and are not here yet.
 
+The hardware at the other end of that bus is written up in chapter 10, and three
+numbers from it belong to this chapter's arithmetic. The controller end's clock
+is a packaged 40 MHz oscillator specified at plus or minus 20 ppm, which is a
+printed tolerance rather than an assumed one. The transceiver loop delays that
+step 5's delay compensation needs are collected there, with the one that is
+still unknown marked as unknown. And the two ends will not agree on a sample
+point, because 40 MHz and 80 MHz divide differently, which is a finding and not
+a fault. See
+[../ch10-the-motion-master/doc/board-findings.md](../ch10-the-motion-master/doc/board-findings.md),
+in particular the section on the numbers this bus will be judged on.
+
 ## What runs
 
 ```bash

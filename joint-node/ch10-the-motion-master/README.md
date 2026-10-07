@@ -17,7 +17,39 @@ include/jn_bus.h     src/jn_bus.c      the socket, the only Linux-only file
 app/jn_listen.c                        watch a bus, optionally record it
 app/jn_setpoint.c                      emit at a chosen rate, or replay a file
 test/test_frame.c  test/test_log.c  test/test_bus.c
+doc/                                   the hardware, before any of it is wired
+tools/check_findings.py                keeps the hardware pages honest
 ```
+
+## The hardware, decided before it was wired
+
+The code above is the host side of the bus and needs no hardware at all. The
+hardware it will eventually run against is a Raspberry Pi 4B carrying a
+Waveshare WS-28164, and three documents in `doc/` record what was established
+about it, in the order you would want them:
+
+| Document | What it is for |
+|---|---|
+| [doc/board-findings.md](doc/board-findings.md) | The inventory. Every device, every link, every jumper, the full 40-pin header map, the terminal order and the numbers, with a source marker on every line and the open questions listed |
+| [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus what three earlier wrong readings had in common |
+| [doc/bench-bring-up.md](doc/bench-bring-up.md) | The sequence. Card, configuration, order of operations, and what loopback does and does not prove |
+
+They were written before anything was wired, which is the whole point. Reading
+the schematic's text layer took about two minutes per question and answered
+several that had been queued for the bench, including one that nobody had thought
+to ask: the board's classic CAN transceiver is deliberately slew limited by a
+fitted 1k resistor on its slope control pin.
+
+```bash
+python tools/check_findings.py
+```
+
+That checks what a program can check about those documents: that the headings
+they promise are present, that every claim row still carries a provenance
+marker, that the marker vocabulary has not drifted, and that every rewiring
+verdict is one of the four words the document defines. It cannot check whether
+any of it is true. The schematic is the authority and the bench is the
+tiebreaker, which is why the open questions table exists.
 
 ## What runs, and where
 
@@ -129,3 +161,14 @@ What the virtual interface still cannot prove is anything about a wire. It has
 no arbitration, no bit timing and no error frames, so the Pi 4 with the isolated
 adapter remains the only way to learn whether the bus works, as opposed to
 whether this code speaks to a kernel correctly.
+
+And there is a nearer step than waiting for the node end, which came out of
+reading the adapter's schematic rather than out of planning. The WS-28164
+carries **two** complete CAN controllers, each with its own clock, transceiver
+and terminal positions, so two jumper wires turn the board into a genuine two
+node bus: real arbitration, real error frames, real termination, and a frame
+that is actually acknowledged by somebody. It has to run classic, because the
+second controller is an MCP2515, so it proves nothing about flexible data
+frames. Everything else these tools do, it proves.
+[doc/rewiring.md](doc/rewiring.md) sets out what that buys and what it does not,
+and recommends it.
