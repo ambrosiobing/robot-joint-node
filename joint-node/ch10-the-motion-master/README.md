@@ -25,31 +25,51 @@ tools/check_findings.py                keeps the hardware pages honest
 
 The code above is the host side of the bus and needs no hardware at all. The
 hardware it will eventually run against is a Raspberry Pi 4B carrying a
-Waveshare WS-28164, and three documents in `doc/` record what was established
+Waveshare WS-28164, and four documents in `doc/` record what was established
 about it, in the order you would want them:
 
 | Document | What it is for |
 |---|---|
 | [doc/board-findings.md](doc/board-findings.md) | The inventory. Every device, every link, every jumper, the full 40-pin header map, the terminal order and the numbers, with a source marker on every line and the open questions listed |
-| [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus what three earlier wrong readings had in common |
+| [doc/datasheet-notes.md](doc/datasheet-notes.md) | What the manufacturers specify, part by part, with a page number on every figure. Ten datasheets read; the three ST documents would not download |
+| [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus the two patterns behind six wrong readings |
 | [doc/bench-bring-up.md](doc/bench-bring-up.md) | The sequence. Card, configuration, order of operations, and what loopback does and does not prove |
 
 They were written before anything was wired, which is the whole point. Reading
 the schematic's text layer took about two minutes per question and answered
-several that had been queued for the bench, including one that nobody had thought
-to ask: the board's classic CAN transceiver is deliberately slew limited by a
-fitted 1k resistor on its slope control pin.
+several that had been queued for the bench, including one nobody had thought to
+ask: there is a 1k resistor on the classic transceiver's slope control pin.
+
+Then the datasheets were read, and six of the conclusions drawn from the
+schematic alone turned out to be wrong, that one included. Both rounds are kept
+visible rather than tidied away, because the difference between them is the
+lesson: a schematic gives you the value, and only the datasheet tells you what
+the value does.
+
+**On diagrams.** Every figure in these documents is drawn here from the facts and
+cites the vendor figure it corresponds to by number and page. Datasheet artwork
+belongs to its manufacturer; the facts in it do not, and a redrawn figure can
+show this board rather than a generic one.
 
 ```bash
 python tools/check_findings.py
 ```
 
 That checks what a program can check about those documents: that the headings
-they promise are present, that every claim row still carries a provenance
-marker, that the marker vocabulary has not drifted, and that every rewiring
-verdict is one of the four words the document defines. It cannot check whether
-any of it is true. The schematic is the authority and the bench is the
-tiebreaker, which is why the open questions table exists.
+they promise are present, that all 314 claim rows still carry a provenance
+marker, that **every `[datasheet]` row names the page it was read from**, that
+the marker vocabulary has not drifted, and that every rewiring verdict is one of
+the four words the document defines.
+
+The page rule is the one worth explaining, because it was added in response to a
+defect rather than designed in. Two figures in these pages turned out to be
+typical values presented as maximums, and a third reversed a conclusion outright.
+In all three cases the claim read plausibly and nothing in the row said which
+page to go and check. Four characters converts an argument into a lookup.
+
+It cannot check whether any of it is true. The schematic and the datasheets are
+the authority, the bench is the tiebreaker, and that is why the open questions
+table exists.
 
 ## What runs, and where
 

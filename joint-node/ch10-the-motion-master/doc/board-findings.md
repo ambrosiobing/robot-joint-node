@@ -25,6 +25,8 @@ sacred except the markers.
 | `[measured]` | Measured on this bench, with the instrument named |
 | `[inferred]` | A conclusion drawn from the above, with the reasoning given so you can disagree |
 | `[unconfirmed]` | Believed, not yet checked. **No wiring decision may rest on one of these.** |
+| `[chapter]` | Established elsewhere in this volume, with the chapter named |
+| `[arithmetic]` | Follows from the other rows by calculation, so you can redo it |
 
 `[unconfirmed]` is not an apology. It is the most useful marker on the page,
 because it is the list of things worth half an hour each. When one of them gets
@@ -40,9 +42,16 @@ Two ends, and it is worth being clear that they are not symmetrical.
 | Node | NUCLEO-H7A3ZI-Q plus a loose Waveshare SN65HVD230 board | An FDCAN peripheral inside the STM32H7A3ZI | An FD rated transceiver `[datasheet]` |
 
 The asymmetry is the whole shape of the bring-up. The Pi end is finished
-hardware. The node end is a transceiver that tops out at 1 Mbit/s, which is why
-chapter 13, whose subject is two speeds on one wire, has to wait for a part
-rather than for code.
+hardware. The node end has a transceiver rated for 1 Mbit/s signalling, which is
+why chapter 13, whose subject is two speeds on one wire, waits for a part rather
+than for code.
+
+The reason is not the obvious one, and reading the datasheets corrected it. That
+transceiver is the **fastest** of the three on this bench by loop delay. What it
+does not do is specify loop delay **symmetry**, which is what a CAN FD data phase
+actually depends on. The comparison is in
+[datasheet-notes.md](datasheet-notes.md) section 5, and it is the most useful
+thing on that page.
 
 ---
 
@@ -168,17 +177,57 @@ one convention makes the drawing about three times easier to follow.
 
 ### Why the quiet failure would have been quiet
 
-Suppose the isolated side were unpowered, which is what you would get if the
-external supply were genuinely required and absent. The CAN controllers sit on
-the **Pi side** of the barrier. So SPI would work perfectly. Every register
-would read back correctly. The driver would probe, the interface would appear,
-`ip link` would be happy, and internal loopback would pass. Only the wire would
-be dead.
+Here is the whole supply path in one picture. Drawn from the schematic's POWER
+and CAN Transceiver blocks `[schematic]`; there is no vendor figure that shows
+this, which is exactly why it is worth drawing.
+
+```mermaid
+flowchart LR
+  subgraph PI["Pi side, ground is GND"]
+    USB["USB-C into the Pi"] --> H["header pins 2 and 4, net 5V'"]
+    H -->|"R43, R44<br/>two fitted 0 ohm links"| V5["net 5V"]
+    DC["J2 terminal, 7 to 36 V<br/>optional, not needed"] --> U1["U1 SY8308RBC buck<br/>makes +5V1"]
+    U1 -->|"Q4 AO4407A<br/>power path switch"| V5
+    V5 --> U8["U8 RT9193-33PB"] --> V33["net 3V3"]
+    V33 --> U5["U5 MCP2518FD<br/>CAN FD controller"]
+    V33 --> U2["U2 MCP2515<br/>classic controller"]
+  end
+  V5 --> U12["U12 B0505LS-1W<br/>isolated 5 V to 5 V, 1 W"]
+  subgraph ISO["Isolated side, ground is SGND"]
+    U12 --> V5B["net 5VB"]
+    V5B --> U4["U4 RT9193-33PB"] --> V33B["net 3V3B"]
+    V5B -->|"VDD, 4.5 to 5.5 V"| U6["U6 MCP2562FD<br/>CAN FD transceiver"]
+    V33B -->|"VIO"| U6
+    V33B --> U3["U3 SN65HVD230<br/>classic transceiver"]
+    U6 --> T["terminal positions 4 and 5<br/>H2 and L2, the wire"]
+    U3 --> T2["terminal positions 1 and 2<br/>H1 and L1"]
+  end
+  U5 <-->|"TXD_1, RXD_1<br/>through U7 isolator"| U6
+  U2 <-->|"TXD_0, RXD_0<br/>through U7 isolator"| U3
+```
+
+Now read it with one question in mind: what happens if the isolated side is
+unpowered? That is what you would get if the external supply were genuinely
+required and absent.
+
+Follow the left box. SPI never crosses the barrier. The controllers sit on the
+**Pi side**, powered from `3V3`, which comes from `U8`, which comes from the
+header. So SPI would work perfectly. Every register would read back correctly.
+The driver would probe, the interface would appear, `ip link` would be happy,
+and internal loopback would pass, because an internal loopback never leaves the
+controller. Only the right hand box would be dark, and only the wire would be
+dead.
 
 That failure presents as a firmware problem, and it is the kind of thing that
 gets debugged for an evening. Two minutes with the schematic removed it from the
 list of possibilities before it could cost anything. That is the whole argument
 for this page.
+
+The same picture earns its keep twice more further down. It is why `U6` needs
+both a 5 V and a 3.3 V rail, and it is why the transceiver's standby pin cannot
+be driven by the controller: the only thing crossing the barrier is `U7`, and
+all four of its channels are already carrying transmit and receive for the two
+channels.
 
 ## 2. The digital isolators
 
@@ -261,15 +310,30 @@ Three things follow, and the third is the one that matters:
 So the controller runs from the **non isolated** 3.3 V, which is consistent with
 it sitting on the Pi side of the barrier.
 
-MCP2518FD figures that the design rests on but which have not been read off the
-datasheet in this session, all `[unconfirmed]` and each worth confirming before
-a number from it is published:
+The MCP2518FD's own figures, now read rather than believed. The full set with
+page numbers is in [datasheet-notes.md](datasheet-notes.md) section 3:
 
-- the message RAM size, believed 2 kB
-- the maximum SPI clock, believed 20 MHz
-- the number of FIFOs and acceptance filters
-- the maximum data phase bit rate, believed 8 Mbit/s
-- the supply range on VDD, believed 2.7 to 5.5 V
+| Quantity | Value | Source |
+|---|---|---|
+| Message RAM | 2 KB | `[datasheet]` MCP2518FD p1, p63 |
+| Maximum SPI clock | 20 MHz, in SPI mode 0,0 or 1,1 | `[datasheet]` MCP2518FD p1, p67 |
+| FIFOs | 31, each configurable transmit or receive | `[datasheet]` MCP2518FD p1 |
+| Filter and mask objects | 32 | `[datasheet]` MCP2518FD p1 |
+| Arbitration bit rate ceiling | 1 Mbps | `[datasheet]` MCP2518FD p1 |
+| Data bit rate ceiling | 8 Mbps | `[datasheet]` MCP2518FD p1 |
+| `VDD` | 2.7 to 5.5 V | `[datasheet]` MCP2518FD p1, p76 |
+| Clock input | specified as a 40 MHz crystal or resonator | `[datasheet]` MCP2518FD p77 |
+
+The last row is worth a second look, because this board does not fit a crystal.
+`Y2` is a packaged oscillator driving `OSC1` through `R15` `[schematic]`. Driving
+a crystal input from a clock source is ordinary, but the datasheet's
+characterisation assumes a crystal `[datasheet]` MCP2518FD p77, and the
+oscillator's `OE` pin adds a failure mode a crystal does not have
+`[unconfirmed]`.
+
+The two ceilings are worth noticing together: 1 Mbps arbitration and 8 Mbps data
+`[datasheet]` MCP2518FD p1. That is not a quirk of the part, it is what CAN FD
+is. The planned 500 kbit/s and 2 Mbit/s sit well inside both.
 
 Note what is **not** on that list. Nothing in chapter 9 depends on any of them,
 because chapter 9's bit timing, message memory and frame length work is about
@@ -284,12 +348,12 @@ blurring it.
 |---|---|---|---|
 | 1 | TXD | `TXD_1B` | `[schematic]` |
 | 2 | VSS | `SGND` | `[schematic]` |
-| 3 | VDD | `5VB`, from the 5VB net and `C24` drawn at that node | `[inferred]` |
+| 3 | VDD | `5VB`. The part requires 4.5 to 5.5 V, so no other isolated rail is in range | `[datasheet]` DS20005284A p9 |
 | 4 | RXD | `RXD_1B` | `[schematic]` |
 | 5 | VIO | **`3V3B`** | `[schematic]` |
 | 6 | CANL | `L2` | `[schematic]` |
 | 7 | CANH | `H2` | `[schematic]` |
-| 8 | STBY | not resolved from the text layer | `[unconfirmed]` |
+| 8 | STBY | not resolved from the text layer, almost certainly tied low, see below | `[inferred]` |
 
 The split supply is the point. `VDD` at 5 V gives the bus driver the swing a CAN
 line wants, while `VIO` at 3.3 V makes the digital pins match the 3.3 V isolator
@@ -297,12 +361,32 @@ on the other side of them. A 3.3 V only transceiver would have needed no `VIO`
 pin and would have driven the bus less strongly. So this is a deliberate choice
 by whoever drew the board, and it is a good one.
 
-`STBY` on pin 8 deserves the same respect that `Rs` gets below. If a CAN
-transceiver is in standby, its receiver may still work while its driver does
-nothing, and every register in the controller reads perfectly. That symptom is
-the single most common reason a CAN channel looks dead for a non obvious reason.
-Resolving what `STBY` is tied to is the highest value item on the
-`[unconfirmed]` list.
+`STBY` on pin 8 deserves the same respect that `Rs` gets below. The datasheet is
+unambiguous: `STBY` low is Normal mode and the driver works, `STBY` high is
+Standby and the transmitter plus the high speed part of the receiver are disabled
+`[datasheet]` DS20005284A p3. Every register in the controller still reads
+perfectly in that state, which is why it is the single most common reason a CAN
+channel looks dead for a non obvious reason.
+
+The schematic's text layer carries no net on that pin, so this was listed as the
+highest risk open question. **Counting isolator channels mostly settles it.**
+
+The transceiver is on the isolated side and the controller is not, so a standby
+signal would have to cross the barrier. The only crossing in the CAN section is
+`U7`, a four channel isolator, and all four channels are accounted for: `TXD_0`
+and `RXD_0` for the classic channel, `TXD_1` and `RXD_1` for the CAN FD channel
+`[schematic]`. There is no spare channel.
+
+That matters because the controller **could** otherwise have driven it. The
+MCP2518FD's pin 9 is `INT0/GPIO0/XSTBY`, and the `XSTBYEN` register bit exists to
+automatically control the standby pin of a transceiver `[datasheet]` MCP2518FD
+p19, p74. On this board that path does not exist, so `STBY` must be strapped
+locally, and since the board works as a CAN FD adapter it must be strapped low
+`[inferred]`.
+
+So the question drops from "this could silently break the bus" to "this is almost
+certainly a tie to `SGND`, worth ten minutes with the drawing to confirm". Still
+worth confirming. No longer the thing to worry about.
 
 MCP2562FD figures not read this session, all `[unconfirmed]`: the VDD range
 (believed 4.5 to 5.5 V), the VIO range, the rated data rate, and the loop delay.
@@ -325,50 +409,94 @@ nanoseconds from each transceiver on the bus.
 | `D2` | SM24CANB | transient suppressor across the classic CAN pair | `[schematic]` |
 | `R6` | 120 ohm | the classic CAN termination resistor | `[schematic]` |
 | `J2` | 3 position header, `A`, `COM`, `B` | selects whether `R6` is in circuit | `[schematic]` |
-| `Y1` tolerance | not printed | | `[unconfirmed]` |
+| `Y1` tolerance | not printed on the schematic | | `[unconfirmed]` |
+| `U2` protocol | CAN 2.0B at 1 Mb/s, **classic only** | no flexible data frames at all | `[datasheet]` MCP2515 p1 |
+| `U2` buffers | three transmit, two receive | | `[datasheet]` MCP2515 p1, p3 |
+| `U2` filters and masks | six 29-bit filters, two masks | | `[datasheet]` MCP2515 p1 |
+| `U2` maximum SPI clock | 10 MHz | half the MCP2518FD's | `[datasheet]` MCP2515 p1 |
+| `U2` time quantum | TQ = 2 x (BRP + 1) / FOSC | 125 ns at 16 MHz with BRP = 0 | `[datasheet]` MCP2515 p38, p42 |
 
 `U2`'s chip select is `CE_0`, which is `SPI0_CE0`, and its interrupt is
 `CAN0_INT` `[schematic]`. Its VDD is `3V3`, the non isolated rail
 `[schematic]`. `U3`'s VCC is `3V3B`, the isolated rail `[schematic]`, which is
 right for a 3.3 V transceiver.
 
-### `R3` is 1k, and that is a finding nobody was looking for
+### `R3` is 1k, and reading the datasheet reversed what that means
 
-Pin 8 of the SN65HVD230 is `Rs`, the slope control input. Tie it to ground and
-the device runs at full speed. Put a resistor to ground and the output edges are
-deliberately slowed, which reduces radiated emissions and increases the loop
-delay. Pull it high and the device goes into standby and looks dead.
+Pin 8 of the SN65HVD230 is `Rs`, and it selects one of three modes. `R3` is
+**1k** to ground `[schematic]`. The first reading of that, written earlier on
+Tuesday 7 October 2026, was that the board ships **slew limited on purpose**,
+with a longer loop delay as the price.
 
-`R3` is **1k** `[schematic]`. So the WS-28164's classic CAN transceiver is
-shipped slew limited, on purpose, by the board designer.
+**That was wrong, and the datasheet says so plainly.** The full correction is in
+[datasheet-notes.md](datasheet-notes.md) section 1. The short version:
 
-The numbers, from TI SLOS346O for this part `[datasheet]`:
+TI's Table 6 selects the mode by the **voltage** on `Rs`, not by the presence of
+a resistor:
 
-| `Rs` arrangement | Recessive to dominant, typical and maximum | Dominant to recessive, typical and maximum |
+| Condition on `Rs` | Mode | Source |
 |---|---|---|
-| tied to ground | 70 ns, 115 ns | 100 ns, 135 ns |
-| 10 kohm to ground | about 105 ns | about 155 ns |
-| 100 kohm to ground | about 535 ns | about 830 ns |
-| **1k, as fitted** | between the first two rows, not separately specified | between the first two rows, not separately specified |
+| V(`Rs`) above 0.75 VCC | Standby | `[datasheet]` SLOS346K p3 |
+| 10 kohm to 100 kohm to ground | Slope control | `[datasheet]` SLOS346K p3 |
+| V(`Rs`) below 1 V | **High speed, no slope control** | `[datasheet]` SLOS346K p3 |
 
-The rated signalling rate for the part is 1 Mbit/s `[datasheet]`.
+The slope control range is given explicitly: 10 kohm for 15 V per microsecond,
+100 kohm for 2 V per microsecond `[datasheet]` SLOS346K p2.
 
-At 2 Mbit/s a bit is 500 ns long, so a hundred nanoseconds is a fifth of a bit.
-These are not rounding errors, and that is why the table is here rather than in
-a footnote. The honest position on the 1k row is that the datasheet gives
-curves and endpoints rather than a value at 1k, so the number has to be read off
-a graph or measured, and neither has been done `[unconfirmed]`.
+`R3` at 1 kohm is a **tenth of the fast end of that range**. Since the slope is
+proportional to the pin's output current `[datasheet]` SLOS346K p2, a tenth of
+the resistance develops a tenth of the voltage for the same current, which lands
+in the "below 1 V" row. **The board is in high speed mode.** `R3` is a ground
+connection through a small resistor, which is a tidy way to strap a mode pin
+while leaving the option to change it.
 
-Three things this does **not** affect, each worth saying so that the finding
-does not get over applied:
+```
+V(Rs):  0 V ----------- 1 V -------------------- 0.75*VCC ---- VCC
+             HIGH SPEED  |   (unspecified gap)        |  STANDBY
+        ^                |                            |
+        |                +-- slope control lives here,
+     R3 = 1 k                set by 10 k to 100 k to ground
+     sits here
+```
 
-1. It does not touch the CAN FD channel, which goes through `U6`, a different
-   part on a different pair of terminals.
-2. It says nothing about the **loose** SN65HVD230 board intended for the Nucleo
-   end. That is a separate board with its own `Rs` arrangement, which has not
-   been read `[unconfirmed]`.
-3. It is not a fault. A board sold for industrial wiring, with screw terminals
-   and isolation, slew limiting its classic CAN channel is a sensible default.
+Redrawn from the conditions in Table 6, `[datasheet]` SLOS346K p3. There is no
+vendor figure of this; the datasheet states it as a three row table, and a line
+is easier to place a value on.
+
+So the loop delay to use for this channel is the **grounded** row, which is the
+best of the three:
+
+| `Rs` arrangement | Recessive to dominant, typ and max | Dominant to recessive, typ and max | Source |
+|---|---|---|---|
+| **V(`Rs`) = 0 V, this board** | **70 ns, 115 ns** | **100 ns, 135 ns** | `[datasheet]` SLOS346K p8 |
+| 10 kohm to ground | 105 ns, 175 ns | 155 ns, 185 ns | `[datasheet]` SLOS346K p8 |
+| 100 kohm to ground | 535 ns, 920 ns | 830 ns, 990 ns | `[datasheet]` SLOS346K p8 |
+
+The rated signalling rate for the part is 1 Mbit/s `[datasheet]` SLOS346K p2.
+
+**A second correction lives in that table.** The earlier note said 10 kohm
+raises the delays "to about 105 and 155" and 100 kohm "to about 535 and 830".
+All four of those figures are **typicals**. The maximums are 175, 185, 920 and
+990 `[datasheet]` SLOS346K p8, and a timing budget is built from maximums.
+
+What survives from the original finding, and what does not:
+
+1. **Survives.** `Rs` is a pin worth respecting. Pulled high it is standby, and
+   on the SN65HVD230 specifically that stops the driver while the receiver keeps
+   working `[datasheet]` SLOS346K p2. A listener at the far end then sees a
+   healthy node that never speaks.
+2. **Survives.** It says nothing about the **loose** SN65HVD230 board for the
+   Nucleo end, whose own `Rs` arrangement has not been read `[unconfirmed]`.
+3. **Gone.** The claim that the channel is slowed or capped by `R3`. It is not,
+   and its loop delay is the lowest of any transceiver on this bench.
+4. **Gone.** The `[unconfirmed]` number. There is no 1k row to interpolate,
+   because 1k is not a slope control value at all.
+
+The shape of this mistake differs from the three in [rewiring.md](rewiring.md).
+Those came from trusting a name over a reading. This one came from reading the
+schematic correctly and then reasoning about the part from general knowledge
+instead of opening its datasheet. The resistor value was right. Everything
+concluded from it was wrong.
 
 ## 5. The RS485 channels
 
@@ -720,9 +848,9 @@ it matches a resistor.
 
 | Fact | Value | Source |
 |---|---|---|
-| Part | STM32H7A3ZI, Nucleo-144 form factor | `[datasheet]` |
-| CAN peripheral | FDCAN, the Bosch M_CAN | `[datasheet]` |
-| Message RAM | 10240 bytes, shared across the FDCAN instances | chapter 9, `[datasheet]` |
+| Part | STM32H7A3ZI, Nucleo-144 form factor | `[chapter]` 4 |
+| CAN peripheral | FDCAN, the Bosch M_CAN | `[chapter]` 9 |
+| Message RAM | 10240 bytes, shared across the FDCAN instances | `[chapter]` 9 |
 | FDCAN1 pins | believed `PD0` as RX and `PD1` as TX, alternate function 9 | `[unconfirmed]` |
 | Which connector pin carries `PD0` and `PD1` | not established | `[unconfirmed]` |
 
@@ -756,11 +884,11 @@ and either way it costs more than reading one table.
 |---|---|---|
 | What it is | a CAN **physical layer only**, no controller | `[wiki]` |
 | Transceiver | SN65HVD230 | `[wiki]` |
-| Supply | 3.3 V | `[datasheet]` |
-| Rated signalling rate | **1 Mbit/s** | `[datasheet]` |
+| Supply | 3.3 V | `[datasheet]` SLOS346K p1 |
+| Rated signalling rate | **1 Mbit/s** | `[datasheet]` SLOS346K p2 |
 | Termination | the board fits a 120 ohm resistor | `[unconfirmed]` |
 | Its own `Rs` arrangement | not read | `[unconfirmed]` |
-| Loop delay with `Rs` grounded | 70 and 115 ns one way, 100 and 135 ns the other | `[datasheet]` |
+| Loop delay with `Rs` grounded | 70 typ and 115 max one way, 100 typ and 135 max the other | `[datasheet]` SLOS346K p8 |
 
 Two `[unconfirmed]` rows here, and both are cheap to close. The `Rs`
 arrangement is the same question `R3` answered for the HAT, and it has the same
@@ -792,15 +920,20 @@ again is an argument that will be had twice.
 |---|---|---|
 | MCP2518FD clock | 40.000 MHz, plus or minus 20 ppm | `[schematic]` |
 | MCP2515 clock | 16 MHz, tolerance not printed | `[schematic]`, `[unconfirmed]` |
+| MCP2515 base time quantum at 16 MHz | 125 ns, BRP = 0 | `[datasheet]` MCP2515 p38, p42 |
+| 500 kbit/s on the MCP2515 | 2000 ns, which is 16 TQ exactly | `[datasheet]` MCP2515 p42 |
 | SC16IS752 clock | 14.7456 MHz | `[schematic]` |
-| STM32H7A3 FDCAN kernel clock | 80 MHz as configured in chapter 9 | chapter 9 |
-| SN65HVD230 loop delay, `Rs` grounded | 70 and 115 ns, 100 and 135 ns | `[datasheet]` |
-| SN65HVD230 loop delay at 1k | between grounded and 10k, not specified | `[unconfirmed]` |
-| MCP2562FD loop delay | not read | `[unconfirmed]` |
-| Arbitration bit rate planned | 500 kbit/s | chapter 9 |
-| Data bit rate planned | 2 Mbit/s | chapter 9 |
-| Bit time at 500 kbit/s | 2000 ns | arithmetic |
-| Bit time at 2 Mbit/s | 500 ns | arithmetic |
+| STM32H7A3 FDCAN kernel clock | 80 MHz as configured in chapter 9 | `[chapter]` 9 |
+| SN65HVD230 loop delay, `Rs` grounded | 70 and 115 ns, 100 and 135 ns | `[datasheet]` SLOS346K p8 |
+| SN65HVD230 at 1k, which mode | high speed, so the grounded row applies | `[datasheet]` SLOS346K p3 |
+| MCP2562FD delay TXD to RXD | 90 ns typ and 120 max one edge, 120 typ and 180 max the other | `[datasheet]` DS20005284A p13 |
+| MCP2562FD loop delay symmetry at 2 Mbps | 450, 485, 550 ns, min typ max | `[datasheet]` DS20005284A p13 |
+| MCP2562FD symmetry guaranteed to | 5 Mbps | `[datasheet]` DS20005284A p3 |
+| TCAN3413 total loop delay | 95 and 120 ns typ, 180 ns max both ways | `[datasheet]` TCAN3413 p8 |
+| Arbitration bit rate planned | 500 kbit/s | `[chapter]` 9 |
+| Data bit rate planned | 2 Mbit/s | `[chapter]` 9 |
+| Bit time at 500 kbit/s | 2000 ns | `[arithmetic]` |
+| Bit time at 2 Mbit/s | 500 ns | `[arithmetic]` |
 
 The two sample points will not match between the ends, and that is expected
 rather than wrong. 40 MHz and 80 MHz have different sets of achievable
@@ -816,13 +949,13 @@ most.
 
 | # | Question | Why it matters | How to settle it |
 |---|---|---|---|
-| 1 | What is `U6` `STBY` tied to? | A transceiver in standby looks exactly like broken firmware | Find `STBY` on the schematic drawing |
+| 1 | Confirm `U6` `STBY` is tied low | Mostly settled by counting isolator channels, worth confirming by eye | Find `STBY` on the schematic drawing |
 | 2 | Is `PD0` and `PD1` right for FDCAN1, and which connector pins? | No wire goes into the Nucleo until it is answered | The STM32H7A3ZI datasheet, then UM2408 |
 | 3 | Does the loose SN65HVD230 board slew limit its transceiver? | It is an input to transmitter delay compensation | Its own schematic, same text layer method |
 | 4 | Does the DC terminal feed the Pi through `R43` and `R44`? | Decides whether two supplies may be connected at once | One power cycle, DC only, see if the Pi boots |
 | 5 | What are `U7` `EN1` and `EN2` tied to? | Both CAN channels share this isolator | The schematic drawing |
 | 6 | What is `Y2` `OE` tied to? | A disabled oscillator is a dead controller with a healthy SPI bus | The schematic drawing |
-| 7 | MCP2562FD loop delay and supply ranges | Needed for a published delay compensation number | Microchip's datasheet |
+| 7 | **Closed Tuesday 7 October 2026.** MCP2562FD loop delay and supply ranges | | DS20005284A p9 and p13, in [datasheet-notes.md](datasheet-notes.md) |
 | 8 | The 520 against 560 bit disagreement | Chapter 9 step 7 and chapter 11 do not agree on a 64 byte frame's data portion | RM0455, the FDCAN chapter |
 
 Numbers 1, 5 and 6 are all the same task: three nets that the text layer did not

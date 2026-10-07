@@ -10,6 +10,9 @@ time for one, the first is the one that stops an evening being lost:
 - [board-findings.md](board-findings.md) is the full inventory, device by
   device, with a source marker on every line: the header map, the terminal
   order, every link and jumper, every number, and the open questions.
+- [datasheet-notes.md](datasheet-notes.md) is what the manufacturers specify,
+  with a page number on every figure. It is where two of the findings on this
+  page were corrected.
 - [rewiring.md](rewiring.md) asks what of all that should be changed, and
   answers mostly no, with the reasons.
 
@@ -72,17 +75,29 @@ not route anything: they are 1K pull ups on the serial expander's `RESET`,
 `IRQ` and `I2C/SPI` pins. The SPI routing on this board is hard wired and cannot
 be changed at all.
 
-**The surprise: `R3` is 1k on the SN65HVD230's `Rs` pin.** That pin is slope
-control, and 1k puts the device in slew limited mode rather than high speed. The
-board's classic CAN transceiver is therefore deliberately slowed, which raises
-its loop delay and caps that channel. It does not affect the CAN FD channel,
-which goes through the MCP2562FD, and it says nothing about the loose
-SN65HVD230 module intended for the Nucleo end, whose own `Rs` arrangement is a
-separate thing to check.
+A third correction follows immediately below, and it has a different cause: the
+schematic was read right and the **part** was reasoned about without opening its
+datasheet. Six wrong readings came out of one day's work, four of the first kind
+and two of the second, and [rewiring.md](rewiring.md) sets out both patterns.
 
-Grounded, that part's loop delay is 70 ns typical and 115 maximum one way, 100
-and 135 the other. A 10k resistor raises it to roughly 105 and 155. 1k sits
-between. At 2 Mbit/s a bit is 500 ns, so these are not small corrections.
+**The surprise: `R3` is 1k on the SN65HVD230's `Rs` pin.** That pin selects the
+transceiver's mode, so the value matters. The first reading of it, written earlier
+the same day, was that 1k puts the part in slew limited mode and slows the classic
+channel.
+
+**Opening the datasheet reversed that.** TI selects the mode by the voltage on
+`Rs`: above 0.75 VCC is standby, 10 kohm to 100 kohm to ground is slope control,
+and below 1 V is high speed with no slope control at all. 1k is a tenth of the
+fast end of that range, so the part is in **high speed** mode and the channel is
+not slowed at all. Its loop delay is the best row in the table, 115 ns and 135 ns
+maximum. The full correction, with page numbers, is in
+[datasheet-notes.md](datasheet-notes.md) section 1.
+
+What survives is the caution rather than the finding: `Rs` pulled **high** is
+standby, and on this particular part that stops the driver while the receiver
+keeps working, so a far end node sees a healthy listener that never speaks. And
+it still says nothing about the loose SN65HVD230 module intended for the Nucleo
+end, whose own `Rs` arrangement has not been read.
 
 ## The card
 
@@ -237,10 +252,14 @@ for i in /sys/class/net/can*; do
 done
 ```
 
-**The bit rate switch is capped at the Nucleo end.** The loose transceiver
-intended for it is rated 1 Mbit, and the rate switch is what chapter 13 is
-about, so that chapter waits for an FD rated part on that end. The adapter's own
-CAN FD channel is not the limit; a bus runs at its weakest node.
+**The bit rate switch is capped at the Nucleo end**, and the reason is not the
+obvious one. The loose transceiver is rated for 1 Mbit signalling, but by loop
+delay it is the **fastest** of the three transceivers on this bench. What it does
+not specify is loop delay **symmetry**, which is the property a CAN FD data phase
+actually depends on. So chapter 13 waits for a part whose datasheet states that
+figure, and the named candidate is the TCAN3413. The comparison is in
+[datasheet-notes.md](datasheet-notes.md) section 5. The adapter's own CAN FD
+channel is not the limit.
 
 ## How these answers were obtained
 

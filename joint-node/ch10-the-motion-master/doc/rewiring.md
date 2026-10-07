@@ -60,6 +60,30 @@ terminal position 2  (L1, classic low)   to  terminal position 5  (L2, FD low)
 Both jumper caps to `120R`, on `J1` and `J2`, because the two channels are now
 the two ends of a very short bus.
 
+Drawn from the terminal order and the two termination jumpers in
+[board-findings.md](board-findings.md):
+
+```mermaid
+flowchart LR
+  subgraph PI4["one Raspberry Pi 4B, one HAT, two independent nodes"]
+    direction TB
+    A["U2 MCP2515 + U3 SN65HVD230<br/>SPI0 CE0, interrupt GPIO 23<br/>16 MHz crystal"]
+    B["U5 MCP2518FD + U6 MCP2562FD<br/>SPI0 CE1, interrupt GPIO 24<br/>40 MHz oscillator"]
+  end
+  A --- T1["terminal 1, H1"]
+  A --- T2["terminal 2, L1"]
+  B --- T4["terminal 4, H2"]
+  B --- T5["terminal 5, L2"]
+  T1 ---|"jumper wire"| T4
+  T2 ---|"jumper wire"| T5
+  J2["J2 cap on 120R<br/>R6 in circuit"] -.-|"terminates this end"| T1
+  J1["J1 cap on 120R<br/>R16 in circuit"] -.-|"terminates this end"| T4
+```
+
+Two separate controllers, two separate oscillators, two separate transceivers,
+one wire. That is a bus by every definition that matters for chapters 10, 11, 12
+and 19.
+
 What that buys, and this is the part worth dwelling on, is everything the
 virtual interface cannot do:
 
@@ -201,41 +225,62 @@ the board will be in an enclosure and somebody will have an iron.
 
 ---
 
-## The one fitted component that is genuinely tempting
+## The one that looked tempting until the datasheet was opened
 
 ### Replace `R3`, the 1k on the SN65HVD230's `Rs` pin, with a link to ground
 
-**Verdict: Do not. Open as a measurement.**
+**Verdict: Do not. There is nothing to gain, and the reason is a correction.**
 
-`R3` is the finding nobody was looking for, and it has exactly the shape that
-invites a fix. The board's classic CAN transceiver is deliberately slew limited.
-Grounding `Rs` would give it its full speed edges, shorten its loop delay by
-something like thirty nanoseconds, and remove a number from the bit timing
-budget that currently cannot be stated precisely.
+This section used to argue something different, and it is worth leaving the
+history visible rather than quietly rewriting it.
 
-Four reasons not to, in increasing order of how much they would persuade a
-reviewer:
+The original argument was: `R3` makes the board's classic transceiver slew
+limited on purpose, so grounding `Rs` would give it full speed edges and shorten
+its loop delay by perhaps thirty nanoseconds. The verdict was still "do not", for
+four reasons, the strongest of which was that it is a better measurement than a
+modification.
 
-1. **No iron.** Mechanical, and the least interesting.
-2. **It is not a fault.** A board sold with screw terminals, isolation and a
-   DIN rail enclosure, slew limiting its classic channel, is making a
-   considered choice about emissions on long industrial wiring. Treating a
-   deliberate design decision as a defect because it complicates one
-   calculation is backwards.
-3. **The channel it affects is not the one this volume uses.** Chapter 9's bus
-   is CAN FD, through `U6`, a different part. `R3` is on the classic channel.
-   Even the two node proposal above runs that channel at 500 kbit/s, where a
-   bit is 2000 nanoseconds long and a hundred nanoseconds of loop delay is five
-   per cent of a bit. It is not close to a limit.
-4. **It is a better measurement than a modification.** The interesting question
-   is not "can the edges be made faster", it is "how much does a 1k on `Rs`
-   actually cost in loop delay". The datasheet gives the grounded case and the
-   10k case and leaves 1k between them. An oscilloscope would answer it in one
-   capture, and there is no oscilloscope on this bench either, which makes it a
-   clean entry on the instruments list rather than a half answered question.
+**Then the datasheet was opened, and the premise was wrong.** TI selects the mode
+by the **voltage** on `Rs`, and gives three rows: above 0.75 VCC is standby,
+**10 kohm to 100 kohm to ground is slope control**, and below 1 V is high speed
+with no slope control at all `[datasheet]` SLOS346K p3. A 1 kohm resistor is a
+tenth of the fast end of that range, so it lands in the high speed row.
 
-So the verdict is to leave it fitted and record it as an `[unconfirmed]` number
-with a named way to settle it. Which is what the findings page does.
+```
+V(Rs):  0 V ----------- 1 V -------------------- 0.75*VCC ---- VCC
+             HIGH SPEED  |   (unspecified gap)        |  STANDBY
+        ^                |                            |
+        |                +-- slope control lives here,
+     R3 = 1 k                set by 10 k to 100 k to ground
+     sits here
+```
+
+Redrawn from Table 6, `[datasheet]` SLOS346K p3.
+
+**The board is already in high speed mode.** Grounding `Rs` would change the
+voltage on that pin from a small number to zero and the mode from high speed to
+high speed. There is no gain of any size to be had, which is a much stronger
+verdict than the four reasons it replaces.
+
+Two further things the datasheet settled while it was open:
+
+1. **The loop delay was already the best available.** With `Rs` effectively at
+   ground, 70 ns typical and **115 ns maximum** one way, 100 and **135 ns** the
+   other `[datasheet]` SLOS346K p8. The slope control rows are 175 and 185 ns at
+   10 kohm and 920 and 990 ns at 100 kohm. This board sits on the fast row.
+2. **Two numbers in the earlier note were typicals quoted as maximums.** It gave
+   the 10 kohm case as "about 105 and 155" and the 100 kohm case as "about 535
+   and 830". Those are all four typicals `[datasheet]` SLOS346K p8. A timing
+   budget is built from maximums.
+
+What does survive is a caution, and it is the one worth carrying: `Rs` pulled
+**high** is standby, and on the SN65HVD230 specifically the driver stops while
+the receiver keeps working `[datasheet]` SLOS346K p2. So a far end node sees a
+healthy listener that never speaks. The pin deserves respect. It just does not
+need changing.
+
+And the `[unconfirmed]` number this section used to carry is simply gone. There
+is no 1k row to interpolate, because 1k is not a slope control value.
 
 ---
 
@@ -348,6 +393,35 @@ produce a clean failure. It produces a bus that works at 125 kbit/s, works
 mostly at 500 kbit/s, and falls apart in the data phase at 2 Mbit/s, which is
 the hardest possible symptom to attribute.
 
+Why 120 ohms and why only at the ends, in one picture. The transceiver's own
+differential input resistance is 40 to 100 kohm `[datasheet]` SLOS346K p8, so a
+receiver is effectively invisible to the line; the terminations are the only
+thing the driver sees:
+
+```
+RIGHT, two nodes, two terminations:
+                 120R                              120R
+   node A ------[====]======== the wire ========[====]------ node B
+   driver sees 120 + 120 in parallel = 60 ohms.  Correct by ISO 11898.
+
+WRONG, a third termination in the middle:
+                 120R          120R               120R
+   node A ------[====]=====[====]============[====]------ node B
+                            node C
+   driver sees 40 ohms. The dominant level is dragged toward recessive,
+   margin shrinks, and the fast data phase is where it shows first.
+
+RIGHT, a listener in the middle with NO termination:
+                 120R                              120R
+   node A ------[====]=====+============+======[====]------ node B
+                       node C, cap on NC
+   still 60 ohms, and node C hears everything.
+```
+
+Values from the standard and the transceiver's own input resistance; drawn here
+because what matters is the arithmetic of the parallel combination, which no
+vendor figure sets out.
+
 **And the thing a document cannot tell you**: where the caps are right now. A
 jumper position is a state, not a specification. `J1` either has its cap on
 `120R` or it does not, and the only instrument that can read it is a pair of
@@ -370,39 +444,99 @@ rated 1 Mbit/s is comfortably above the planned 500 kbit/s arbitration rate.
 
 **Verdict: Later, and it is the only thing chapter 13 is waiting for.**
 
-Chapter 13's subject is two speeds on one wire. A bus runs at the rate every
-node can manage, and the loose SN65HVD230 is rated 1 Mbit/s with no rate switch.
-The HAT's own CAN FD channel is not the constraint. `U6` is an FD rated part.
+Chapter 13's subject is two speeds on one wire. The loose SN65HVD230 is the part
+that cannot do it, and **the reason is not the one written here before.**
+
+The earlier version said the part is too slow. Put the three transceivers side
+by side, maximums where a maximum is specified, and look at what that claim
+actually implies:
+
+| Part | Supply | Loop delay r to d | d to r | Rated | Symmetry specified | Source |
+|---|---|---|---|---|---|---|
+| SN65HVD230, as fitted | 3.3 V | **115 ns** | **135 ns** | 1 Mbps | **no** | `[datasheet]` SLOS346K p8, p2 |
+| MCP2562FD, on the HAT | VDD 5 V, VIO 1.8 to 5.5 V | 120 ns | 180 ns | 8 Mbps | yes, to 5 Mbps | `[datasheet]` DS20005284A p13, p3 |
+| TCAN3413, the candidate | 3.3 V | 180 ns | 180 ns | 8 Mbps | yes | `[datasheet]` TCAN3413 p8, p1 |
+
+**The SN65HVD230 is the fastest of the three.** So "too slow" was wrong, and
+wrong in a way that would have produced a confident bad experiment: a reader who
+believes the part is merely slow will try 2 Mbit/s, find it half works on a short
+bench wire, and have no idea what that result means.
+
+The real constraint is the last column. A CAN FD data phase depends on the
+transceiver's delay being **symmetrical**, because a bit that comes back longer
+than it went out eats into the next bit, and at 2 Mbit/s there are only 500 ns to
+spend:
+
+```
+one data bit at 2 Mbit/s = 500 ns
+                |<------------------- 500 ns ------------------->|
+TXD   ----------+                                               +--------
+                |                                               |
+bus             +~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~+
+RXD   -------------+                                         +-----------
+                   |<-- t(LOOP1) -->|           |<-- t(LOOP2) -->|
+                   recessive to dominant        dominant to recessive
+
+symmetrical:   t(LOOP1) == t(LOOP2), the bit arrives the width it was sent
+asymmetrical:  the difference is stolen from the sample point of the NEXT bit,
+               and the controller has no way to know it happened
+```
+
+Drawn from the loop delay definitions, `[datasheet]` SLOS346K p8 and
+DS20005284A p13. TI's and Microchip's own figures of this, SLOS346K Figure 9 and
+the MCP2562FD's timing diagrams, show the measurement setup rather than the
+consequence.
+
+Microchip states the case directly: the MCP2562FD guarantees loop delay symmetry
+in order to support the higher data rates CAN FD requires `[datasheet]`
+DS20005284A p1, and gives the symmetry window as a specified number at 2, 5 and
+8 Mbps `[datasheet]` DS20005284A p13. TI sells the TCAN3413 on short and
+symmetrical propagation delays `[datasheet]` TCAN3413 p1.
+
+The SN65HVD230 specifies **pulse skew**, 35 ns typical with `Rs` grounded
+`[datasheet]` SLOS346K p7, but no loop delay symmetry figure, and it is rated for
+a signalling rate rather than for a data phase at all `[datasheet]` SLOS346K p2.
 
 So the constraint is one component at one end, and no amount of configuration
 moves it. On the bench's own list of what to buy, this sits behind a multimeter,
-which unblocks more acceptance tests across more projects, and ahead of most
-other things.
+which unblocks more acceptance tests across more projects.
 
-**The named candidate is the TCAN3413**, a 3.3 V CAN FD transceiver, which is
-the part the feaser CAN FD shield design uses:
+### The candidate, with its three questions answered
+
+**The TCAN3413**, a 3.3 V CAN FD transceiver, the part the feaser CAN FD shield
+design uses:
 
 ```
 https://www.ti.com/lit/ds/symlink/tcan3413.pdf
 ```
 
-Three things to check in that datasheet before ordering, because they are the
-three that decide whether it drops in where the SN65HVD230 currently sits:
+The three things this section previously said to check are now checked. Full
+detail in [datasheet-notes.md](datasheet-notes.md) section 5.
 
-1. **The supply.** A 3.3 V single supply part needs no second rail from the
-   Nucleo, which is the whole reason it is the candidate rather than a 5 V
-   transceiver.
-2. **The loop delay.** This is the number chapter 9 step 5 wants for transmitter
-   delay compensation, and the reason the SN65HVD230's 1k `Rs` resistor is an
-   open question. A part whose loop delay is specified plainly at the data rate
-   in use would close that question by replacing it.
-3. **Whether it has a slope control pin at all.** The SN65HVD230's `Rs` pin is
-   the source of two separate unknowns on this bench. A part without one has
-   one fewer way to look dead while reading perfectly.
+| Question | Answer | Source |
+|---|---|---|
+| Does it need a second rail? | No. 3.3 V single supply | `[datasheet]` TCAN3413 p1 |
+| What is the loop delay? | 95 and 120 ns typical, 180 ns maximum both ways | `[datasheet]` TCAN3413 p8 |
+| Does it have a slope control pin? | **No.** Pin 8 is `STB`, standby | `[datasheet]` TCAN3413 p3 |
 
-It is a loose chip rather than a board, so a module or a breakout matters as
-much as the part: there is no soldering iron here, so an unmounted device in a
-small surface mount package is not usable, however correct it is.
+And one thing nobody thought to ask, which turns out to matter:
+
+| Finding | Consequence | Source |
+|---|---|---|
+| Pin 5 is `VIO` on the **TCAN3413** and `SHDN` on the **TCAN3414** | The variant is a real choice, not a detail. Both are 3.3 V parts | `[datasheet]` TCAN3413 p3 |
+| `STB` has an **integrated pull up** | Left floating, the part is in standby: reads perfectly, transmits nothing | `[datasheet]` TCAN3413 p3 |
+| `TXD` also has an integrated pull up | A floating `TXD` is recessive, which is the safe direction | `[datasheet]` TCAN3413 p3 |
+
+The second row is worth dwelling on, because it shows that **the trap does not go
+away, it changes shape.** On the SN65HVD230 a floating pin 8 is standby. On the
+TCAN3413 a floating `STB` is standby. Removing the slope control pin removes one
+class of confusion and leaves the other exactly where it was. Whichever part ends
+up at the node end, its mode pin needs tying on purpose.
+
+One practical constraint that no datasheet will tell you: it is a loose chip
+rather than a board. There is no soldering iron on this bench, so an unmounted
+device in a small surface mount package is not usable however correct it is. A
+module or a breakout is part of the requirement.
 
 ### Run the whole bus classic, at 500 kbit/s, and drop CAN FD
 
@@ -438,10 +572,11 @@ later design possible instead of impossible.
 
 ---
 
-## Reflections on how the three wrong readings happened
+## Reflections on how the wrong readings happened
 
-Three statements on this bench turned out to be wrong, and all three were
-corrected by the same method. The pattern is more useful than the corrections.
+Six statements on this bench turned out to be wrong in a single day. Every one of
+them was corrected by opening a document. The patterns are more useful than the
+corrections, and there turn out to be two of them, not one.
 
 | What was believed | What is true | How it went wrong |
 |---|---|---|
@@ -449,15 +584,30 @@ corrected by the same method. The pattern is more useful than the corrections.
 | `Y2` is a 40 MHz crystal | It is a packaged 40 MHz oscillator, 3.3 V, plus or minus 20 ppm, with an output enable pin | A two pin crystal was the expected thing in that position, so the four pin symbol was not looked at |
 | `i2c_vc` and `spi3-1cs` conflict with the HAT's ID EEPROM | There is no ID EEPROM. Every part in that block is marked `NC` | The footprint was seen and fitment was not checked |
 | `R36` straps `CAN1_INT` to either `D23` or `D24` | `R36` links `CAN1_INT` to `D24`. The alternative is `R37` to `D13`. `D23` belongs to `R35` and the **other** channel | Two link pairs in one block were read as one pair, which merged two channels into one sentence |
+| `R3` at 1k makes the classic transceiver slew limited | 1k is below TI's 10 kohm slope control floor, so the part is in high speed mode | The schematic was read correctly and then the **part** was reasoned about from general knowledge instead of from its datasheet |
+| The SN65HVD230 is too slow for CAN FD | It is the fastest of the three transceivers here. It does not specify loop delay **symmetry** | A plausible mechanism was substituted for the documented one |
 
-The common shape: **a name was trusted over a reading.** "SELECTION" promised a
-choice, the crystal position promised a crystal, a footprint promised a part,
-and a block containing `D23` and `D24` promised they were alternatives for the
-same signal.
+**The first four share a shape: a name was trusted over a reading.**
+"SELECTION" promised a choice, the crystal position promised a crystal, a
+footprint promised a part, and a block containing `D23` and `D24` promised they
+were alternatives for the same signal. All four were fixed by the same method,
+reading the schematic's text layer, and each cost about two minutes.
 
-Each correction cost two minutes with the text layer. Each belief, left alone,
-would have cost an evening at the bench, and two of them would have produced
-symptoms that looked like software.
+**The last two share a different and more interesting shape: the schematic was
+read correctly, and then the part was reasoned about from general knowledge.**
+`R3` really is 1k. A resistor on a slope control pin really does usually mean
+slope control. The SN65HVD230 really is a 1 Mbit part and CAN FD really does run
+faster than 1 Mbit. Every step felt sound, and the conclusions were wrong,
+because the datasheet draws its lines in different places than intuition does:
+the slope control range starts at 10 kohm, and the thing CAN FD needs from a
+transceiver is symmetry rather than speed.
+
+That second pattern is the harder one to guard against, because nothing feels
+missing while it is happening. The first pattern has a tell, which is that you
+are describing something you have not looked at. The second has no tell at all.
+The only defence found so far is a procedural one: **a number that a design
+depends on gets a page citation, or it does not go in.** That is now rule 5 in
+`tools/check_findings.py`, and it exists because of these two rows.
 
 So the practice this leaves behind, which is the thing most worth carrying to
 the next board:
@@ -470,6 +620,13 @@ the next board:
 4. **Prefer a reading to an expectation, even when the expectation is
    reasonable.** A two pin crystal in that spot was a good guess. It was still
    a guess, and the drawing was right there.
+5. **A schematic tells you the value; only the datasheet tells you what the
+   value does.** This is the one the second pattern teaches. `R3` was read
+   correctly and understood wrongly, and the gap between those two was a table
+   on page 3 of a document that took ninety seconds to fetch.
+6. **Cite the page.** Not for ceremony. Two figures in this chapter were typical
+   values presented as maximums, and a page number is what makes that
+   checkable by somebody who was not there.
 
 And the encouraging half, because this is not a cautionary tale. Reading a
 schematic through its text layer turned out to be fast, repeatable and
