@@ -43,6 +43,11 @@ python tools/gen_initplan.py --check      # for the build
 python tools/gen_initplan.py --table      # the table in doc/node-order.md
 python test/test_initplan.py              # the order, and its seven rules
 
+python tools/gen_planrun.py               # regenerate the executor's scenarios
+python tools/gen_planrun.py --check       # for the build
+python tools/gen_planrun.py --table       # the table in doc/node-order.md
+python test/test_planrun.py               # six register models, five verdicts
+
 make                                      # needs a C compiler
 ```
 
@@ -181,8 +186,38 @@ same thing, rather than by the `MON` rule, which would also have fired.
 for one step fewer than the plan needs and requires a refusal, so a plan that
 outgrows the bound fails on a host rather than overrunning a buffer on the board.
 
-The sequence, the three steps that are not obvious from it, and the list of what
-`src/bsp/` still has to contain are in
+### And walking it, which is where the other two silent failures live
+
+`fdcan_run` in `src/bus/planrun.c` executes the plan under two rules.
+
+**Every write is read back.** `CCE` declines while `INIT` is clear, `TEST`
+declines while `CCCR.TEST` is clear, and a wrong peripheral base accepts every
+write and reads back the reset value. A sequence that writes and moves on reports
+success in all three cases.
+
+**Every wait is bounded and counted.** An unbounded spin on a board with one
+serial port produces a blank console, which is indistinguishable from a part that
+never started. A spin limit of zero is refused rather than read as "no limit".
+
+Neither rule can be exercised on hardware, because a register that declines a
+write does not announce it, which is the entire problem. So the hardware is a
+256 word model with one deviation per scenario, **written twice**, once in the
+generator and once in the C test, and both are compared against the recorded
+sequence of bus accesses rather than against each other.
+
+Six scenarios, six distinct outcomes, five distinct verdicts. The one that
+justifies the read-back rule is `test declines`: it needs loopback, because in
+normal mode `TEST` is written with zero and reads zero, so a declined write there
+is indistinguishable from an obeyed one. In loopback only the read-back notices.
+
+Three more mutations, each removing one rule and each with the vectors regenerated
+to agree, and all three turned the test red. The instructive one is removing
+modify verification: the run does not then succeed, it reaches the final wait and
+fails there instead, four steps late and pointing at the wrong register. A test
+that only asked whether the run failed would have passed it.
+
+The sequence, the three steps that are not obvious from it, the six scenarios and
+the list of what `src/bsp/` still has to contain are in
 [`doc/node-order.md`](doc/node-order.md).
 
 The addresses, the full register map, the `CCCR` gate, the message RAM
@@ -281,6 +316,9 @@ caller passes in, converted once before anything is decided.
 | The configuration order is checked without hardware | `fdcan_plan`, 8 configurations, 2 of them refused |
 | The order is checked for being right, not only unchanged | seven rules in `test_initplan.py`, each watched failing against agreeing vectors |
 | A plan that outgrows its array refuses rather than overruns | `test_initplan.c`, asked for one step too few |
+| Every write is read back, and a declined one is caught | `fdcan_run`, and the `test declines` scenario where only the read-back notices |
+| Every wait is bounded, and a timeout names its step | `fdcan_run`, and the `cce reverts` scenario, which stops at the limit |
+| Both executor rules are load bearing | three mutations, each removing one, each watched failing against agreeing vectors |
 | The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
 | The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
 | The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |

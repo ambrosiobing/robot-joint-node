@@ -90,10 +90,82 @@ bound: the rest belongs to an instance this volume does not configure.
 at the receive buffers, and this layout asks for none. It is written anyway,
 because the reset value points somewhere, and somewhere is not nowhere.
 
+## Walking it, which is where the other two silent failures live
+
+`fdcan_run` in `src/bus/planrun.c` executes the plan, and it has exactly two
+rules. Both exist because the failure they prevent says nothing on real hardware.
+
+**Every write is read back.** Three registers in this sequence can decline a
+write in silence: `CCE` declines while `INIT` is clear, `TEST` declines while
+`CCCR.TEST` is clear, and a wrong peripheral base accepts every write and reads
+back the reset value. A sequence that writes and moves on reports success in all
+three cases. One extra bus read per step converts all three into a named step.
+
+The risk that rule carries is the opposite one: a register that legitimately does
+not read back what was written would make the image refuse a configuration that
+is correct. Every register this plan writes is a configuration register that reads
+back while `CCE` is set, so it holds as written. If one turns out not to, the fix
+is to learn which bits lie and mask those, **not** to stop comparing.
+
+**Every wait is bounded and counted.** `while (!(reg & bit));` on a board with one
+serial port and no debugger produces a blank console, which is indistinguishable
+from a part that never started. A bound turns it into a step number and a spin
+count. A limit of zero is refused rather than read as "no limit", because a bound
+of none is the bug the rule exists to prevent and spelling it `0` is too easy a
+mistake to honour.
+
+### Exercised against a register model, because a board cannot exercise it
+
+A register that declines a write does not announce it, which is the entire
+problem, so the only place the rule can be shown to work is against a register
+that declines on purpose. The model is 256 words with one deviation per scenario,
+written twice: once in `tools/gen_planrun.py` and once in `test/test_planrun.c`.
+Neither is compared against the other. Both are compared against the recorded
+sequence of bus accesses, so a disagreement names the access rather than the
+symptom.
+
+| Scenario | Result | Step | Spins | Verdict | Bus accesses | What it models |
+|---|---|---|---|---|---|---|
+| cooperative | completed | 23 of 23 | 1 | `ok` | 45 | every register behaves, and the whole plan completes |
+| endn wrong | refused | 2 of 23 | 0 | `expect-mismatch` | 2 | a wrong peripheral base: the endianness check catches it at step 2, before a single write |
+| cce stuck | refused | 6 of 23 | 10 | `modify-refused` | 37 | CCE never sets, which is what happens when INIT is not really set: ten attempts, then a named refusal |
+| cce reverts | refused | 7 of 23 | 50 | `wait-set-timeout` | 60 | CCE reads back correctly once and is gone by the next read, so the modify succeeds and the wait does not |
+| init stuck | refused | 22 of 23 | 10 | `modify-refused` | 71 | INIT never clears, so the controller cannot be started and the last modify is the one that says so |
+| test declines | refused | 19 of 23 | 1 | `write-not-read-back` | 36 | TEST ignores the write, as it does while CCCR.TEST is clear: only the read-back notices, and only in a mode where TEST is non-zero |
+
+Six scenarios, six distinct outcomes, five distinct verdicts. The rule is on the
+pair of verdict and step rather than the verdict alone, because `cce stuck` and
+`init stuck` legitimately share `modify-refused`: a bit that never sets and a bit
+that never clears are the same kind of failure at opposite ends of the sequence,
+and collapsing them would hide that one is caught at step 6 and the other at 22.
+
+**`test declines` is the one that justifies the whole read-back rule.** It needs
+loopback, because in normal mode `TEST` is written with zero and reads zero, so a
+declined write there is indistinguishable from an obeyed one. In loopback the
+write carries `LBCK`, the model ignores it exactly as the hardware does while
+`CCCR.TEST` is clear, and **only the read-back notices**. Nothing else in this
+chapter would.
+
+### Each rule was shown to be load bearing
+
+Three mutations, each removing one rule, each with the vector file regenerated so
+that it agreed with the mutation:
+
+| Mutation | What objected |
+|---|---|
+| a write is no longer read back | "2 scenarios completed, and exactly one should" |
+| a modify is no longer verified | "init stuck: refused at step 23 of 23, which is not a refusal that stopped anything" |
+| a wait that runs out is called a success | "2 scenarios completed, and exactly one should" |
+
+The second is the one worth reading twice. Without verification the run does not
+succeed; it gets all the way to the final wait and fails there instead, four
+steps too late and pointing at the wrong register. A test that only asked whether
+the run failed would have passed it.
+
 ## What is still not written
 
-This is the plan, not the image. What remains is `src/bsp/`, which is where the
-silicon may be named:
+This is the plan and the executor, not the image. What remains is `src/bsp/`,
+which is where the silicon may be named:
 
 | Piece | Note |
 |---|---|
@@ -101,7 +173,7 @@ silicon may be named:
 | HSE in bypass mode | the only FDCAN clock that needs no PLL, and `FDCANSEL` is already at its reset `00` |
 | `PD0` and `PD1` to alternate function 9 | on `CN11`, the connector that prints port names |
 | A console on USART3 | `PD8` and `PD9`, believed by convention and corroborated by an image printing through it on Wednesday 7 October 2026 |
-| The executor | a loop over the plan, reading back every `modify` and reporting the step that failed by name |
+| ~~The executor~~ | **done**, `src/bus/planrun.c`, and exercised against a register model |
 | Transmit and receive | a transmit element written into the RAM, `TXBAR` to send, `RXF0S` and `RXF0A` to collect |
 
 None of that can be built on the authoring laptop, and none of it is written yet.

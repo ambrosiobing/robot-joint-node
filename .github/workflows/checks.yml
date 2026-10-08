@@ -211,6 +211,16 @@ jobs:
           python tools/gen_initplan.py --check
           python test/test_initplan.py
 
+      # Walking the plan, against a register model rather than a controller.
+      # Neither of the executor's two rules can be exercised on hardware: a
+      # register that declines a write does not announce it, which is the entire
+      # reason the rule exists. Six scenarios, five distinct verdicts.
+      - name: Chapter 9, the executor against a register model
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_planrun.py --check
+          python test/test_planrun.py
+
       # The first time chapter 9's C meets a compiler. It is written on a laptop
       # that has none, so until this step runs the honest claim is that the
       # Python half is proven and the C half is only written.
