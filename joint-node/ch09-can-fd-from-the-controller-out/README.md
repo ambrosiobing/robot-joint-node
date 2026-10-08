@@ -38,6 +38,11 @@ python tools/gen_frame_vectors.py --check # for the build
 python tools/gen_frame_vectors.py --table # the table in doc/frame-rules.md
 python test/test_frame.py                 # the length code and its round trip
 
+python tools/gen_initplan.py              # regenerate the configuration order
+python tools/gen_initplan.py --check      # for the build
+python tools/gen_initplan.py --table      # the table in doc/node-order.md
+python test/test_initplan.py              # the order, and its seven rules
+
 make                                      # needs a C compiler
 ```
 
@@ -140,6 +145,46 @@ widths in the mainline driver for this peripheral agree on every one: 512, 256,
 128 and 128 for the nominal phase, 32, 32, 16 and 16 for the data phase. That
 closes a soft spot nobody had flagged.
 
+## Stage two: the order, as data rather than as board code
+
+Thursday 8 October 2026. The values were settled the day before. The order is the
+other half, and it is the half that cannot be debugged on the board, because three
+of the four things guessed about it were wrong and all three fail silently.
+
+So the order is not written as a function that configures a controller. It is
+produced as **data** by `fdcan_plan` in `src/bus/initplan.c`: twenty three
+operations, each with a register, a mask, a value and a name, built by a function
+that touches no hardware and names no vendor header. `src/bsp/` will walk the
+list. Chapter 4's rule gets this for free, which is the rule's whole point.
+
+```
+python tools/gen_initplan.py --table      # the plan, step by step
+python test/test_initplan.py              # the order and its seven rules
+```
+
+The plan is checked twice, and the second check is the one worth having:
+
+| Check | Catches |
+|---|---|
+| it matches the committed vectors | drift, and a hand edit of either side |
+| it obeys seven ordering rules | a sequence that is **wrong**, which no vector file can see, because vectors regenerated from a wrong generator agree with it perfectly |
+
+That second claim was proved rather than asserted. Four mutations were applied to
+the reference, **the vector file was regenerated each time so that it agreed with
+the mutation**, and the test went red on the invariant alone: the message RAM
+clear removed, `TEST` written before `CCCR`, `MON` dropped from internal loopback,
+and `INIT` released before `CCE` was closed. The third was reported by the
+distinct-plans rule, which noticed internal and external loopback had become the
+same thing, rather than by the `MON` rule, which would also have fired.
+
+`FDCAN_PLAN_MAX` bounds the array the plan is written into, and the C test asks
+for one step fewer than the plan needs and requires a refusal, so a plan that
+outgrows the bound fails on a host rather than overrunning a buffer on the board.
+
+The sequence, the three steps that are not obvious from it, and the list of what
+`src/bsp/` still has to contain are in
+[`doc/node-order.md`](doc/node-order.md).
+
 The addresses, the full register map, the `CCCR` gate, the message RAM
 addressing question and **the sixteen step initialisation order** are in
 [`doc/node-registers.md`](doc/node-registers.md). **The peripheral is not ST's
@@ -233,6 +278,9 @@ caller passes in, converted once before anything is decided.
 | A solved timing packs into the register that must hold it | `bt_pack_nbtp` and `bt_pack_dbtp`, every solved vector |
 | A packed word reads back as what went into it | `bt_unpack_nbtp` and `bt_unpack_dbtp`, six fields per vector |
 | A timing too wide for its field is refused, not truncated | asserted in both tests, and watched failing with the guard removed |
+| The configuration order is checked without hardware | `fdcan_plan`, 8 configurations, 2 of them refused |
+| The order is checked for being right, not only unchanged | seven rules in `test_initplan.py`, each watched failing against agreeing vectors |
+| A plan that outgrows its array refuses rather than overruns | `test_initplan.c`, asked for one step too few |
 | The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
 | The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
 | The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |
