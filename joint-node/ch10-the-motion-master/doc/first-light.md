@@ -1121,7 +1121,7 @@ Seven wires, and the order they went in matters for one of them:
 | 2 | NUCLEO-H7A3ZI-Q `CN8` `GND` | SN65HVD230 board `GND` | `[measured]` |
 | 3 | NUCLEO-H7A3ZI-Q `CN11` `PD1` | SN65HVD230 board `CAN_TX` | `[measured]` |
 | 4 | NUCLEO-H7A3ZI-Q `CN11` `PD0` | SN65HVD230 board `CAN_RX` | `[measured]` |
-| 5 | SN65HVD230 board `GND` | WS-28164 `CAN FD` screw `G` | `[measured]` |
+| 5 | SN65HVD230 board `GND` | WS-28164 terminal position 3, the `G` between the `CAN` and `CAN FD` groups | `[measured]` |
 | 6 | SN65HVD230 board `CANH` | WS-28164 `CAN FD` screw `H` | `[measured]` |
 | 7 | SN65HVD230 board `CANL` | WS-28164 `CAN FD` screw `L` | `[measured]` |
 
@@ -1267,4 +1267,116 @@ end actually achieved `[measured]`, and the sample point the kernel chose
 about**, the 520 against 560 bits for a 64 byte frame, and that is open question
 8. It does not block a classic frame at 500 kbit/s, so it does not block the
 first transmission.
+
+---
+
+# Part five: a comparison that compared nothing, and what it found anyway
+
+Thursday 8 October 2026. This part is here because the experiment it describes
+was designed wrongly, run twice, and still produced something worth keeping. Both
+halves of that are the point.
+
+## What was intended
+
+Part four left the node end wired on but silent: a powered transceiver with a
+floating driver input, shown over a single frame not to hold the bus dominant.
+The obvious follow-up was whether it costs anything under load. So: the chapter's
+own rate ramp, run twice, once with the node end's USB unplugged and once with it
+plugged in, compared against the two node ceiling in part three.
+
+## What actually happened
+
+**The node end had been disconnected from the terminal block the day before.**
+Unplugging and replugging its USB changed nothing electrically, because nothing
+electrical was attached. The two arms were the same configuration run twice, and
+a 3500 Hz failure that appeared in one of them and not the other is noise rather
+than a transceiver effect.
+
+The wiring was read out of part four of this document, which is accurate. It
+records what was **built** on Wednesday 7 October 2026. It says nothing about
+what is **connected now**, and a bench is taken apart between sessions: this HAT
+blocks a 40-pin header that six other boards in the inventory want, and the
+NUCLEO-H7A3ZI-Q is shared with another volume that reflashes it. A document is a
+record of an event, not a description of a present state.
+
+Four chances to catch it went by: designing the experiment, handing over the
+step, running the first arm, running the second. None of them included one
+question about what was physically attached. The cheap fix is a **state readback
+as step one**, something that fails visibly when the setup is not what the
+procedure assumes.
+
+## What the two runs are worth as measurements
+
+They reproduce part three's ceiling on a different day, twice:
+
+| Asked | Part three | Run 1 | Run 2 | Source |
+|---|---|---|---|---|
+| 1000 Hz | 1000.2 | 1000.2 | 1000.2 | `[measured]` |
+| 2000 Hz | 2000.2 | 2000.2 | 2000.2 | `[measured]` |
+| 3000 Hz | 3000.1 | 3000.2 | 3000.2 | `[measured]` |
+| 3500 Hz | 3500.1 | 3500.1 | **`ENOBUFS`** | `[measured]` |
+| **4000 Hz** | **4000.1** | **4000.1** | **4000.1** | `[measured]` |
+| 4200 Hz | `ENOBUFS` | `ENOBUFS` | `ENOBUFS` | `[measured]` |
+| 4400 Hz | `ENOBUFS` | `ENOBUFS` | `ENOBUFS` | `[measured]` |
+
+Errors, dropped, missed and carrier zero on both interfaces throughout, and the
+frame accounting closes exactly: run 1 sent 67922 frames and the receive counter
+read 67922; run 2 added 63430 and the counter read 131352 `[measured]`.
+
+**The 3500 Hz failure is not a lower ceiling.** 4000 Hz passed cleanly
+immediately afterwards, and this chapter already wrote down what that pattern
+means in part three: a ceiling that bites at one rate and not at a higher one is
+not a ceiling. It is recorded here and not explained.
+
+## The accidental finding, which is the useful part
+
+**The bus was running with one terminator instead of two.**
+
+`J2` was on `120R` at the classic end. `J1` had been left on `NC` from the three
+node arrangement, which is correct for a middle node and wrong the moment the
+third node goes away. With the far end gone and `J1` open, the line had exactly
+one 120 ohm termination `[measured]`.
+
+It made no measurable difference. Both runs match a baseline taken with both
+terminators fitted, to 0.1 Hz at every rate that passed, with the cliff in the
+same place and no errors anywhere.
+
+| Claim | Status | Source |
+|---|---|---|
+| A singly terminated bus of this length carries 500 kbit/s classic traffic to the same ceiling as a correctly terminated one | yes, two runs | `[measured]` |
+| Therefore termination does not matter | **no, and this is the opposite of what the row above says** | `[inferred]` |
+
+`[inferred]` The explanation is length. This bus is a few centimetres of jumper
+wire between screw terminals. A signal crosses it and settles far inside one bit
+time at 500 kbit/s, so a reflection has nowhere to go and nothing to disturb.
+Termination exists for lines where that is not true, and none of this says
+anything about those.
+
+**The consequence for anyone reproducing this chapter is sharper than the
+finding.** This bench **cannot detect a termination error**. A reader who fits
+one terminator, or three, or none, and runs the ramp will get these same numbers
+and conclude their termination is right. So every termination claim in this
+volume rests on reading the jumper caps and the schematic, never on a
+measurement, and the measurements here are not evidence for it.
+
+That also retires an idea worth naming before somebody tries it: the ramp cannot
+be used as a quick check that the bus is wired correctly. It is insensitive to
+exactly the kind of error it looks like it would catch.
+
+## What part five changes
+
+| # | Before | After |
+|---|---|---|
+| 1 | The ceiling was measured once, on one day | Reproduced twice on a second day, same cliff, same achieved rates |
+| 2 | Nothing was known about termination's effect on this bench | At this length, none that throughput can see |
+| 3 | The ramp looked like a wiring check | It is not one, and cannot become one at this length |
+| 4 | Part four's three node figures | Unaffected. They were taken on Wednesday 7 October 2026 with the node end connected, and that is when they were measured |
+
+## What part five does not show
+
+| Not proved | Why | Source |
+|---|---|---|
+| Anything about the node end under load | It was not on the bus. The question part four opened is still open | `[measured]` |
+| That termination is unimportant | The opposite: only that this bus is too short for it to show | `[inferred]` |
+| That 3500 Hz is marginal | One failure, one pass, and a higher rate passing after it. Not enough to say | `[measured]` |
 

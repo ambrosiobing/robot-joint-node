@@ -756,6 +756,49 @@ and the honest answer is that it does not matter much, because the board's
 silkscreen prints the names and the silkscreen is what you are looking at when
 you turn the screw. Read it there.
 
+### Checked against the board on Thursday 8 October 2026
+
+That table came from the schematic and had never been compared with the physical
+board. Photographs settle it:
+
+| Observation | Source |
+|---|---|
+| The silkscreen reads `H  L  G  H  L` across the first five positions, under the group labels `CAN` then `CAN FD` | `[measured]` |
+| So positions 1 to 5 are classic high, classic low, ground, CAN FD high, CAN FD low, exactly as the schematic said | `[measured]` |
+| The remaining groups follow in the order the table gives: `RS485_1`, `RS485_2`, `RS232`, `DC7-36V` | `[measured]` |
+
+**Position 3's `G` is shared, and it sits between the two CAN channels.** It is
+`SGND` in the schematic, the isolated ground, and it belongs to neither group
+exclusively. Calling it "the `CAN FD` group's ground" is wrong, and this volume
+did call it that once while handing over a wiring step. The screw was the right
+one; the description would have sent somebody looking for a second ground that
+does not exist.
+
+**THE BOARD CARRIES TWO LABEL SETS AND THEY READ IN OPPOSITE DIRECTIONS.** This
+is the kind of thing that puts a wire two positions out.
+
+```
+   PCB silkscreen, read with the terminal block at the top:
+
+   H   L   G   H   L  | A  B  PE | A  B | RXD TXD SGND | GND VIN
+   <-- CAN --> <CAN FD>  RS485_1    RS485_2    RS232        DC7-36V
+
+
+   The removable strip over the screws, read from the other side:
+
+   V+  V- | G  TX  RX | B  A  PE | B  A | ...  | G   L   H
+    7~36V     RS232      RS485_2   RS485_1  CAN FD    CAN
+```
+
+Same board, same fifteen screws, mirrored order, because the two are read from
+opposite sides. Decide which one you are reading **before** counting, and count
+from a group label rather than from an end `[measured]`.
+
+**And the Dupont contact problem is visible in those photographs.** The jumper
+pins sit beside the screws rather than clamped under them, which is the friction
+fit this page records as not good enough. See the rewiring page's note on
+clamping bare copper instead.
+
 ### Three numbering schemes for two channels, and this is a real trap
 
 Please read this section even if you skip others.
