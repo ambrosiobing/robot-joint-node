@@ -24,6 +24,12 @@ the failure this arrangement actually risks: with the sources ignored, editing
 one no longer shows in `git status`, so nothing reminds anybody to rebuild.
 Everything after it reads what the regeneration produced.
 
+One limit is reported rather than hidden. `mdbuild.py` does not draw figures,
+it copies whatever `build/fig` already holds, so the drift check only covers
+the figures that have been rendered. The coverage is printed every run, and a
+partial build says so out loud instead of passing quietly. `python build.py
+--figures` is what fills that directory.
+
 This script is self-contained. It reads nothing outside this repository and
 depends on no other volume.
 """
@@ -37,6 +43,7 @@ CHAPTERS = 20
 PREFIX = "j"                                        # sections/jNN.tex
 FIGURES = ("arch", "wiring", "uml", "data", "timing")
 GENERATED = ["chapters", "CONTENTS.md", "figures"]  # figures holds the SVGs
+FIGBUILD = ROOT / "build" / "fig"
 
 
 def run(label, args):
@@ -73,6 +80,27 @@ def regenerated_cleanly():
                        cwd=ROOT)
         return False
     return True
+
+
+def figure_coverage():
+    """How much of the figure drift check is real, stated as a number.
+
+    mdbuild copies from build/fig rather than drawing, so a figure whose source
+    changed and was never rendered is invisible to the drift check above. With a
+    full build directory that check covers every figure; with an empty one it
+    covers nothing and still passes. A check that cannot fail is the failure
+    this volume keeps finding, so the coverage is counted and printed.
+    """
+    sources = {p.stem for p in (ROOT / "figures").glob("*.tex")}
+    built = {p.stem for p in FIGBUILD.glob("*.svg")} if FIGBUILD.exists() else set()
+    missing = sorted(sources - built)
+    print(f"  {len(sources) - len(missing)} of {len(sources)} figures are rendered "
+          f"in build/fig and were compared")
+    if missing:
+        print(f"  {len(missing)} were not, so their SVGs went unchecked against their")
+        print("  sources. Run python build.py --figures to close the gap, or accept")
+        print("  it knowingly. First few: " + ", ".join(missing[:6]))
+    return missing
 
 
 def chapters_complete():
@@ -121,6 +149,8 @@ def main():
     ok &= run("Regenerating the Markdown edition", [sys.executable, "mdbuild.py"])
     print("\n=== The generated files are current")
     ok &= regenerated_cleanly()
+    print("\n=== How much of the figure check is real")
+    unrendered = figure_coverage()
     print("\n=== Every chapter has its five figures and a project line")
     ok &= chapters_complete()
     print("\n=== No authoring source is committed")
@@ -129,8 +159,15 @@ def main():
     ok &= run("Book-level consistency", [sys.executable, "crosscheck.py"])
 
     print()
+    if unrendered:
+        print(f"prepublish: WARNING. {len(unrendered)} figures were not rendered, so")
+        print("their published SVGs were not compared against their sources. Run")
+        print("python build.py --figures on a machine with LaTeX before a release,")
+        print("or accept the gap knowingly rather than by default.")
     if ok:
-        print("prepublish: all checks passed. Safe to commit and push.")
+        print("prepublish: all checks that could run passed."
+              if unrendered else "prepublish: all checks passed.")
+        print("Safe to commit and push.")
         return 0
     print("prepublish: FAILED. Do not push until the above is fixed.")
     return 1
