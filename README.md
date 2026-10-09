@@ -112,17 +112,28 @@ a single diagram in a browser without them.
 
 ## Checks
 
+    python prepublish.py                       everything the workflow cannot see
     python lint.py                             house rules over every chapter
     python crosscheck.py                       book-level consistency
     python build.py --check sections/j07.tex   compile one chapter and report on it
+
+All four read the authoring sources, which are not published, so all four run on
+the authoring machine rather than on a runner. `prepublish.py` is the one to
+run: it regenerates the Markdown edition first, then refuses if anything it
+regenerated moved, if a chapter is missing a figure or its project line, if a
+source has been committed by accident, or if either of the other two checks
+reports a problem.
 
 `lint.py` checks prose for em and en dashes, non-ASCII characters, violent
 idioms and the required section skeleton, and checks code blocks for non-ASCII
 and for lines longer than the page can print. `crosscheck.py` checks what
 per-chapter linting cannot see: the variant matrix, figure coverage,
 cross-references, chapter titles against the authoring guide, and that every
-date is written in full. Both run on every push, see
-[`.github/workflows/checks.yml`](.github/workflows/checks.yml).
+date is written in full. **Neither can run on a push any more**, because the
+runner cannot see the sources they read; they run in `prepublish.py` instead.
+What [`.github/workflows/checks.yml`](.github/workflows/checks.yml) still does
+is check the code, the links, and that no authoring source has reached the
+published tree.
 
 One exemption is worth knowing about. `\pubdate{April 2010}` marks a date a
 publisher gives to month precision only. The house rule is that every date the
@@ -136,14 +147,8 @@ is *not* wrapped is still reported as a defect.
 | Path | What it is |
 |---|---|
 | `chapters/NN-title.md` | the Markdown edition, one file per chapter, generated from `sections/` |
-| `figures/NAME.svg` | every figure rendered, committed so the Markdown draws in a browser |
-| `sections/jNN.tex` | one file per chapter, 01 to 20 |
-| `sections/front.tex` | about, the honesty rule, the bench, how to read it |
-| `sections/appendix.tex` | the chapters at a glance, the honesty ledger, the corrections, the gaps, the open questions, the licence categories, the reference library |
-| `figures/jNN_{arch,wiring,uml,data,timing}.tex` | five figures per chapter |
-| `figures/front_map.tex` | the dependency map |
-| `main.tex` | preamble, authoring macros, five parts |
-| `tikz_preamble.tex` | shared TikZ and circuitikz styles, including the field bus, frame layout, control loop, joint and safe-state styles, and the three honesty styles |
+| `figures/NAME.svg` | every figure rendered, committed so the Markdown draws in a browser. Its TikZ source is not published |
+| `prepublish.py` | the four checks the workflow lost, run before pushing |
 | `mdbuild.py` | the Markdown converter, which reuses `build.py`'s parser |
 | `build.py` | figures to SVG, PDF, per-chapter builds, and the HTML converter |
 | `lint.py` | house-style check |

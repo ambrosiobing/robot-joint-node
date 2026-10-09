@@ -1,0 +1,140 @@
+#!/usr/bin/env python3
+"""Everything the workflow can no longer check, run here before you push.
+
+    python prepublish.py
+
+The authoring sources are not published. Only the Markdown edition is, and
+`*.tex` is ignored, so continuous integration cannot see `sections/` or
+`figures/*.tex` and cannot verify that the Markdown still matches them. Four
+checks lost their input that way, and they are exactly the ones that prove the
+book agrees with its source:
+
+  * the house rules over every chapter source
+  * the book-level consistency check across main.tex and the chapters
+  * the per-chapter figure and project-line existence check
+  * the regeneration check, that chapters/, CONTENTS.md and the figure SVGs are
+    current rather than merely present
+
+They did not stop mattering when the workflow stopped seeing them. They run
+here instead, and this script refuses rather than warns, so that "I ran
+prepublish" means what a green run used to mean.
+
+The order matters. Regeneration runs first, because a stale generated file is
+the failure this arrangement actually risks: with the sources ignored, editing
+one no longer shows in `git status`, so nothing reminds anybody to rebuild.
+Everything after it reads what the regeneration produced.
+
+This script is self-contained. It reads nothing outside this repository and
+depends on no other volume.
+"""
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+CHAPTERS = 20
+PREFIX = "j"                                        # sections/jNN.tex
+FIGURES = ("arch", "wiring", "uml", "data", "timing")
+GENERATED = ["chapters", "CONTENTS.md", "figures"]  # figures holds the SVGs
+
+
+def run(label, args):
+    print(f"\n=== {label}")
+    done = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
+    out = (done.stdout + done.stderr).strip()
+    if out:
+        print("\n".join(out.splitlines()[-12:]))
+    if done.returncode != 0:
+        print(f"FAILED: {label}")
+        return False
+    return True
+
+
+def sources_present():
+    """The sources are untracked now, so their absence is a real possibility."""
+    missing = [p for p in ("sections", "figures", "main.tex", "tikz_preamble.tex")
+               if not (ROOT / p).exists()]
+    if missing:
+        print(f"\nThe authoring sources are not in this clone: {', '.join(missing)}.")
+        print("They are deliberately unpublished, so a fresh clone does not have")
+        print("them. Bring them in from the authoring copy before publishing.")
+        return False
+    return True
+
+
+def regenerated_cleanly():
+    """What mdbuild writes must not move when it is run again."""
+    done = subprocess.run(["git", "diff", "--quiet", "--"] + GENERATED, cwd=ROOT)
+    if done.returncode != 0:
+        print("\nA generated file moved when it was regenerated, which means what is")
+        print("committed is behind the sources. Commit the regeneration:")
+        subprocess.run(["git", "--no-pager", "diff", "--stat", "--"] + GENERATED,
+                       cwd=ROOT)
+        return False
+    return True
+
+
+def chapters_complete():
+    """Each chapter needs its source, its project line and its five figures."""
+    problems = []
+    for n in range(1, CHAPTERS + 1):
+        stem = f"{PREFIX}{n:02d}"
+        sec = ROOT / "sections" / f"{stem}.tex"
+        if not sec.exists():
+            problems.append(f"missing sections/{stem}.tex")
+            continue
+        if "project{" not in sec.read_text(encoding="utf-8"):
+            problems.append(f"{stem}: no project line")
+        for fig in FIGURES:
+            if not (ROOT / "figures" / f"{stem}_{fig}.tex").exists():
+                problems.append(f"missing figures/{stem}_{fig}.tex")
+    for extra in ("sections/front.tex", "sections/appendix.tex",
+                  "figures/front_map.tex"):
+        if not (ROOT / extra).exists():
+            problems.append(f"missing {extra}")
+    for p in problems:
+        print("  " + p)
+    return not problems
+
+
+def no_source_committed():
+    """The rule this whole arrangement exists for, checked here as well as in CI."""
+    done = subprocess.run(["git", "ls-files"], cwd=ROOT,
+                          capture_output=True, text=True)
+    tex = [l for l in done.stdout.splitlines() if l.endswith(".tex")]
+    if tex:
+        print("\nThese authoring sources are committed and must not be:")
+        for t in tex[:10]:
+            print("  " + t)
+        if len(tex) > 10:
+            print(f"  ... and {len(tex) - 10} more")
+        return False
+    return True
+
+
+def main():
+    if not sources_present():
+        return 2
+
+    ok = True
+    ok &= run("Regenerating the Markdown edition", [sys.executable, "mdbuild.py"])
+    print("\n=== The generated files are current")
+    ok &= regenerated_cleanly()
+    print("\n=== Every chapter has its five figures and a project line")
+    ok &= chapters_complete()
+    print("\n=== No authoring source is committed")
+    ok &= no_source_committed()
+    ok &= run("House rules over every chapter", [sys.executable, "lint.py"])
+    ok &= run("Book-level consistency", [sys.executable, "crosscheck.py"])
+
+    print()
+    if ok:
+        print("prepublish: all checks passed. Safe to commit and push.")
+        return 0
+    print("prepublish: FAILED. Do not push until the above is fixed.")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
