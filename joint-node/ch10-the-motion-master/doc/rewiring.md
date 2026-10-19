@@ -492,6 +492,41 @@ the logic side going to the loose SN65HVD230 board instead. That is the section
 immediately above, and the built result is in
 [first-light.md](first-light.md) part four.
 
+### Join the two channels through the module's screw terminal, not directly
+
+**Verdict: Do. Measured on Monday 19 October 2026, after the direct arrangement
+cost most of an afternoon.**
+
+Three nodes need one common `H` node and one common `L` node. The WS-28164's
+terminal block offers two positions per channel. So one conductor pair has to be
+doubled up somewhere, and the only question is where.
+
+**Not in the block.** Positions 4 and 5 were asked to hold a second wire four
+separate times and failed or degraded every time, including once where the frame
+got through while an error counter stepped, which a single frame test would have
+called a pass. A position taking its **first** wire, position 3, cost nothing.
+That contrast is the measurement.
+
+**In the module's own screw clamp**, which is a rising clamp built for two
+conductors:
+
+```
+   direct, and it does not hold        through the module, and it does
+
+   CAN H ---- CAN FD H                 CAN H ---- CANH ---- CAN FD H
+   CAN L ---- CAN FD L                 CAN L ---- CANL ---- CAN FD L
+```
+
+Four wires between the module and the block, one conductor in each block
+position. Electrically a star rather than a chain, which at these lengths is the
+same bus. Proven by 300 frames sent and 300 seen with four error counters
+unchanged, in [first-light.md](first-light.md) part six.
+
+**This is sufficient rather than necessary.** A connector that clamped properly
+would also work. Ferrules, or stripped copper under the screws, remain the real
+fix and would let the direct arrangement stand; the star is what is available
+with the parts on the bench.
+
 ### Buy an FD rated transceiver for the NUCLEO-H7A3ZI-Q end
 
 **Verdict: Later, and it is the only thing chapter 13 is waiting for.**

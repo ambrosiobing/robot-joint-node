@@ -1380,3 +1380,168 @@ exactly the kind of error it looks like it would catch.
 | That termination is unimportant | The opposite: only that this bus is too short for it to show | `[inferred]` |
 | That 3500 Hz is marginal | One failure, one pass, and a higher rate passing after it. Not enough to say | `[measured]` |
 
+---
+
+# Part six: the three node bus, and the connector that would not hold two wires
+
+Monday 19 October 2026. Part four wired the node end and measured it once. Part
+five measured nothing, because the node end had been removed. This part gets a
+three node bus working and answers part four's question properly, and most of
+the day was spent on a mechanical fault that had been written down as a risk and
+never as a measurement.
+
+## Getting the Pi back
+
+Ten days had passed and the bench had moved. On Friday 9 October 2026 the two CAN
+overlays were commented out of `/boot/firmware/config.txt` on `eplepi` to give
+SPI0 to an MCC 118 DAQ HAT for a different volume, so `can0` and `can1` did not
+exist at all.
+
+| Step | Source |
+|---|---|
+| Backed up `config.txt`, uncommented lines 61 and 62, changed nothing else | `[measured]` |
+| MCC 118 lifted off. **Its screw terminals were entirely empty**, so that volume's witness wiring had already been taken down | `[measured]` |
+| WS-28164 back on the 40-pin header, and the two overlays took after ten days commented out | `[measured]` |
+| `can0` is the MCP2515 and `can1` the MCP2518FD this boot | `[measured]` |
+
+**The Pi and the WS-28164 are joined by a 40-pin ribbon cable between two
+`FC-40P` connectors, not by the Pi sitting on the board.** Electrically the same
+and the exclusivity conclusion is unchanged, since the ribbon still occupies the
+Pi's header, but this page and section 9 both describe it as a HAT seated on the
+header and that is not what is on the bench `[measured]`.
+
+## The fault, and how long it took to name
+
+The bus would not carry a frame. The search took most of the afternoon and the
+answer is one sentence: **this terminal block does not reliably hold two
+conductors in one position.**
+
+That is not a new idea. The rewiring page already says the block is a friction
+fit for Dupont leads and that it is not good enough. What it had never been is
+measured. Here it is, four times:
+
+| Episode | What was asked of the block | Result | Source |
+|---|---|---|---|
+| 1 | module `CANH` into position 4, which already held a loop wire | bus down | `[measured]` |
+| 2 | both positions 4 and 5 loosened and re-tightened on two conductors each | bus down, **and the two node bus broke with the module entirely out of circuit** | `[measured]` |
+| 3 | module `GND` into position 3, which held nothing | **no effect, bus fine** | `[measured]` |
+| 4 | module `CANH` into 4, then `CANL` into 5, one at a time | 4 passed **with an error transition**, 5 failed outright | `[measured]` |
+
+Episode 3 is the control. A position taking its **first** wire cost nothing.
+Every failure involved a position taking a **second** one.
+
+Episode 4 is the most useful, because the marginal case is visible: inserting
+`CANH` beside a loop wire let the frame through while `error-warn` stepped from
+12 to 13. A single frame test would have called that a pass.
+
+## The fix, as a rule rather than a workaround
+
+Three nodes need one common `H` node and one common `L` node. The block offers
+two positions per channel. So something has to carry two conductors, and the
+choice is where.
+
+**Put the doubling in a screw clamp built for two wires, not in a position that
+is a friction fit.** The loose SN65HVD230 board has exactly such a clamp, so the
+two channels stop being joined directly and are joined through the module
+instead:
+
+```
+   before, two nodes          after, three nodes
+
+   CAN H ---- CAN FD H        CAN H ---- CANH ---- CAN FD H
+   CAN L ---- CAN FD L        CAN L ---- CANL ---- CAN FD L
+                                          ^
+                                   the module's own
+                                   screw terminal
+```
+
+| Terminal position | Holds | Source |
+|---|---|---|
+| 1, `CAN` `H` | one wire, to the module's `CANH` screw | `[measured]` |
+| 2, `CAN` `L` | one wire, to the module's `CANL` screw | `[measured]` |
+| 3, `G` | one wire, to the NUCLEO-H7A3ZI-Q `CN8` `GND` | `[measured]` |
+| 4, `CAN FD` `H` | one wire, to the module's `CANH` screw | `[measured]` |
+| 5, `CAN FD` `L` | one wire, to the module's `CANL` screw | `[measured]` |
+| module `CANH` screw | **two** wires, to positions 1 and 4 | `[measured]` |
+| module `CANL` screw | **two** wires, to positions 2 and 5 | `[measured]` |
+
+Every block position holds exactly one conductor. Electrically this is a star
+rather than a chain and at a few centimetres that is the same bus.
+
+**And the module's own layout, which the earlier instructions got wrong.** It
+carries a four pin header, `3.3V`, `GND`, `CAN RX`, `CAN TX`, and a **two**
+position screw terminal, `CANL` on top and `CANH` below. **There is no `GND`
+screw.** Part four's seven wire table says "module `GND` screw to terminal
+position 3" and that screw does not exist, so that table has never been a
+buildable instruction and the bus ground comes from a Nucleo `GND` pin instead
+`[measured]`.
+
+## The three node bus, working
+
+With the star built, the module powered, and `CAN TX` held at a `CN11` `3V3`
+hole so the node end is forced recessive:
+
+| Check | Result | Source |
+|---|---|---|
+| `jn-setpoint` | 300 frames in 2.990 s, 100.3 Hz achieved against 100.0 asked | `[measured]` |
+| `jn-listen` | **300 frames seen** | `[measured]` |
+| `error-warn`, `error-pass`, `bus-off`, `dropped` | 20, 20, 3, 27 **before and after** | `[measured]` |
+| RX and TX packets | plus exactly 300 on both | `[measured]` |
+
+## Part four's question, answered
+
+Then one wire moved: the `3V3` jumper off `CAN TX`, and `CN11` `PD1` on in its
+place. `PD1` is a floating input, because `nucleo-h7a3-sampling` claims neither
+port D pin. Nothing else changed.
+
+| Check | Result | Source |
+|---|---|---|
+| Sent and seen | **300 and 300** | `[measured]` |
+| `error-warn`, `error-pass`, `bus-off`, `dropped` | 20, 20, 3, 27 **before and after** | `[measured]` |
+
+**Part four's row is confirmed and is now worth something.** That row rested on
+one frame crossing once. This is 300 consecutive frames with four error counters
+that did not move, on a bus whose health had been established by a control a
+minute earlier. A powered SN65HVD230 with a floating drive input sits on this bus
+harmlessly.
+
+The node end is now wired, proven, and waiting only for firmware.
+
+## What this costs the reader, and it is a limitation not a capability
+
+**A single frame test cannot see a marginal connection.** Episode 4 passed one
+frame while stepping an error counter. Every bring-up check in this volume that
+sends one frame and declares success shares that blindness.
+
+So the check that means something is the one used throughout this part: read the
+error counters **before and after**, send a few hundred frames, and require the
+counters to be identical and the count seen to equal the count sent. Three
+conditions, and the counters are the one that catches what the frame does not.
+
+| Not proved | Why | Source |
+|---|---|---|
+| That the module is good for a longer bus | everything here is centimetres of jumper wire | `[inferred]` |
+| Anything about the node end transmitting | it still has no firmware that configures FDCAN1 | `[chapter]` 9 |
+| That the star is necessary rather than sufficient | a connector that clamps properly would also work, and ferrules remain the real fix | `[inferred]` |
+
+## Three method failures worth more than the result
+
+**A readback with no control proves nothing.** The jam test at the start of the
+day held the module's `CAN TX` low and showed the bus going quiet, and that was
+read as proof the module was on the bus. A bus broken for any other reason gives
+the identical reading, and that is exactly what it was. **A deliberate failure is
+only evidence when a pass immediately precedes it.**
+
+**The control failing mid-session is what prevented a wrong verdict.** Four
+separate measurements had converged on "the SN65HVD230 module is faulty". The
+control, run only because the session had gone long enough to doubt everything,
+failed with the module entirely out of circuit, and the module turned out to be
+sound throughout.
+
+**The bench was described from the record three times and corrected three times.**
+Which wires were on the module, whether the star had been built, which of its
+pins were connected: each was stated as fact from what had been asked for rather
+than what was there. The rule this volume already carries is that a document
+records what was built and not what is connected now, and it was broken three
+times in one afternoon by the person who wrote it.
+
