@@ -150,6 +150,7 @@ joint-node/
     bus/
       bittiming.c bittiming.h         # + this chapter: the arithmetic
       msgram.c    msgram.h            # + this chapter: the memory layout
+      msgaddr.c   msgaddr.h           # + this chapter: index to address
       frame.c     frame.h             # + this chapter: the length code
       element.c   element.h           # + this chapter: the element layout
       initplan.c  initplan.h          # + this chapter: the order, as data
@@ -159,6 +160,7 @@ joint-node/
   test/
     test_bittiming.c  test_bittiming.py   # + the arithmetic, both halves
     test_msgram.c     test_msgram.py      # + the layout
+    test_msgaddr.c    test_msgaddr.py     # + index to address
     test_frame.c      test_frame.py       # + the length code
     test_element.c    test_element.py     # + the element layout
     test_initplan.c   test_initplan.py    # + the order and its rules

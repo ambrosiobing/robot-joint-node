@@ -41,6 +41,7 @@ generated:
 	@$(PYTHON) tools/gen_bt_vectors.py --check
 	@$(PYTHON) tools/gen_msgram.py --check
 	@$(PYTHON) tools/gen_msgram.py --audit-chapter
+	@$(PYTHON) tools/gen_msgaddr.py --check
 	@$(PYTHON) tools/gen_frame_vectors.py --check
 	@$(PYTHON) tools/gen_initplan.py --check
 	@$(PYTHON) tools/gen_planrun.py --check
@@ -49,6 +50,7 @@ generated:
 pytest:
 	@$(PYTHON) test/test_bittiming.py
 	@$(PYTHON) test/test_msgram.py
+	@$(PYTHON) test/test_msgaddr.py
 	@$(PYTHON) test/test_frame.py
 	@$(PYTHON) test/test_initplan.py
 	@$(PYTHON) test/test_planrun.py
@@ -64,6 +66,13 @@ $(BUILD)/test_bittiming: $(BUILD) test/test_bittiming.c src/bus/bittiming.c \
 $(BUILD)/test_msgram: $(BUILD) test/test_msgram.c src/bus/msgram.c \
                       src/bus/msgram.h test/vectors_msgram.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_msgram.c src/bus/msgram.c
+
+# From an element index to the place that element lives. It links msgram
+# because it reads the map msgram computes, and the one refusal that matters
+# is reachable only from a real layout: this node configures no dedicated
+# receive buffers, so that section's offset is the first transmit event.
+$(BUILD)/test_msgaddr: $(BUILD) test/test_msgaddr.c src/bus/msgaddr.c src/bus/msgaddr.h src/bus/msgram.c test/vectors_msgaddr.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_msgaddr.c src/bus/msgaddr.c src/bus/msgram.c
 
 $(BUILD)/test_frame: $(BUILD) test/test_frame.c src/bus/frame.c \
                      src/bus/frame.h test/vectors_frame.h
@@ -89,9 +98,10 @@ $(BUILD)/test_planrun: $(BUILD) test/test_planrun.c src/bus/planrun.c           
 $(BUILD)/test_element: $(BUILD) test/test_element.c src/bus/element.c src/bus/element.h src/bus/frame.c src/bus/msgram.c test/vectors_element.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_element.c src/bus/element.c src/bus/frame.c src/bus/msgram.c
 
-ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element
 	@./$(BUILD)/test_bittiming
 	@./$(BUILD)/test_msgram
+	@./$(BUILD)/test_msgaddr
 	@./$(BUILD)/test_frame
 	@./$(BUILD)/test_initplan
 	@./$(BUILD)/test_planrun
@@ -104,6 +114,7 @@ table:
 	@$(PYTHON) tools/gen_initplan.py --table
 	@$(PYTHON) tools/gen_planrun.py --table
 	@$(PYTHON) tools/gen_element.py --table
+	@$(PYTHON) tools/gen_msgaddr.py --table
 
 clean:
 	@rm -rf $(BUILD)

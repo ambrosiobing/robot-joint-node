@@ -33,6 +33,11 @@ python tools/gen_msgram.py --audit-chapter  # against chapter 9's budget row
 python tools/gen_msgram.py --table        # the table in doc/message-memory.md
 python test/test_msgram.py                # the layout and its invariants
 
+python tools/gen_msgaddr.py               # regenerate the addressing vectors
+python tools/gen_msgaddr.py --check       # for the build
+python tools/gen_msgaddr.py --table       # the table in doc/message-memory.md
+python test/test_msgaddr.py               # addressing, and its eight rules
+
 python tools/gen_frame_vectors.py         # regenerate the frame vectors
 python tools/gen_frame_vectors.py --check # for the build
 python tools/gen_frame_vectors.py --table # the table in doc/frame-rules.md
@@ -327,6 +332,9 @@ caller passes in, converted once before anything is decided.
 | The same arithmetic in C | `bittiming.c` and `test_bittiming.c`, compiled and run in CI |
 | The message memory laid out rather than assumed | `msgram.c`, asserted at compile time and checked in both tests |
 | The layout fits, and its sections tile with no hole or overlap | `test_msgram.py` and `test_msgram.c` |
+| Every configured element has an address, and no two share memory | all 52 elements walked in the memory's own order, each beginning where the previous ended |
+| An element of a section the layout left empty is refused | `rx_buffers` index 0, whose offset is the first transmit event, in both tests |
+| An offset is never handed out as an address | the base subtracted back out on every resolved access, and a base of zero refused |
 | A layout the part would refuse is refused here | 3 of the 4 layout cases, each for a different reason |
 | The three frames step 4 sends are legal, and the rest are refused | `test_frame.py` and `test_frame.c` |
 | A length the format cannot carry has no code | all 65 lengths, both formats |
@@ -357,6 +365,34 @@ Both are silent, and nine bytes is not a flexible-data length at all.
 
 The full table is in [`doc/frame-rules.md`](doc/frame-rules.md), generated
 rather than typed.
+
+## Where an element lives, and the empty section that collides
+
+The layout gives each section an offset. Getting from there to one element is a
+multiply and an add, and `src/bus/msgaddr.c` exists because that arithmetic
+returns a plausible wrong answer three ways.
+
+The one that is in this node rather than in a hypothetical one: the layout
+configures **no dedicated receive buffers**, so that section's offset is 1792
+and so is the transmit event section's. Ask for receive buffer 0 and the
+multiply and add return 1792. Write there and the first transmit event is
+overwritten; read there and an event comes back shaped like a frame. The
+controller reports neither, and the symptom turns up wherever the event FIFO is
+next read.
+
+The other two: the sections do not share an element size, so index times the
+wrong size lands partway through a neighbouring element; and an offset is not an
+address, which the register fields already caught this chapter out on once.
+Transmit buffer 0 is at offset `0x0740` and at address `0x4000B340`, and both
+are reasonable looking numbers.
+
+Mutation testing said something worth writing down. Removing the empty-section
+refusal on its own did **not** turn the checks red: the span check caught it
+instead, because the layout's count and the map's byte span are the same
+arithmetic unless one of the two has drifted. Both guards had to go before the
+rules objected, and then they named the colliding section rather than only the
+offset. The full account is in
+[`doc/message-memory.md`](doc/message-memory.md).
 
 ## The element, where the identifier format is not a function of the identifier
 

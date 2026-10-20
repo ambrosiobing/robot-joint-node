@@ -178,6 +178,18 @@ jobs:
           python tools/gen_msgram.py --audit-chapter
           python test/test_msgram.py
 
+      # Where an element of a given section actually lives. A multiply and an
+      # add, and the reason it is checked is that this node's own layout
+      # configures no dedicated receive buffers, so that section begins exactly
+      # where the transmit events begin: the arithmetic hands back a plausible
+      # offset pointing at somebody else's first element, and no register
+      # reports the write that follows.
+      - name: Chapter 9, element addressing and the empty section that collides
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_msgaddr.py --check
+          python test/test_msgaddr.py
+
       - name: Chapter 9, the frame length code
         working-directory: joint-node/ch09-can-fd-from-the-controller-out
         run: |
