@@ -144,6 +144,7 @@ joint-node/
           message-memory.md           # + the layout, section by section
           element.md                  # + a frame as the memory holds it
           node-queues.md              # + the queue protocol, both directions
+          board-access.md             # + reaching the registers, and its limits
           node-clock.md               # + the kernel clock, and what it rules out
           node-registers.md           # + the register map and every field
           node-order.md               # + the configuration order, as a list
@@ -157,7 +158,10 @@ joint-node/
       fifo.c      fifo.h              # + this chapter: the queue protocol
       initplan.c  initplan.h          # + this chapter: the order, as data
       planrun.c   planrun.h           # + this chapter: the executor
-    sense/ act/ estimate/ control/ time/ node/ bsp/
+    bsp/
+      fdcan_mmio.c fdcan_mmio.h       # + the only directory that may name
+                                      #   an address, and its first file
+    sense/ act/ estimate/ control/ time/ node/
     mw/  safety/  update/
   test/
     test_bittiming.c  test_bittiming.py   # + the arithmetic, both halves
@@ -168,10 +172,11 @@ joint-node/
     test_fifo.c       test_fifo.py        # + the queue protocol
     test_initplan.c   test_initplan.py    # + the order and its rules
     test_planrun.c    test_planrun.py     # + the executor, six register models
+    test_fdcan_mmio.c                     # + the accessors, against arrays
   host/  tools/  README.md
 ```
 
-**What is not in that tree, and why.** There is no `fdcan.c` and no `loopback.c`. Every file above runs on a host with no controller present, and the two that would touch a register are the two that cannot be checked that way, so they wait for `src/bsp/`. The order they will walk exists already, as data, in `initplan.c`; what is missing is the thing that reads and writes a real address. Each test above has a C half and a Python half, and the Python half runs on a laptop with no compiler on it, which is where this chapter was written.
+**What is not in that tree, and why.** There is no `fdcan.c` and no `loopback.c`. Every file above runs on a host with no controller present, and the one file that touches a register is `src/bsp/fdcan_mmio.c`, which arrived on Tuesday 20 October 2026 and is checked by pointing its two base addresses at arrays rather than at silicon. What is still missing is an image to put it in: this volume has no startup, no linker script and no console, and those belong to chapter 4, whose README now lists them. Each test above has a C half and a Python half, and the Python half runs on a laptop with no compiler on it, which is where this chapter was written.
 
 ## Steps
 

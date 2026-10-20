@@ -64,6 +64,7 @@ python tools/gen_fifo.py --table          # the tables in doc/node-queues.md
 python test/test_fifo.py                  # the protocol, and an exhaustive sweep
 
 make                                      # needs a C compiler
+make cross                                # needs arm-none-eabi-gcc
 ```
 
 On the WSL side of win11 skyhorizon, `bing@JPTOUPM678`, the whole thing
@@ -353,7 +354,13 @@ caller passes in, converted once before anything is decided.
 | The payload is little endian within each word | the probe `11 22 33 44`, which must pack to `0x44332211` |
 | The element and the layout agree on what a frame costs | 18 words either side, asserted across `element.h` and `msgram.h` |
 | Sizing an element refuses exactly what building one refuses | both zero length cases, the legal one and the refused one, checked against `frame_ok` rather than against the vectors |
+| The configuration walked through the real accessors | `test_fdcan_mmio.c`, the real plan and the real executor, with only the two bases pointed at arrays |
+| A wrong base address is detected rather than configuring nothing | the control arm is a block of zeroes, and the plan must stop at `ENDN`, step 2 of 23 |
+| The message memory clear can fail | a pattern written and read back before the clear, because writing zeroes and reading zeroes proves nothing |
+| An access never leaves its own window | guard words beside both windows, as members of one struct so the adjacency is guaranteed |
+| Every shipping translation unit compiles for the part | `make cross`, cortex-m7 hard float, the same warning set as the host build |
 | The loopback itself and the first frame | **not here yet**, they need the board |
+| An image of any kind | **not here yet**, and the four files missing are chapter 4's |
 
 ## The length code, which is the other silent one
 
@@ -374,6 +381,44 @@ Both are silent, and nine bytes is not a flexible-data length at all.
 
 The full table is in [`doc/frame-rules.md`](doc/frame-rules.md), generated
 rather than typed.
+
+## Reaching the registers, which is the first file below the board layer
+
+`src/bsp/fdcan_mmio.c` points `planrun.c`'s three function pointers at real
+memory. It is the first file in this volume that is allowed to name an address,
+and it needs no vendor header: a read, a write and a clear are volatile accesses
+at a base plus an offset, so including CMSIS would put a vendor dependency under
+the one file permitted to have one and not requiring it.
+
+**Two bases, not one.** The executor passes a register offset to read and write
+and a message memory byte offset to clear. The register window is `0x4000A000`
+for `0x400` bytes and the message memory is `0x4000AC00` for `0x2800`. An
+implementation with one base clears the wrong memory and every access succeeds.
+The two are `0x800` apart with another controller instance's window in between,
+so an offset past `0x400` reaches FDCAN2 and the configuration takes, on the
+wrong controller.
+
+**The clear is the one step in the plan that cannot fail.** `planrun.c` calls
+`clear_ram` and records it as having worked, unconditionally, where every other
+step is read back. And `fdcan_clear_fn` returns void, so a range check has
+nowhere to report to. So the accessors carry a sticky fault that must be asked
+for afterwards, and the clear proves itself first: a pattern into the first and
+last word of the range, read back, and only then the zeroing. Writing zeroes and
+reading zeroes back is not evidence, because a wrong base does exactly that.
+
+**The control arm is a block of zeroes.** That is what a wrong base looks like
+from outside, and the plan must stop at step 2 of 23, the endianness register,
+the only one in the sequence whose value the part supplies rather than the
+software. The pair was run in the Python reference before the C test was written,
+because a plain array is not a sufficient register model and assuming it was
+would have produced a test that fails for the wrong reason.
+
+**`make cross` compiles for the part and stops there.** There is no startup, no
+linker script and no console in this volume, so there is no image to link. Those
+four files are chapter 4's and its README now lists them. The honest claim for
+this chapter's C is that it compiles for the processor it is meant for.
+
+The whole account is in [`doc/board-access.md`](doc/board-access.md).
 
 ## The queues, and the two registers encoded in opposite ways
 

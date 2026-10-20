@@ -26,11 +26,20 @@
 
 CC      ?= cc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O1 -g
-INCLUDE  = -Isrc/bus -Itest
+INCLUDE  = -Isrc/bus -Isrc/bsp -Itest
 PYTHON  ?= python3
 BUILD    = build
 
-.PHONY: all generated pytest ctest table clean
+# The cross compiler, for `make cross` only. The same warning set as the
+# host build plus the architecture, so that a difference between the two
+# is the architecture and nothing else. Found on PATH in WSL on win11
+# skyhorizon as the Debian arm-none-eabi-gcc; the CubeIDE toolchain on the
+# PowerShell side needs its script dot-sourced first and is not this.
+CROSS      ?= arm-none-eabi-gcc
+CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
+CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding
+
+.PHONY: all generated pytest ctest cross table clean
 all: generated pytest ctest
 	@echo
 	@echo "chapter 9 passed: the arithmetic and the configuration, on a host, with no wire claimed"
@@ -108,7 +117,16 @@ $(BUILD)/test_element: $(BUILD) test/test_element.c src/bus/element.c src/bus/el
 $(BUILD)/test_fifo: $(BUILD) test/test_fifo.c src/bus/fifo.c src/bus/fifo.h src/bus/msgaddr.c src/bus/msgram.c test/vectors_fifo.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_fifo.c src/bus/fifo.c src/bus/msgaddr.c src/bus/msgram.c
 
-ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element $(BUILD)/test_fifo
+# The board accessors, pointed at arrays. This is the first target that
+# compiles something from src/bsp/, which is the one directory allowed to
+# name an address. It runs the real plan through the real executor through
+# the real accessors, and its control arm is a block of zeroes: a wrong base
+# address accepts every write and reads back nothing, so the plan has to stop
+# at the one register whose value the part supplies rather than the software.
+$(BUILD)/test_fdcan_mmio: $(BUILD) test/test_fdcan_mmio.c src/bsp/fdcan_mmio.c src/bsp/fdcan_mmio.h src/bus/planrun.c src/bus/initplan.c src/bus/bittiming.c src/bus/msgram.c
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_fdcan_mmio.c src/bsp/fdcan_mmio.c src/bus/planrun.c src/bus/initplan.c src/bus/bittiming.c src/bus/msgram.c
+
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element $(BUILD)/test_fifo $(BUILD)/test_fdcan_mmio
 	@./$(BUILD)/test_bittiming
 	@./$(BUILD)/test_msgram
 	@./$(BUILD)/test_msgaddr
@@ -117,6 +135,23 @@ ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUIL
 	@./$(BUILD)/test_planrun
 	@./$(BUILD)/test_element
 	@./$(BUILD)/test_fifo
+	@./$(BUILD)/test_fdcan_mmio
+
+# Compile every shipping translation unit FOR THE PART, which no other
+# target does. The host build proves the arithmetic; this proves the code is
+# buildable for the processor it is meant for, and the two differ in ways
+# that are silent on a host: a plain enum is unsigned on ARM EABI, so a test
+# for a negative enumerator is dead code there and a -Werror failure with it,
+# and both the plan and the addressing range check enumerators.
+#
+# Objects only. There is no startup, no linker script and no console in this
+# volume yet, so there is no image to link: that floor is chapter 4's and it
+# has no code tree at all. Compiling is what can honestly be claimed today.
+cross:
+	@rm -rf $(BUILD)/cross && mkdir -p $(BUILD)/cross
+	@n=$$(ls -1 src/bus/*.c src/bsp/*.c 2>/dev/null | wc -l); test "$$n" -gt 0 || { echo "cross: the globs matched no sources, so nothing was compiled and this target would otherwise pass"; exit 1; }
+	@for f in src/bus/*.c src/bsp/*.c; do $(CROSS) $(CROSSFLAGS) $(CROSSARCH) $(INCLUDE) -c $$f -o $(BUILD)/cross/$$(basename $$f .c).o || exit 1; done
+	@want=$$(ls -1 src/bus/*.c src/bsp/*.c | wc -l); got=$$(ls -1 $(BUILD)/cross/*.o | wc -l); test "$$want" -eq "$$got" || { echo "cross: $$want sources and $$got objects, so one was skipped"; exit 1; }; echo "cross: $$got translation units compiled for cortex-m7 hard float, no image linked"
 
 # The table in doc/bit-timing.md comes from here rather than from a person
 # typing it, so it cannot drift away from the arithmetic it describes.

@@ -22,9 +22,22 @@ possible if the rule was kept from here onward rather than retrofitted at the
 end. Retrofitting it means untangling every include in the tree at the point
 where the deadline is closest.
 
-So the rule ships before the thing it protects. It currently passes trivially,
-because there is very little C to check, and it was confirmed to fail by planting
-an include that breaks it.
+So the rule ships before the thing it protects. It was confirmed to fail by
+planting an include that breaks it.
+
+It stopped passing trivially on Tuesday 20 October 2026, when the board layer
+got its first inhabitant. The count now reads 53 C files with 51 above the board
+layer, where for weeks it read "all of them above", and the two below are
+chapter 9's `src/bsp/fdcan_mmio.c` and its header: the volatile accesses that
+point that chapter's configuration executor at a real address. They arrived from
+chapter 9 rather than from here, which is the right way round. The rule exists so
+that the layer below can be written late and small, and the whole bus layer above
+it was checked on a laptop for two weeks before it existed.
+
+Worth noting what that file did NOT need: a vendor header. It is the one
+directory allowed to include one, and reaching a register turned out to be a base
+address, an offset and a volatile access, so pulling CMSIS in would have put a
+vendor dependency under the only file permitted to have one and not requiring it.
 
 ## What chapter 4 still owes
 
@@ -39,3 +52,25 @@ exists:
 That file is the input to most later chapters, so it is the highest-value thing
 missing from this tree. It is not started, and saying it is started would make
 every chapter that cites it look further along than it is.
+
+## And the image floor, which chapter 9 established is missing
+
+Found on Tuesday 20 October 2026 while trying to work out what chapter 9's first
+image still needed. **Nothing in this volume has ever produced a firmware image,
+and four things are absent, all of them chapter 4's rather than chapter 9's:**
+
+| Missing | Why it is this chapter's |
+|---|---|
+| a linker script for the STM32H7A3ZI | the memory map is a board fact, and every chapter's image would use the same one |
+| a startup: vector table, stack pointer, `.data` copy, `.bss` zero | the same for every image, and the vector table is a table of board facts |
+| a console | every chapter from 9 onward reports its results through one, and chapter 9's first image has nothing to print through |
+| a cross build that links rather than compiles | `make cross` in chapter 9 compiles its own translation units for the part, and stops there because there is nothing to link them against |
+
+A cross compiler is available: `arm-none-eabi-gcc` 14.2.1 is on PATH in WSL on
+the win11 skyhorizon laptop, it links a bare-metal Cortex-M7 hard-float object
+with `-nostdlib`, and the multilib for this core resolves to
+`thumb/v7e-m+dp/hard`. So the toolchain is not what is missing. These four files
+are.
+
+Until they exist, every chapter's claim about its C stops at "compiles for the
+part", and chapter 9 says exactly that rather than implying more.

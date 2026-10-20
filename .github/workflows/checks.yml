@@ -249,6 +249,22 @@ jobs:
         working-directory: joint-node/ch09-can-fd-from-the-controller-out
         run: make ctest
 
+      # The first time any of this volume's C is compiled FOR THE PART rather
+      # than for a host. Objects only: there is no startup, no linker script and
+      # no console in this volume yet, so there is no image to link, and that
+      # floor belongs to chapter 4 which has no code tree at all. What this
+      # catches is the class of difference that is silent on a host, chiefly
+      # that a plain enum is unsigned on ARM EABI, which makes a test for a
+      # negative enumerator dead code there and a -Werror failure with it. Both
+      # the plan and the addressing range check enumerators.
+      - name: Chapter 9, compile the bus and board layers for the part
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+          arm-none-eabi-gcc --version | head -1
+          make cross
+
       # Chapter 17 builds nothing, so this checks the only thing a program can
       # check about a decision document: that it still has its four headings and
       # that every claim still says where it came from.
