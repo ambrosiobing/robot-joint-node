@@ -96,6 +96,33 @@ jobs:
           pip install -r requirements.txt
           python check_layers.py
 
+      # The image floor. The MEMORY block is generated from the recorded map,
+      # because a region size typed by hand links perfectly well and overruns
+      # at run time, and the startup's four silent mistakes are checked by
+      # construct: three of them produce a board that does nothing at all,
+      # which is the least informative failure available.
+      - name: Chapter 4, the memory map and the startup
+        working-directory: joint-node/ch04-the-board-support-package
+        run: |
+          python tools/gen_memmap.py --check
+          python test/test_memmap.py
+          python test/test_startup.py
+
+      # And the only check a host can make about an IMAGE rather than about
+      # source. The source checks cannot see what the linker did: a vector
+      # table discarded by --gc-sections, a section placed off the boot
+      # address, or a symbol resolved to a different definition all produce an
+      # image that links and reports a sensible size. This one links a real
+      # image, with --gc-sections on deliberately so the script's KEEP is under
+      # test, and reads the first two words back out of the .elf.
+      - name: Chapter 4, link a real image and read its first two words
+        working-directory: joint-node/ch04-the-board-support-package
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-none-eabi
+          arm-none-eabi-gcc --version | head -1
+          make linkcheck
+
       # Deliberately placed ahead of the virtual interface step below, which
       # can sit for ten minutes on a kernel module download. This one needs
       # nothing but Python, so there is no reason for its answer to wait behind

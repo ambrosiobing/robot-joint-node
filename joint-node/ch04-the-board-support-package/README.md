@@ -6,7 +6,16 @@ after it, which is the part that has to exist first or it cannot exist at all.
 ## What runs
 
 ```bash
-python check_layers.py
+make                        # everything that needs no toolchain
+make layers                 # chapter 4's rule over the whole joint-node tree
+make pytest                 # the memory map and the startup, by construct
+make linkcheck              # needs arm-none-eabi-gcc: links a real image
+make table                  # the table in doc/memory-map.md
+
+python check_layers.py      # the rule on its own, which is what CI calls
+python tools/gen_memmap.py  # regenerate memory.ld and memmap.h
+python test/test_memmap.py  # the map, the script, and their agreement
+python test/test_startup.py # the startup's four silent mistakes
 ```
 
 Nothing above the board layer may include a vendor header. The checker walks the
@@ -53,7 +62,47 @@ That file is the input to most later chapters, so it is the highest-value thing
 missing from this tree. It is not started, and saying it is started would make
 every chapter that cites it look further along than it is.
 
-## And the image floor, which chapter 9 established is missing
+## The image floor, two of the four pieces built
+
+Started Tuesday 20 October 2026, after chapter 9 established what was missing.
+
+**The memory map and the linker script.** The `MEMORY` block is generated from
+the map in `tools/gen_memmap.py`, because a region size typed by hand links
+perfectly well and overruns at run time. Three of the nine regions are declared
+to the linker and six are recorded and not, and the difference is evidence:
+declaring a region is a promise that sections put there will be present at run
+time, and recording one is only a fact about the part.
+
+The case that matters is the AXI SRAM, which `[vendor]` Zephyr splits into three
+nodes whose addresses tile into `[arithmetic]` one megabyte with no gap. Only
+the first is declared, because the board's own device tree chooses that one and
+says nothing about whether the other two need a clock or power enable. An image
+that declared 1024 KB and got 256 KB would link, boot, and fail the first time
+it touched the upper three quarters.
+
+That field started as a boolean and a mutation flipping one character from
+`False` to `True` passed every rule. It is a reason now, and a rule requires the
+reason to carry a provenance marker, so declaring the 384 KB nodes costs a
+sentence somebody has to stand behind.
+
+**The startup.** Sixteen core vectors, the `.data` copy, the `.bss` zeroing.
+Four of its mistakes have no symptom and three of those produce a board that
+does nothing at all, so each is checked by construct and each rule was proved
+able to fail: `_sstack` where `_estack` belongs, a copy reading its own
+destination, `memcpy` called before the memory it would use exists, and a table
+discarded by `--gc-sections`.
+
+`make linkcheck` links a real image and reads its first two words back out of
+the `.elf`, which is the only check available without a board. The full account
+is in [`doc/memory-map.md`](doc/memory-map.md).
+
+**Still missing: the console, and the device interrupt table.** `[vendor]` The
+board's own device tree settles what the console is, USART3 on PD8 and PD9 at
+115200, so that piece is next. The device vector positions have to be read from
+a checked source before anything enables an interrupt, and the checker refuses a
+table that is not exactly sixteen entries so that adding them is deliberate.
+
+## What chapter 9 established was missing, for the record
 
 Found on Tuesday 20 October 2026 while trying to work out what chapter 9's first
 image still needed. **Nothing in this volume has ever produced a firmware image,

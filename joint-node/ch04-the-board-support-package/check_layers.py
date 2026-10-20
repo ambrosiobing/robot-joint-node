@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Chapter 4's rule: nothing above the board layer includes a vendor header.
 
-    python tools/check_layers.py
+    python check_layers.py
 
 The moment a control loop includes a peripheral header, the control loop is
 tied to one silicon vendor and cannot be built on a host machine. Chapter 20

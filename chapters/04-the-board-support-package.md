@@ -144,22 +144,34 @@ joint-node/
     LICENSES.md                       # + this chapter: the audit result
   src/
     bsp/
-      board.h                         # + this chapter: the contract
-      board_pins.h                    # + generated, never edited
-      board_clocks.h                  # + generated, never edited
-      board_caps.h                    # + generated: what this board is not
-      board.c  clock.c  gpio.c  uart.c   # the only files that include vendor
-      startup.c  system.c                 headers, from chapters 1 to 3
+      stm32h7a3.ld                    # + BUILT: what goes where
+      memory.ld                       # + BUILT, generated from the map
+      memmap.h                        # + BUILT, generated from the map
+      startup.c                       # + BUILT: the first two words
+      board.h                         # the contract, NOT BUILT
+      board_pins.h board_clocks.h     # generated, NOT BUILT
+      board_caps.h                    # what this board is not, NOT BUILT
+      board.c clock.c gpio.c uart.c   # the only files that may include a
+                                      #   vendor header, NOT BUILT
     node/  control/  time/
     sense/  act/  bus/  mw/  safety/  update/
   tools/
-    gen_board.py                      # + this chapter: description to headers
-    check_layering.py                 # + this chapter: no vendor types above bsp
-    check_licences.py                 # + this chapter: every file has an SPDX tag
-    footprint.py
-  host/  test/  doc/
+    gen_memmap.py                     # + BUILT: the map to the MEMORY block
+    check_image.py                    # + BUILT: a linked image's first words
+    gen_board.py                      # description to headers, NOT BUILT
+    check_licences.py                 # an SPDX tag per file, NOT BUILT
+    footprint.py                      # NOT BUILT
+  check_layers.py                     # + BUILT: no vendor header above bsp
+  test/
+    test_memmap.py                    # + BUILT: the map and the script
+    test_startup.py                   # + BUILT: four silent mistakes
+    link_probe.c                      # + BUILT: so the script can be linked
+  doc/
+    memory-map.md                     # + BUILT
   README.md
 ```
+
+**What is built and what is not, as of Tuesday 20 October 2026.** The rows marked BUILT above exist; the rest are this chapter's plan and do not. The rule shipped first and alone, deliberately, because it is the one thing that has to exist before the code it protects. The image floor followed on Tuesday 20 October 2026, after chapter 9 established that nothing in this volume had ever produced a firmware image: the memory map, the linker script and the startup are built and checked, and the console and the device interrupt table are not. The checker that enforces the rule is `check_layers.py` at the chapter root, not `check_layering.py` under `tools/` as an earlier draft of this page had it.
 
 ## Steps
 
