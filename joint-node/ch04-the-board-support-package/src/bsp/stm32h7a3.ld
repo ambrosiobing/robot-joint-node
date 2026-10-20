@@ -138,8 +138,7 @@ SECTIONS
  * anywhere else is an image the part will not start, and nothing about the
  * build says so. */
 ASSERT(_sisr_vector == _boot_address,
-       "the vector table is not at the boot address, so the part will fetch its "
-       "stack pointer and reset vector from whatever is there instead")
+       "the vector table is not at the boot address, so the part will fetch its stack pointer and reset vector from whatever is there instead")
 
 /* And the flash region itself must begin at the boot address. The assertion
  * above would still pass if both had been moved together, which is the edit

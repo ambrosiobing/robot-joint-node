@@ -93,8 +93,16 @@ destination, `memcpy` called before the memory it would use exists, and a table
 discarded by `--gc-sections`.
 
 `make linkcheck` links a real image and reads its first two words back out of
-the `.elf`, which is the only check available without a board. The full account
-is in [`doc/memory-map.md`](doc/memory-map.md).
+the `.elf`, which is the only check available without a board.
+
+The first link failed, and for a reason worth keeping: **GNU ld does not
+concatenate adjacent string literals.** One of the four assertion messages was
+wrapped the way C wraps a long string, which is a syntax error in a linker
+script, and the only symptom was a line number pointing at the second half.
+`test_startup.py` now counts the quotes inside every `ASSERT` and refuses more
+than two, because the link is the one check this laptop cannot run.
+
+The full account is in [`doc/memory-map.md`](doc/memory-map.md).
 
 **Still missing: the console, and the device interrupt table.** `[vendor]` The
 board's own device tree settles what the console is, USART3 on PD8 and PD9 at

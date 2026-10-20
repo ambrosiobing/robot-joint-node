@@ -93,6 +93,31 @@ with reading their positions.
 that would settle it is a high-water mark read back from a painted stack on the
 board, which needs a console, which is the piece after this one.
 
+## GNU ld does not concatenate adjacent string literals
+
+Found by the first link, Tuesday 20 October 2026, and it cost a round trip to
+WSL. The script's four assertions carry messages, and the first one's message
+was wrapped the way C wraps a long string:
+
+```
+ASSERT(_sisr_vector == _boot_address,
+       "the vector table is not at the boot address, so the part will fetch its "
+       "stack pointer and reset vector from whatever is there instead")
+```
+
+C concatenates those two literals. **The linker script language does not.** The
+link failed with `stm32h7a3.ld:142: syntax error`, naming the line of the second
+half, and nothing in the message says what the rule is. The other three messages
+were single strings, which is why exactly one line failed and the cause looked
+arbitrary.
+
+The message is one literal now, long line and all. And `test_startup.py` gained
+a rule that counts the quotes inside every `ASSERT` and refuses more than two,
+because the link is the one check the authoring laptop cannot run: without that
+rule the class is only ever caught in WSL or in CI, which is two pushes away
+from where it was written. The control is the split put back, and the rule names
+the assertion it is in.
+
 ## What a host can prove about an image, and what it cannot
 
 `make pytest` checks the source. It cannot see what the linker did with it, and

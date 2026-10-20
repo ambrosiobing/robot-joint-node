@@ -165,6 +165,28 @@ def main():
         fail("the script does not KEEP .isr_vector, so --gc-sections discards "
              "the table and the image still links")
 
+    # 8b. NO ASSERT MESSAGE MAY BE SPLIT ACROSS TWO STRING LITERALS. GNU ld
+    # does not concatenate adjacent string literals the way C does, so a
+    # message wrapped the way C wraps one is a SYNTAX ERROR at link time.
+    #
+    # That cost a round trip to WSL on Tuesday 20 October 2026: the first
+    # assertion's message was split over two lines, the other three were not,
+    # and the only symptom was "syntax error" naming the line of the second
+    # half. The link is the one check this laptop cannot run, so the class
+    # belongs here where it can be caught before the push.
+    #
+    # Matched on the raw text rather than the comment-stripped copy, because
+    # the construct is a quoted string and stripping comments leaves those
+    # alone.
+    raw_script = SCRIPT.read_text(encoding="utf-8")
+    for m in re.finditer(r"ASSERT\s*\((.*?)\)\s*$", raw_script, re.S | re.M):
+        body = m.group(1)
+        if len(re.findall('"', body)) > 2:
+            head = body.splitlines()[0].strip()[:60]
+            fail("an ASSERT message is split across more than one string "
+                 "literal, which GNU ld reads as a syntax error rather than "
+                 "concatenating: ASSERT(" + head)
+
     # 9. The entry point the script names must exist here.
     m = re.search(r"ENTRY\s*\(\s*(\w+)\s*\)", script)
     if not m:
