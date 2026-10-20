@@ -118,7 +118,9 @@ code tree at all; its README now lists the four files and says so. The honest
 claim for this chapter's C today is that it compiles for the part, and that is
 what the chapter says.
 
-The cross compiler itself is not what is missing: `arm-none-eabi-gcc` 14.2.1 is
-on PATH in WSL on the win11 skyhorizon laptop, it links a bare-metal Cortex-M7
-hard-float object with `-nostdlib`, and the multilib for this core resolves to
-`thumb/v7e-m+dp/hard`.
+The cross compiler itself is not what is missing. `arm-none-eabi-gcc` 14.2.1 is
+on PATH in WSL on the win11 skyhorizon laptop and was probed in both forms on
+Tuesday 20 October 2026: it compiles, it links a bare-metal Cortex-M7 hard-float
+object with `-nostdlib`, it links newlib through `--specs=nosys.specs` as well,
+and the multilib for this core resolves to `thumb/v7e-m+dp/hard`. Chapter 4's
+README carries the figures and the one probe that failed for its own reasons.

@@ -66,11 +66,31 @@ and four things are absent, all of them chapter 4's rather than chapter 9's:**
 | a console | every chapter from 9 onward reports its results through one, and chapter 9's first image has nothing to print through |
 | a cross build that links rather than compiles | `make cross` in chapter 9 compiles its own translation units for the part, and stops there because there is nothing to link them against |
 
-A cross compiler is available: `arm-none-eabi-gcc` 14.2.1 is on PATH in WSL on
-the win11 skyhorizon laptop, it links a bare-metal Cortex-M7 hard-float object
-with `-nostdlib`, and the multilib for this core resolves to
-`thumb/v7e-m+dp/hard`. So the toolchain is not what is missing. These four files
-are.
+A cross compiler is available, and it was probed in both forms on
+Tuesday 20 October 2026. `arm-none-eabi-gcc` 14.2.1 is on PATH in WSL on the
+win11 skyhorizon laptop, under `-mcpu=cortex-m7 -mfpu=fpv5-d16
+-mfloat-abi=hard -mthumb`:
+
+| Probe | Result |
+|---|---|
+| compile | OK |
+| link `-nostdlib` | OK |
+| link `--specs=nosys.specs`, so newlib | OK, 4916 text, 1364 data, 808 bss |
+| `-print-multi-directory` | `thumb/v7e-m+dp/hard`, double precision, right for this core |
+
+**Newlib links, which decides how the console gets written.** It can be a
+`_write` retarget onto newlib's `printf` rather than a bespoke string writer, and
+the choice is now an argument about code size rather than about what is
+installed. Nothing needs apt.
+
+The first newlib probe FAILED, and that was the probe's fault rather than the
+toolchain's: it named its entry point `Reset_Handler` and defined no `main`, so
+`crt0.S` could not resolve `main`. Read as a missing package that is the wrong
+conclusion, because the linker had already found `libc.a` and `crt0.o` under
+`lib/thumb/v7e-m+dp/hard/`, which is proof the library is there. A newlib probe
+has to define `main`.
+
+So the toolchain is not what is missing. These four files are.
 
 Until they exist, every chapter's claim about its C stops at "compiles for the
 part", and chapter 9 says exactly that rather than implying more.
