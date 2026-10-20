@@ -46,6 +46,7 @@ generated:
 	@$(PYTHON) tools/gen_initplan.py --check
 	@$(PYTHON) tools/gen_planrun.py --check
 	@$(PYTHON) tools/gen_element.py --check
+	@$(PYTHON) tools/gen_fifo.py --check
 
 pytest:
 	@$(PYTHON) test/test_bittiming.py
@@ -55,6 +56,7 @@ pytest:
 	@$(PYTHON) test/test_initplan.py
 	@$(PYTHON) test/test_planrun.py
 	@$(PYTHON) test/test_element.py
+	@$(PYTHON) test/test_fifo.py
 
 $(BUILD):
 	@mkdir -p $(BUILD)
@@ -98,7 +100,15 @@ $(BUILD)/test_planrun: $(BUILD) test/test_planrun.c src/bus/planrun.c           
 $(BUILD)/test_element: $(BUILD) test/test_element.c src/bus/element.c src/bus/element.h src/bus/frame.c src/bus/msgram.c test/vectors_element.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_element.c src/bus/element.c src/bus/frame.c src/bus/msgram.c
 
-ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element
+# The queue protocol. It links msgaddr and msgram as well, for one rule:
+# every index the protocol hands out must be an index the message memory
+# can address. A queue that wraps at the width of the status field instead
+# of the size of the queue leaves both modules correct on their own terms,
+# and only a rule that spans the two notices.
+$(BUILD)/test_fifo: $(BUILD) test/test_fifo.c src/bus/fifo.c src/bus/fifo.h src/bus/msgaddr.c src/bus/msgram.c test/vectors_fifo.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_fifo.c src/bus/fifo.c src/bus/msgaddr.c src/bus/msgram.c
+
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element $(BUILD)/test_fifo
 	@./$(BUILD)/test_bittiming
 	@./$(BUILD)/test_msgram
 	@./$(BUILD)/test_msgaddr
@@ -106,6 +116,7 @@ ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_msgaddr $(BUIL
 	@./$(BUILD)/test_initplan
 	@./$(BUILD)/test_planrun
 	@./$(BUILD)/test_element
+	@./$(BUILD)/test_fifo
 
 # The table in doc/bit-timing.md comes from here rather than from a person
 # typing it, so it cannot drift away from the arithmetic it describes.
@@ -115,6 +126,7 @@ table:
 	@$(PYTHON) tools/gen_planrun.py --table
 	@$(PYTHON) tools/gen_element.py --table
 	@$(PYTHON) tools/gen_msgaddr.py --table
+	@$(PYTHON) tools/gen_fifo.py --table
 
 clean:
 	@rm -rf $(BUILD)

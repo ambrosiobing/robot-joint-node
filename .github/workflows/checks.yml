@@ -229,6 +229,19 @@ jobs:
           python tools/gen_element.py --check
           python test/test_element.py
 
+      # The queue protocol, which is where an element index comes from and
+      # where the write that releases or launches one is composed. The receive
+      # acknowledge register takes an INDEX and the transmit add request
+      # register takes a BIT PER BUFFER; swapping the two is accepted by both
+      # registers and shows up as a frame missing or a frame sent twice. The
+      # sweep is exhaustive over every status word a sixteen element queue can
+      # produce, and one rule spans this module and the addressing one.
+      - name: Chapter 9, the queue protocol and the two opposite encodings
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_fifo.py --check
+          python test/test_fifo.py
+
       # The first time chapter 9's C meets a compiler. It is written on a laptop
       # that has none, so until this step runs the honest claim is that the
       # Python half is proven and the C half is only written.

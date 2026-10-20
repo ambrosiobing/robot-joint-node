@@ -143,6 +143,7 @@ joint-node/
           frame-rules.md              # + the length code, all 16 of them
           message-memory.md           # + the layout, section by section
           element.md                  # + a frame as the memory holds it
+          node-queues.md              # + the queue protocol, both directions
           node-clock.md               # + the kernel clock, and what it rules out
           node-registers.md           # + the register map and every field
           node-order.md               # + the configuration order, as a list
@@ -153,6 +154,7 @@ joint-node/
       msgaddr.c   msgaddr.h           # + this chapter: index to address
       frame.c     frame.h             # + this chapter: the length code
       element.c   element.h           # + this chapter: the element layout
+      fifo.c      fifo.h              # + this chapter: the queue protocol
       initplan.c  initplan.h          # + this chapter: the order, as data
       planrun.c   planrun.h           # + this chapter: the executor
     sense/ act/ estimate/ control/ time/ node/ bsp/
@@ -163,6 +165,7 @@ joint-node/
     test_msgaddr.c    test_msgaddr.py     # + index to address
     test_frame.c      test_frame.py       # + the length code
     test_element.c    test_element.py     # + the element layout
+    test_fifo.c       test_fifo.py        # + the queue protocol
     test_initplan.c   test_initplan.py    # + the order and its rules
     test_planrun.c    test_planrun.py     # + the executor, six register models
   host/  tools/  README.md

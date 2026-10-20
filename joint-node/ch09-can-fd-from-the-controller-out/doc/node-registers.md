@@ -267,7 +267,11 @@ rationalise a different order, so step 13 is where it goes.
 | 1 | Is `CCCR.INIT` set at reset, or must it be set and waited on? | The M_CAN is believed to come out of reset in `INIT`, and ST's HAL sets it and waits anyway rather than assuming. The safe form is to set it, read it back and refuse if it does not take, which costs nothing |
 | 2 | Does external loopback really differ from internal only by `MON`? | Inferred above, not read. Visible on the board |
 | 3 | What `TXBC.TFQS` does with a single transmit buffer, versus the older `NDTB` form | The driver branches on an IP core version, and which version this part carries is unread. `CREL` at offset `0x00` reports it, so one register read on the board settles it |
+| 4 | Does one write to `RXF0A` release the whole run of elements read, or only one element? | `[inferred]`, added Tuesday 20 October 2026. The driver reads a run of elements while tracking the index itself and writes one acknowledge carrying the last index, which is evidence about the driver and not a statement about the peripheral. The run: read two frames, acknowledge the second index only, watch the fill level. A fall of two confirms `fifo_rx_ack_index`; a fall of one means this node leaks an element per batch |
 
-Number 3 is the only one that can change code, and it is answered by the first
-image printing `CREL` before it does anything else, which it should do anyway as
-proof that the register block is answering at all.
+Numbers 3 and 4 are the two that can change code. Number 3 is answered by the
+first image printing `CREL` before it does anything else, which it should do
+anyway as proof that the register block is answering at all. Number 4 needs two
+frames and one read of the fill level, and until it is run `src/bus/fifo.c`, the
+queue page and this table all say inferred rather than assuming the convenient
+answer.

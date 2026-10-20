@@ -58,6 +58,11 @@ python tools/gen_element.py --check       # for the build
 python tools/gen_element.py --table       # the table in doc/element.md
 python test/test_element.py               # the layout and its seven invariants
 
+python tools/gen_fifo.py                  # regenerate the queue vectors
+python tools/gen_fifo.py --check          # for the build
+python tools/gen_fifo.py --table          # the tables in doc/node-queues.md
+python test/test_fifo.py                  # the protocol, and an exhaustive sweep
+
 make                                      # needs a C compiler
 ```
 
@@ -335,6 +340,10 @@ caller passes in, converted once before anything is decided.
 | Every configured element has an address, and no two share memory | all 52 elements walked in the memory's own order, each beginning where the previous ended |
 | An element of a section the layout left empty is refused | `rx_buffers` index 0, whose offset is the first transmit event, in both tests |
 | An offset is never handed out as an address | the base subtracted back out on every resolved access, and a base of zero refused |
+| The acknowledge index and the add request mask can never be confused | one rule says the two encodings produce the same number for no index, so a swap is always wrong rather than right by luck |
+| Every status word a sixteen element queue can produce decodes exactly | 8704 words swept, accepted only where the full flag agrees with the fill level |
+| Reading a full queue visits every element once | from all sixteen get indices, which is the wrap as a property rather than as one example |
+| An index the protocol offers is one the message memory can address | the only rule spanning two modules, and the only thing that catches a wrap at the field width |
 | A layout the part would refuse is refused here | 3 of the 4 layout cases, each for a different reason |
 | The three frames step 4 sends are legal, and the rest are refused | `test_frame.py` and `test_frame.c` |
 | A length the format cannot carry has no code | all 65 lengths, both formats |
@@ -365,6 +374,38 @@ Both are silent, and nine bytes is not a flexible-data length at all.
 
 The full table is in [`doc/frame-rules.md`](doc/frame-rules.md), generated
 rather than typed.
+
+## The queues, and the two registers encoded in opposite ways
+
+`msgaddr.c` turns an index into a place. `src/bus/fifo.c` is where the index
+comes from, and where the write that releases or launches an element is
+composed. Nothing in it touches a register: every function takes a status word
+read elsewhere, which is what lets the whole protocol be checked here.
+
+**The receive acknowledge register takes an index. The transmit add request
+register takes a bit per buffer.** `RXF0A <- 3` releases through element 3;
+`TXBAR <- 1 << 3` requests buffer 3. Writing `1 << 3` to the acknowledge
+register releases through element 8 and loses five elements nobody read. Writing
+`3` to the add request register requests buffers 0 and 1, one of which was never
+filled. Both writes are accepted and neither errors, so one rule states that the
+two encodings produce the same number for no index at all: a swap is always
+wrong, never right by luck on the index somebody happened to test.
+
+Three more that are just as quiet. An empty queue still reports a get index, and
+reading there returns a frame already delivered. The indices wrap at the
+configured size and not at the six bit width of the field, so a wrap at 64 in a
+queue of 16 addresses memory the layout never created. And the message-lost flag
+is the only trace a dropped frame leaves, and it is sticky.
+
+One claim is still inferred: that a single acknowledge releases the whole run of
+elements read rather than one element. The driver does it that way, which is
+evidence about the driver and not a statement about the peripheral. Two frames
+read, the second index acknowledged, and the fill level watched: if it falls by
+one rather than two, this node leaks an element per batch. That run is listed
+with the chapter's other open questions.
+
+The protocol, the tables and what the mutations proved are in
+[`doc/node-queues.md`](doc/node-queues.md).
 
 ## Where an element lives, and the empty section that collides
 
