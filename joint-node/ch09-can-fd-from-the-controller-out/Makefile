@@ -3,8 +3,9 @@
 # Stage one is the arithmetic: bit timing, the message memory layout and
 # the frame length code. Stage two is the controller's configuration, as
 # a plan and an executor, both of which run against a register model here
-# rather than against silicon. Nothing in this Makefile needs a board,
-# and nothing in it claims a wire.
+# rather than against silicon, and the element layout, which is the shape a
+# frame takes in the controller's own memory. Nothing in this Makefile needs a
+# board, and nothing in it claims a wire.
 #
 #     make            the whole stage
 #     make pytest     the half that runs on the authoring laptop
@@ -43,6 +44,7 @@ generated:
 	@$(PYTHON) tools/gen_frame_vectors.py --check
 	@$(PYTHON) tools/gen_initplan.py --check
 	@$(PYTHON) tools/gen_planrun.py --check
+	@$(PYTHON) tools/gen_element.py --check
 
 pytest:
 	@$(PYTHON) test/test_bittiming.py
@@ -50,6 +52,7 @@ pytest:
 	@$(PYTHON) test/test_frame.py
 	@$(PYTHON) test/test_initplan.py
 	@$(PYTHON) test/test_planrun.py
+	@$(PYTHON) test/test_element.py
 
 $(BUILD):
 	@mkdir -p $(BUILD)
@@ -79,12 +82,20 @@ $(BUILD)/test_initplan: $(BUILD) test/test_initplan.c src/bus/initplan.c        
 $(BUILD)/test_planrun: $(BUILD) test/test_planrun.c src/bus/planrun.c                        src/bus/planrun.h src/bus/initplan.c                        src/bus/bittiming.c src/bus/msgram.c                        test/vectors_planrun.h
 	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_planrun.c 	    src/bus/planrun.c src/bus/initplan.c src/bus/bittiming.c 	    src/bus/msgram.c
 
-ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun
+# The element layout, against the same vectors the Python half uses. It links
+# msgram too, for one assertion only: that the two files agree about how many
+# bytes a frame occupies in the message memory. They are declared in different
+# headers and nothing but this test makes them meet.
+$(BUILD)/test_element: $(BUILD) test/test_element.c src/bus/element.c src/bus/element.h src/bus/frame.c src/bus/msgram.c test/vectors_element.h
+	@$(CC) $(CFLAGS) $(INCLUDE) -o $@ test/test_element.c src/bus/element.c src/bus/frame.c src/bus/msgram.c
+
+ctest: $(BUILD)/test_bittiming $(BUILD)/test_msgram $(BUILD)/test_frame        $(BUILD)/test_initplan $(BUILD)/test_planrun $(BUILD)/test_element
 	@./$(BUILD)/test_bittiming
 	@./$(BUILD)/test_msgram
 	@./$(BUILD)/test_frame
 	@./$(BUILD)/test_initplan
 	@./$(BUILD)/test_planrun
+	@./$(BUILD)/test_element
 
 # The table in doc/bit-timing.md comes from here rather than from a person
 # typing it, so it cannot drift away from the arithmetic it describes.
@@ -92,6 +103,7 @@ table:
 	@$(PYTHON) tools/gen_bt_vectors.py --table
 	@$(PYTHON) tools/gen_initplan.py --table
 	@$(PYTHON) tools/gen_planrun.py --table
+	@$(PYTHON) tools/gen_element.py --table
 
 clean:
 	@rm -rf $(BUILD)

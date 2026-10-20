@@ -48,6 +48,11 @@ python tools/gen_planrun.py --check       # for the build
 python tools/gen_planrun.py --table       # the table in doc/node-order.md
 python test/test_planrun.py               # six register models, five verdicts
 
+python tools/gen_element.py               # regenerate the element vectors
+python tools/gen_element.py --check       # for the build
+python tools/gen_element.py --table       # the table in doc/element.md
+python test/test_element.py               # the layout and its seven invariants
+
 make                                      # needs a C compiler
 ```
 
@@ -326,6 +331,11 @@ caller passes in, converted once before anything is decided.
 | The three frames step 4 sends are legal, and the rest are refused | `test_frame.py` and `test_frame.c` |
 | A length the format cannot carry has no code | all 65 lengths, both formats |
 | A length that has a code comes back as itself | the 16 round trips |
+| A frame becomes the exact words the message memory holds | `test_element.py` and `test_element.c`, 23 frames, 15 built and 8 refused |
+| The two identifier formats are distinguishable | the matched pair, `0x123` standard against `0x123` extended, whose first words differ |
+| The payload is little endian within each word | the probe `11 22 33 44`, which must pack to `0x44332211` |
+| The element and the layout agree on what a frame costs | 18 words either side, asserted across `element.h` and `msgram.h` |
+| Sizing an element refuses exactly what building one refuses | both zero length cases, the legal one and the refused one, checked against `frame_ok` rather than against the vectors |
 | The loopback itself and the first frame | **not here yet**, they need the board |
 
 ## The length code, which is the other silent one
@@ -347,6 +357,30 @@ Both are silent, and nine bytes is not a flexible-data length at all.
 
 The full table is in [`doc/frame-rules.md`](doc/frame-rules.md), generated
 rather than typed.
+
+## The element, where the identifier format is not a function of the identifier
+
+A length code is only half of building a frame. The other half is the shape the
+message memory holds it in: **two header words then the payload**, four bytes to
+a word, least significant byte first.
+
+Identifier `0x123` sent as a standard frame and identifier `0x123` sent as an
+extended frame are different frames, and a receiver filtering for one does not
+see the other. The first draft of `tools/gen_element.py` chose the format from
+the magnitude of the number. That made every small extended identifier
+unreachable, and it did so without a symptom: the frames went out, they simply
+were not the frames asked for. So the format is a parameter, a value that will
+not fit the format asked for is refused rather than promoted, and the vectors
+carry the matched pair whose first words have to differ.
+
+Nine bytes has no code, so this end refuses it where the Raspberry Pi's
+SocketCAN pads it to twelve with three zero bytes, which chapter 10 measured on
+the real bus. Two ends of one bus with two policies. The difference is
+deliberate at this end, because padding sends bytes the caller never wrote and a
+receiver cannot tell those from data.
+
+The layout is in [`doc/element.md`](doc/element.md), with all twenty-one frames
+and both header words of each.
 
 ## The message memory, and the budget row it corrected
 

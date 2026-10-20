@@ -205,6 +205,18 @@ jobs:
           python tools/gen_planrun.py --check
           python test/test_planrun.py
 
+      # The shape a frame takes in the controller's own memory. Three things in
+      # this layout fail silently rather than erroring: the identifier sits in
+      # different bits depending on the format, the length written is a code and
+      # not a length, and the payload is little endian within each word. The
+      # vectors caught two defects of the generator's own design before any of it
+      # reached a board.
+      - name: Chapter 9, the element layout and its three silent failures
+        working-directory: joint-node/ch09-can-fd-from-the-controller-out
+        run: |
+          python tools/gen_element.py --check
+          python test/test_element.py
+
       # The first time chapter 9's C meets a compiler. It is written on a laptop
       # that has none, so until this step runs the honest claim is that the
       # Python half is proven and the C half is only written.
