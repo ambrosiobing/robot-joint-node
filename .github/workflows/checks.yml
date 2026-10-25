@@ -101,12 +101,14 @@ jobs:
       # at run time, and the startup's four silent mistakes are checked by
       # construct: three of them produce a board that does nothing at all,
       # which is the least informative failure available.
-      - name: Chapter 4, the memory map and the startup
+      - name: Chapter 4, the memory map, the startup and the console arithmetic
         working-directory: joint-node/ch04-the-board-support-package
         run: |
           python tools/gen_memmap.py --check
+          python tools/gen_baud.py --check
           python test/test_memmap.py
           python test/test_startup.py
+          python test/test_baud.py
 
       # And the only check a host can make about an IMAGE rather than about
       # source. The source checks cannot see what the linker did: a vector

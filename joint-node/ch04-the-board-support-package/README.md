@@ -16,6 +16,8 @@ python check_layers.py      # the rule on its own, which is what CI calls
 python tools/gen_memmap.py  # regenerate memory.ld and memmap.h
 python test/test_memmap.py  # the map, the script, and their agreement
 python test/test_startup.py # the startup's four silent mistakes
+python tools/gen_baud.py    # regenerate the baud vectors
+python test/test_baud.py    # the divisor, its error, and every refusal reached
 ```
 
 Nothing above the board layer may include a vendor header. The checker walks the
@@ -104,7 +106,29 @@ than two, because the link is the one check this laptop cannot run.
 
 The full account is in [`doc/memory-map.md`](doc/memory-map.md).
 
-**Still missing: the console, and the device interrupt table.** `[vendor]` The
+**The console's arithmetic, Sunday 25 October 2026.** The divisor has the same
+shape as chapter 9's bit timing and fails the same way: wrong by a lot gives
+obvious rubbish, wrong by two or three per cent gives output that is mostly
+readable, and the natural reading of that is a loose wire rather than
+arithmetic. So it is solved and checked the same way, in `tools/gen_baud.py`
+with [`doc/console.md`](doc/console.md) carrying the register map and the table.
+
+`[vendor]` The board's own device tree settles the console: USART3, PD8
+transmit, PD9 receive, 115200. `[unconfirmed]` Its kernel clock does not, so the
+table solves every plausible rate rather than picking one, and the first image
+will print the clock it assumed next to the divisor it computed. A console
+cannot check its own baud: it writes into a transmitter and never hears back, so
+the terminal is the instrument and the printed numbers are what make legible
+output mean something.
+
+One rule in that file is about the rules. Five refusal reasons are written in
+the solver and when they were first checked only three were reachable: the case
+meant to trip the error limit was refused by the divisor floor first, and the
+prescaler loop's exhaustion path had no case at all. A refusal nothing reaches
+is a claim rather than a behaviour, so there is now a rule requiring each one to
+be reached, and removing either new case makes that rule fail.
+
+**Still missing: `console.c` itself, and the device interrupt table.** `[vendor]` The
 board's own device tree settles what the console is, USART3 on PD8 and PD9 at
 115200, so that piece is next. The device vector positions have to be read from
 a checked source before anything enables an interrupt, and the checker refuses a
