@@ -135,11 +135,51 @@ whose divisor is a legal 17 and whose rounding error alone is 29.4 per thousand
 against a limit of 25, and 1 baud from 500 MHz, where even the 256 prescaler
 leaves the divisor past sixteen bits.
 
-## Still to come
+## The code, Friday 6 November 2026
 
-`src/bsp/console.c` itself: the enable bits with their read-backs, the pin
-configuration by read, modify, write, `BRR` from the arithmetic above, and a
-blocking transmit with no library call and no allocation. Then the first image
-that says anything, and with it the four questions the board can finally answer:
-the stack high-water mark, `CREL` for the controller's core version, whether one
-`RXF0A` write releases a whole run of elements, and the loopback.
+`src/bsp/console.c` exists, and `src/bsp/baud.c` carries the arithmetic above
+separately so that it can be checked on a host against the same vectors. Five
+things in the console go wrong quietly, and each has a rule that was proved able
+to fail by writing the mistake and watching the rule name it.
+
+| Mistake | What happens | The rule |
+|---|---|---|
+| a plain write to `MODER`, `OSPEEDR` or `PUPDR` | one word covers all sixteen pins of port D, two of which are chapter 9's bus, so the other fourteen take whatever the expression says; a console that works while having returned `PD0` and `PD1` to inputs is the worst outcome available | every write to those registers must derive from the register's own prior value, and `init` snapshots the non-owned bits and refuses with `pins-disturbed` if any moved |
+| an enable bit that did not take | a peripheral with no clock accepts every write and reads back zeroes, which is the same picture as a working console nobody is listening to | both enable bits are set and read back, which matters because their offsets are `[vendor]` reasoning from a sibling-named header |
+| clearing the status flags after the byte | `TC` left set by the previous character makes a later flush return at once, before this byte has gone anywhere | the clear must appear before the `TDR` write, checked by position |
+| `BRR` written to a running peripheral | the divisor has no write guarantee while the USART is enabled, and one that half takes is a rate nobody computed | `CR1` must be cleared before `BRR`, checked by position |
+| an unbounded wait on a flag | a blank console and no clue, indistinguishable from a part that never started | every wait is counted against a bound, and a bound of zero is refused |
+
+`AFRL` and `AFRH` split at pin 8, so the alternate-function writes cannot reach
+`PD0` or `PD1` at all. That is a property of where the split falls rather than
+care taken in the code, and it is written down because the next peripheral on
+this port may not be so lucky.
+
+**Every function returns a bool.** A void putchar cannot report that the
+transmitter never became ready, and its caller would print a whole banner into
+nothing. The same rule made `baud_solve` return a verdict rather than a bare
+false: the generator refuses five different ways and each one has to be
+reachable through the C signature, or the parity test would be asking this side
+a question it cannot answer.
+
+**`[vendor]` The pin details are from the pinctrl file for this exact package,
+`stm32h7a3z(g-i)txq`:** `usart3_tx_pd8` at AF7 with `bias-pull-up`,
+`usart3_rx_pd9` at AF7. The pull-up is applied to the transmit pin alone because
+that is what the file specifies, rather than symmetrically because that would
+look tidier. The same file gives `fdcan1_rx_pd0` and `fdcan1_tx_pd1` at AF9,
+which independently confirms what chapter 9 settled by reasoning when st.com was
+unreachable.
+
+## What is still not answered
+
+`[unconfirmed]` Which clock USART3 actually takes. Nothing here measures it and
+nothing can: that is why `console_report` prints the assumed clock, the
+prescaler, the divisor, the register word, the achieved rate and the error, and
+then says in as many words that a legible line confirms the assumption. The link
+probe passes 64 MHz, the HSI this family comes out of reset on, because a value
+had to be chosen for something that links rather than runs.
+
+And the first image that prints is still not written. When it is, four questions
+become answerable that are `[unconfirmed]` in two chapters today: the stack
+high-water mark, `CREL` for the controller's core version, whether one `RXF0A`
+write releases a whole run of elements, and the loopback itself.

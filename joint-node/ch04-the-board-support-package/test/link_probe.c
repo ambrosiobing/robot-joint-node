@@ -13,6 +13,8 @@
  */
 #include <stdint.h>
 
+#include "console.h"
+
 /* In .data, because it has a non-zero initialiser. The value is distinctive so
  * that a copy that moved the wrong bytes shows up as this number being absent
  * from the image rather than as a zero that could have come from anywhere. */
@@ -23,8 +25,28 @@ volatile uint32_t g_zeroed;
 
 int main(void);
 
+/* The console is REACHED from here rather than merely linked beside it. With
+ * -ffunction-sections and --gc-sections, a console nothing calls is discarded
+ * and the link would succeed while proving nothing about the file that was just
+ * added. This never runs: the addresses are the real ones and this image is not
+ * flashed anywhere.
+ *
+ * `[unconfirmed]` The 64 MHz is the HSI this family comes out of reset on, and
+ * which clock USART3 actually takes has not been read. That is exactly what
+ * console_report exists to print.
+ */
+static console_t g_console;
+
 int main(void)
 {
     g_zeroed = g_initialised;
+
+    if (console_init(&g_console, CONSOLE_RCC_BASE, CONSOLE_GPIOD_BASE,
+                     CONSOLE_USART3_BASE, 64000000u, 115200u, 100000u)) {
+        (void) console_report(&g_console);
+        (void) console_write(&g_console, "link probe: reached main\r\n");
+        (void) console_flush(&g_console);
+    }
+
     return (int) (g_zeroed & 0x7Fu);
 }

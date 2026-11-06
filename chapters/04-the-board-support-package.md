@@ -148,8 +148,9 @@ joint-node/
       memory.ld                       # + BUILT, generated from the map
       memmap.h                        # + BUILT, generated from the map
       startup.c                       # + BUILT: the first two words
-      console.c  console.h            # the console, NOT BUILT, though its
-                                      #   arithmetic and register map are
+      console.c  console.h            # + BUILT: the registers, every write
+                                      #   read back, every wait bounded
+      baud.c     baud.h               # + BUILT: the divisor, no register in it
       board.h                         # the contract, NOT BUILT
       board_pins.h board_clocks.h     # generated, NOT BUILT
       board_caps.h                    # what this board is not, NOT BUILT
@@ -168,7 +169,8 @@ joint-node/
   test/
     test_memmap.py                    # + BUILT: the map and the script
     test_startup.py                   # + BUILT: four silent mistakes
-    test_baud.py                      # + BUILT: the divisor and its refusals
+    test_baud.py  test_baud.c          # + BUILT: the divisor, both halves
+    test_console.py                   # + BUILT: five silent mistakes
     link_probe.c                      # + BUILT: so the script can be linked
   doc/
     memory-map.md                     # + BUILT
@@ -176,7 +178,7 @@ joint-node/
   README.md
 ```
 
-**What is built and what is not, as of Sunday 25 October 2026.** The rows marked BUILT above exist; the rest are this chapter's plan and do not. The rule shipped first and alone, deliberately, because it is the one thing that has to exist before the code it protects. The image floor followed on Tuesday 20 October 2026, after chapter 9 established that nothing in this volume had ever produced a firmware image: the memory map, the linker script and the startup are built and checked, and the first image linked that day. The console's arithmetic and register map followed on Sunday 25 October 2026, and `console.c` itself and the device interrupt table are still not built. The checker that enforces the rule is `check_layers.py` at the chapter root, not `check_layering.py` under `tools/` as an earlier draft of this page had it.
+**What is built and what is not, as of Friday 6 November 2026.** The rows marked BUILT above exist; the rest are this chapter's plan and do not. The rule shipped first and alone, deliberately, because it is the one thing that has to exist before the code it protects. The image floor followed on Tuesday 20 October 2026, after chapter 9 established that nothing in this volume had ever produced a firmware image: the memory map, the linker script and the startup are built and checked, and the first image linked that day. The console's arithmetic and register map followed on Sunday 25 October 2026 and the console itself on Friday 6 November 2026. What is still not built is the device interrupt table, whose positions have to be read from a checked source before anything enables an interrupt, and the first image that actually prints. The checker that enforces the rule is `check_layers.py` at the chapter root, not `check_layering.py` under `tools/` as an earlier draft of this page had it.
 
 ## Steps
 

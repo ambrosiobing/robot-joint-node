@@ -18,6 +18,7 @@ python test/test_memmap.py  # the map, the script, and their agreement
 python test/test_startup.py # the startup's four silent mistakes
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
+python test/test_console.py # the console's five silent mistakes, by construct
 ```
 
 Nothing above the board layer may include a vendor header. The checker walks the
@@ -128,7 +129,26 @@ prescaler loop's exhaustion path had no case at all. A refusal nothing reaches
 is a claim rather than a behaviour, so there is now a rule requiring each one to
 be reached, and removing either new case makes that rule fail.
 
-**Still missing: `console.c` itself, and the device interrupt table.** `[vendor]` The
+**The console itself, Friday 6 November 2026.** `src/bsp/console.c` and
+`src/bsp/baud.c`. The arithmetic is separate so it can run on a host against the
+same vectors the generator wrote; the console is nothing but registers, so it is
+checked by construct instead, and each of its five quiet mistakes has a rule
+proved able to fail.
+
+Two of those rules are about ORDER, which no amount of reading the registers
+afterwards would reveal: the status flags must be cleared BEFORE the byte, or a
+transmission-complete flag left by the previous character makes a later flush
+return before this byte has gone; and `CR1` must be cleared before `BRR`, or the
+divisor is written to a running peripheral.
+
+The sharpest rule guards somebody else's work. `MODER`, `OSPEEDR` and `PUPDR`
+are one word for all sixteen pins of port D, and two of them are chapter 9's
+bus, so every write to those registers must derive from the register's own prior
+value and `init` refuses if any non-owned bit moved. A console that worked while
+quietly returning `PD0` and `PD1` to inputs would have chapter 9 debugging a bus
+this file broke.
+
+**Still missing: the device interrupt table, and the first image that prints.** `[vendor]` The
 board's own device tree settles what the console is, USART3 on PD8 and PD9 at
 115200, so that piece is next. The device vector positions have to be read from
 a checked source before anything enables an interrupt, and the checker refuses a

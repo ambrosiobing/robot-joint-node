@@ -2,7 +2,8 @@
 #
 #     make            everything that needs no toolchain
 #     make layers     chapter 4's rule over the whole joint-node tree
-#     make pytest     the memory map and the startup, checked by construct
+#     make pytest     the map, the startup, the divisor and the console
+#     make ctest      needs a host C compiler: the divisor against its vectors
 #     make linkcheck  needs arm-none-eabi-gcc: links a real image and reads
 #                     its first two words back
 #     make table      the tables in doc/memory-map.md and doc/console.md
@@ -18,7 +19,7 @@ CROSS      ?= arm-none-eabi-gcc
 CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
 CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding -fno-common
 
-.PHONY: all generated layers pytest linkcheck table clean
+.PHONY: all generated layers pytest ctest linkcheck table clean
 
 all: generated layers pytest
 	@echo
@@ -40,9 +41,22 @@ pytest:
 	@$(PYTHON) test/test_memmap.py
 	@$(PYTHON) test/test_startup.py
 	@$(PYTHON) test/test_baud.py
+	@$(PYTHON) test/test_console.py
 
 $(BUILD):
 	@mkdir -p $(BUILD)
+
+# baud.c is pure arithmetic with no register in it, so it runs on a host and is
+# compared against the same vectors the generator wrote. console.c cannot be:
+# it is nothing but registers, and test_console.py checks it by construct.
+CC      ?= cc
+CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O1 -g
+
+$(BUILD)/test_baud: $(BUILD) test/test_baud.c src/bsp/baud.c src/bsp/baud.h test/vectors_baud.h
+	@$(CC) $(CFLAGS) -Isrc/bsp -Itest -o $@ test/test_baud.c src/bsp/baud.c
+
+ctest: $(BUILD)/test_baud
+	@./$(BUILD)/test_baud
 
 # A REAL IMAGE, because a linker script nothing links against is unverified.
 #
@@ -56,8 +70,10 @@ $(BUILD):
 # it would leave that pair untested.
 linkcheck: $(BUILD) generated pytest
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/baud.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/console.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c test/link_probe.c -o $(BUILD)/link_probe.o
-	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/image.map -T src/bsp/stm32h7a3.ld $(BUILD)/startup.o $(BUILD)/link_probe.o -o $(BUILD)/image.elf
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/image.map -T src/bsp/stm32h7a3.ld $(BUILD)/startup.o $(BUILD)/baud.o $(BUILD)/console.o $(BUILD)/link_probe.o -o $(BUILD)/image.elf
 	@arm-none-eabi-size $(BUILD)/image.elf
 	@$(PYTHON) tools/check_image.py $(BUILD)/image.elf
 

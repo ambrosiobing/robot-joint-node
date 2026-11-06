@@ -109,6 +109,7 @@ jobs:
           python test/test_memmap.py
           python test/test_startup.py
           python test/test_baud.py
+          python test/test_console.py
 
       # And the only check a host can make about an IMAGE rather than about
       # source. The source checks cannot see what the linker did: a vector
@@ -123,6 +124,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-arm-none-eabi
           arm-none-eabi-gcc --version | head -1
+          make ctest
           make linkcheck
 
       # Deliberately placed ahead of the virtual interface step below, which
