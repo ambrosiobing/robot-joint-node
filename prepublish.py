@@ -157,6 +157,8 @@ def main():
     ok &= no_source_committed()
     ok &= run("House rules over every chapter", [sys.executable, "lint.py"])
     ok &= run("Book-level consistency", [sys.executable, "crosscheck.py"])
+    ok &= run("Every README still describes its own chapter",
+              [sys.executable, "check_readmes.py"])
 
     print()
     if unrendered:

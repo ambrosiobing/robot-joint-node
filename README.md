@@ -115,6 +115,7 @@ a single diagram in a browser without them.
     python prepublish.py                       everything the workflow cannot see
     python lint.py                             house rules over every chapter
     python crosscheck.py                       book-level consistency
+    python check_readmes.py                    every README still describes its chapter
     python build.py --check sections/j07.tex   compile one chapter and report on it
 
 All four read the authoring sources, which are not published, so all four run on
@@ -124,6 +125,15 @@ regenerated moved, if a chapter is missing a figure or its project line, if a
 source has been committed by accident, or if either of the other two checks
 reports a problem.
 
+`check_readmes.py` is the exception to all of that: it reads the published tree
+only, so it runs on a push as well. It exists because an audit on
+Sunday 8 November 2026 found four kinds of drift between the software and the
+prose that indexes it, including this tree missing from the layout table above
+and chapter 9 missing from the software index while carrying nine modules. A
+generator, a test or a shipping source file that is not named in the README that
+indexes it now fails the build, because a rule that depends on remembering is
+not a rule.
+
 `lint.py` checks prose for em and en dashes, non-ASCII characters, violent
 idioms and the required section skeleton, and checks code blocks for non-ASCII
 and for lines longer than the page can print. `crosscheck.py` checks what
@@ -132,8 +142,17 @@ cross-references, chapter titles against the authoring guide, and that every
 date is written in full. **Neither can run on a push any more**, because the
 runner cannot see the sources they read; they run in `prepublish.py` instead.
 What [`.github/workflows/checks.yml`](.github/workflows/checks.yml) still does
-is check the code, the links, and that no authoring source has reached the
-published tree.
+is the code, which has grown into most of the workflow. It runs every
+generator's `--check`, every chapter's own tests, compiles the C for the host
+and runs it, compiles chapter 9's bus and board layers **for the part** at
+`cortex-m7` with hard float, and links chapter 4's startup, console and linker
+script into a real image whose first two words it reads back out of the `.elf`.
+It also checks the links and that no authoring source has reached the published
+tree.
+
+The C is built there and in WSL on the skyhorizon laptop, never on the authoring
+machine, which has no compiler by house rule. So for any change to the software
+the workflow is where the first information about it comes from.
 
 One exemption is worth knowing about. `\pubdate{April 2010}` marks a date a
 publisher gives to month precision only. The house rule is that every date the
@@ -156,6 +175,7 @@ is *not* wrapped is still reported as a defect.
 | `AUTHORING.md` | the contract every chapter follows, the honesty rule, the confirm-before-writing list, the variant matrix |
 | `SOURCE.md` | the prior-art pool with verification marks, the four licence categories, the corrections, the claimable gaps, the open questions |
 | `CONTENTS.md` | the chapter table, generated, which the table above follows |
+| `joint-node/` | **the software**, one directory per chapter that has any, with its own README, tests and Makefile. Five of the twenty so far, and [its README](joint-node/README.md) is the only honest place to read which |
 | `build/` | scratch output, ignored, safe to delete |
 
 Chapter files use a `j` prefix so that a cross-reference or a copied figure can

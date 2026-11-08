@@ -14,8 +14,10 @@ make table                  # the table in doc/memory-map.md
 
 python check_layers.py      # the rule on its own, which is what CI calls
 python tools/gen_memmap.py  # regenerate memory.ld and memmap.h
+python tools/gen_baud.py    # regenerate the baud vectors
+python tools/check_image.py build/image.elf   # a linked image's first two words
 python test/test_memmap.py  # the map, the script, and their agreement
-python test/test_startup.py # the startup's four silent mistakes
+python test/test_startup.py # src/bsp/startup.c's four silent mistakes
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -88,15 +90,17 @@ That field started as a boolean and a mutation flipping one character from
 reason to carry a provenance marker, so declaring the 384 KB nodes costs a
 sentence somebody has to stand behind.
 
-**The startup.** Sixteen core vectors, the `.data` copy, the `.bss` zeroing.
+**The startup, `src/bsp/startup.c`.** Sixteen core vectors, the `.data` copy,
+the `.bss` zeroing.
 Four of its mistakes have no symptom and three of those produce a board that
 does nothing at all, so each is checked by construct and each rule was proved
 able to fail: `_sstack` where `_estack` belongs, a copy reading its own
 destination, `memcpy` called before the memory it would use exists, and a table
 discarded by `--gc-sections`.
 
-`make linkcheck` links a real image and reads its first two words back out of
-the `.elf`, which is the only check available without a board.
+`make linkcheck` links a real image and `tools/check_image.py` reads its first
+two words back out of the `.elf`, which is the only check available without a
+board.
 
 The first link failed, and for a reason worth keeping: **GNU ld does not
 concatenate adjacent string literals.** One of the four assertion messages was

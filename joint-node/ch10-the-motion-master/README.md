@@ -34,10 +34,11 @@ about it, in the order you would want them:
 | [doc/datasheet-notes.md](doc/datasheet-notes.md) | What the manufacturers specify, part by part, with a page number on every figure. Ten datasheets read; the three ST documents would not download |
 | [doc/rewiring.md](doc/rewiring.md) | The argument. Everything that could be changed, each with a verdict and a reason, plus the two patterns behind six wrong readings |
 | [doc/bench-bring-up.md](doc/bench-bring-up.md) | The sequence. Card, configuration, order of operations, and what loopback does and does not prove |
-| [doc/first-light.md](doc/first-light.md) | **The measurements.** Three runs on Wednesday 7 October 2026 with photographs: internal loopback, the board wired to itself as a real two node bus, then this chapter's own tools finding that bus's ceiling. 278,513 frames, zero errors, and the volume's first measured frame length |
+| [doc/first-light.md](doc/first-light.md) | **The measurements**, and the longest document here. Five numbered runs from Wednesday 7 October 2026 to Monday 19 October 2026, with photographs: internal loopback, the board wired to itself as a two node bus, this chapter's own tools finding that bus's ceiling at 278,513 frames with zero errors, then a **three node bus** with the node end on the wire through a loose SN65HVD230. It also records the corrections those runs forced, including the two-arm comparison that was void because the module had been removed the day before |
 
 The first four were written before anything was wired, which is the whole point,
-and the fifth is what happened when it was. Reading
+and the fifth is what happened when it was, and kept happening: it has grown a
+run at a time rather than being written once. Reading
 the schematic's text layer took about two minutes per question and answered
 several that had been queued for the bench, including one nobody had thought to
 ask: there is a 1k resistor on the classic transceiver's slope control pin.

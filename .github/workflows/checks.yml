@@ -90,6 +90,15 @@ jobs:
         with:
           python-version: "3.12"
 
+      # Software added without the prose that indexes it is software nobody
+      # finds. An audit on Sunday 8 November 2026 found four kinds of that
+      # drift, including the whole software tree missing from the front page
+      # and chapter 9 missing from the state table while carrying nine
+      # modules. None of it was a wrong decision; each was a README nobody
+      # updated because nothing made them.
+      - name: Every README still describes its own chapter
+        run: python check_readmes.py
+
       - name: Chapter 4, the layer rule
         working-directory: joint-node/ch04-the-board-support-package
         run: |
