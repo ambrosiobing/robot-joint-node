@@ -30,21 +30,29 @@
  *     without a vector table links and reports a sensible size. The script does
  *     KEEP it; `used` here stops the compiler discarding it first.
  *
- * `[unconfirmed]` ONLY THE SIXTEEN CORE VECTORS ARE HERE. The device interrupt
- * table for this part is not in this file, because its positions are a list of
- * numbers that has to be read from a checked source and has not been. Nothing
- * in this volume enables a device interrupt yet, so the table being short is
- * harmless TODAY and stops being harmless the moment one is enabled: the core
- * fetches the handler from past the end of the table and branches to whatever
- * is in the next words of flash. Before any interrupt is enabled, the table
- * needs its device entries from a source, one per row, checked.
+ * `[vendor]` THE TABLE ITSELF IS NOT IN THIS FILE ANY MORE. It moved to the
+ * generated `vectors.c` on Monday 9 November 2026, when the device positions
+ * were read from a source: all 171 entries, the 16 core exceptions and the 155
+ * device positions, from ST's own `IRQn_Type` enum and corroborated against
+ * Zephyr's device tree. See `tools/gen_vectors.py` and `doc/interrupts.md`.
+ *
+ * Until then this file carried the 16 core vectors and nothing else, which was
+ * correct exactly as long as nothing enabled a device interrupt and would have
+ * stopped being correct the moment something did.
+ *
+ * WHAT STAYS HERE is the reset, the handlers the core exceptions name, and the
+ * default they all alias. Those are hand written because each one is a decision
+ * rather than a row: the infinite loop rather than a reset, the copy before the
+ * zero, and the order of the two.
  */
 #include <stdint.h>
 
 /* From the linker script. Addresses, not values: every one of these is a
  * symbol the script placed, and taking the address is the only correct way to
  * read it. */
-extern uint32_t _estack;        /* the END of the stack region */
+/* _estack is declared in vectors.c, which is the file that needs it: the
+ * initial stack pointer is entry 0 of the table and this file no longer holds
+ * the table. */
 extern uint32_t _sidata;        /* where .data is STORED, in flash */
 extern uint32_t _sdata;         /* where .data GOES, in DTCM */
 extern uint32_t _edata;
@@ -91,34 +99,11 @@ void Default_Handler_alias(void)
     Default_Handler();
 }
 
-/* The table. Sixteen core entries, as uintptr_t rather than function pointers
- * so that the first one, which is an address and not a function, needs no cast
- * between pointer kinds.
- *
- * `used` stops the compiler discarding it, and the script's KEEP stops the
- * linker doing so. Both are needed: they are different passes. */
-__attribute__((section(".isr_vector"), used))
-const uintptr_t g_isr_vector[] = {
-    (uintptr_t) &_estack,               /* 0: the END of the stack */
-    (uintptr_t) Reset_Handler,          /* 1 */
-    (uintptr_t) NMI_Handler,            /* 2 */
-    (uintptr_t) HardFault_Handler,      /* 3 */
-    (uintptr_t) MemManage_Handler,      /* 4 */
-    (uintptr_t) BusFault_Handler,       /* 5 */
-    (uintptr_t) UsageFault_Handler,     /* 6 */
-    0u,                                 /* 7, reserved */
-    0u,                                 /* 8, reserved */
-    0u,                                 /* 9, reserved */
-    0u,                                 /* 10, reserved */
-    (uintptr_t) SVC_Handler,            /* 11 */
-    (uintptr_t) DebugMon_Handler,       /* 12 */
-    0u,                                 /* 13, reserved */
-    (uintptr_t) PendSV_Handler,         /* 14 */
-    (uintptr_t) SysTick_Handler,        /* 15 */
-    /* The device interrupts begin at 16 and are not here. See the note at the
-     * top: nothing enables one yet, and the list has to be read rather than
-     * recalled before anything does. */
-};
+/* The table used to be here. It is in vectors.c now, generated, because 155
+ * of its 171 entries are a list of positions rather than a list of decisions
+ * and 21 of those positions are reserved holes that a hand written table gets
+ * wrong by closing. `Default_Handler_alias` below is what every one of its
+ * device entries aliases to, which is why it is not static. */
 
 void Reset_Handler(void)
 {

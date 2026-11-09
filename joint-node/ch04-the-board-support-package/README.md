@@ -8,9 +8,10 @@ after it, which is the part that has to exist first or it cannot exist at all.
 ```bash
 make                        # everything that needs no toolchain
 make layers                 # chapter 4's rule over the whole joint-node tree
-make pytest                 # the memory map and the startup, by construct
+make pytest                 # the map, the startup, the vectors, by construct
 make linkcheck              # needs arm-none-eabi-gcc: links a real image
-make table                  # the table in doc/memory-map.md
+make table                  # the tables in doc/memory-map.md, doc/console.md
+                            # and doc/interrupts.md
 
 python check_layers.py      # the rule on its own, which is what CI calls
 python tools/gen_memmap.py  # regenerate memory.ld and memmap.h
@@ -18,6 +19,8 @@ python tools/gen_baud.py    # regenerate the baud vectors
 python tools/check_image.py build/image.elf   # a linked image's first two words
 python test/test_memmap.py  # the map, the script, and their agreement
 python test/test_startup.py # src/bsp/startup.c's four silent mistakes
+python tools/gen_vectors.py # regenerate src/bsp/vectors.c and vectors.h
+python test/test_vectors.py # the 171 vectors, the offset, the reserved holes
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -67,7 +70,7 @@ That file is the input to most later chapters, so it is the highest-value thing
 missing from this tree. It is not started, and saying it is started would make
 every chapter that cites it look further along than it is.
 
-## The image floor, two of the four pieces built
+## The image floor, four of the four pieces built
 
 Started Tuesday 20 October 2026, after chapter 9 established what was missing.
 
@@ -90,8 +93,9 @@ That field started as a boolean and a mutation flipping one character from
 reason to carry a provenance marker, so declaring the 384 KB nodes costs a
 sentence somebody has to stand behind.
 
-**The startup, `src/bsp/startup.c`.** Sixteen core vectors, the `.data` copy,
-the `.bss` zeroing.
+**The startup, `src/bsp/startup.c`.** The `.data` copy and the `.bss`
+zeroing. The vector table itself left this file on Monday 9 November 2026; see
+below.
 Four of its mistakes have no symptom and three of those produce a board that
 does nothing at all, so each is checked by construct and each rule was proved
 able to fail: `_sstack` where `_estack` belongs, a copy reading its own
@@ -152,11 +156,41 @@ value and `init` refuses if any non-owned bit moved. A console that worked while
 quietly returning `PD0` and `PD1` to inputs would have chapter 9 debugging a bus
 this file broke.
 
-**Still missing: the device interrupt table, and the first image that prints.** `[vendor]` The
-board's own device tree settles what the console is, USART3 on PD8 and PD9 at
-115200, so that piece is next. The device vector positions have to be read from
-a checked source before anything enables an interrupt, and the checker refuses a
-table that is not exactly sixteen entries so that adding them is deliberate.
+**The device interrupt table, `tools/gen_vectors.py` and the generated
+`src/bsp/vectors.c`.** Read on Monday 9 November 2026, which is what the
+sixteen entry rule in `test_startup.py` was waiting for: all 171 entries, the 16
+core exceptions and the 155 device positions, `[vendor]` from ST's own
+`IRQn_Type` enum and corroborated against Zephyr's device tree for the four
+positions this volume uses. The full reasoning and the table are in
+[`doc/interrupts.md`](doc/interrupts.md).
+
+Three things about that table fail silently and all three are checked by
+`test/test_vectors.py`:
+
+- **The device positions start at vector 16.** Off by one puts every handler one
+  slot out, the image links, and nothing shows it until an interrupt fires. The
+  rule checks four absolute vector numbers written out rather than computed,
+  because a loop built from the same constant as the table agrees with itself.
+- **21 of the 155 device positions are reserved holes, not a tail.** The first
+  is 61. A table built from the list of named interrupts is 21 entries short and
+  wrong above that point. The console's USART3 at 39 is below the first hole,
+  which is the worst version of this: the peripheral brought up first is the one
+  that would not reveal it.
+- **The alignment depends on the length.** 171 entries is 684 bytes and needs
+  1024 byte alignment; the sixteen entry table needed 128. The script said
+  `ALIGN(512)`, correct for 64 bytes and too small for 684. A linker script
+  cannot read a C header, so `test_startup.py` reads both numbers and refuses a
+  mismatch.
+
+It also gates a claim this chapter already made. `BOARD_HAS_ETHERNET` is 0 and
+the proof cited is the vector table; positions 61 and 62 are reserved here and
+are `ETH` and `ETH_WKUP` on the STM32H743, so the generator refuses if either
+ever acquires a name.
+
+**Still missing: the first image that prints.** `[vendor]` The board's own device
+tree settles what the console is, USART3 on PD8 and PD9 at 115200, and the
+console and its divisor are written and compiled. What has not happened is an
+image running on the part, which is what the four board questions all wait on.
 
 ## What chapter 9 established was missing, for the record
 

@@ -110,13 +110,22 @@ jobs:
       # at run time, and the startup's four silent mistakes are checked by
       # construct: three of them produce a board that does nothing at all,
       # which is the least informative failure available.
-      - name: Chapter 4, the memory map, the startup and the console arithmetic
+      # The vector table joined this step on Monday 9 November 2026. Its own
+      # rules are in test_vectors.py: the device positions start at vector 16,
+      # the 21 reserved positions are holes and not a tail, every device
+      # handler is weak, and the script's ALIGN is the one the table's length
+      # requires. That last one spans two files because a linker script cannot
+      # read a C header, and it caught ALIGN(512) immediately: correct for the
+      # 16 entry table and too small for 171.
+      - name: Chapter 4, the memory map, the startup, the vectors and the console arithmetic
         working-directory: joint-node/ch04-the-board-support-package
         run: |
           python tools/gen_memmap.py --check
           python tools/gen_baud.py --check
+          python tools/gen_vectors.py --check
           python test/test_memmap.py
           python test/test_startup.py
+          python test/test_vectors.py
           python test/test_baud.py
           python test/test_console.py
 

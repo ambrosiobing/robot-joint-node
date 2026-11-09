@@ -19,9 +19,15 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
 STARTUP = HERE / "src" / "bsp" / "startup.c"
+VECTORS = HERE / "src" / "bsp" / "vectors.c"
+VECTORS_H = HERE / "src" / "bsp" / "vectors.h"
 SCRIPT = HERE / "src" / "bsp" / "stm32h7a3.ld"
 
-CORE_VECTORS = 16
+# The rules below split across two files as of Monday 9 November 2026: the ones
+# about the TABLE read vectors.c, which is generated, and the ones about the
+# RESET read startup.c, which is not. A test that kept reading startup.c for the
+# table would have passed every table rule vacuously, because the table is not
+# there any more, and rule 2 is the only one that would have objected.
 
 failures = []
 
@@ -55,19 +61,38 @@ def body_of(code, name):
 
 
 def vector_entries(code):
-    """The initialiser list of the table, as a list of expression strings."""
-    m = re.search(r"g_isr_vector\s*\[\s*\]\s*=\s*\{(.*?)\}\s*;", code, re.S)
+    """The initialiser list of the table, as a list of expression strings.
+
+    The length is declared now, `g_isr_vector[171]`, so the pattern allows a
+    bound. A declared bound is worth having: a table with fewer initialisers
+    than its bound is zero filled by C and links silently, and the count below
+    is what catches that.
+    """
+    m = re.search(r"g_isr_vector\s*\[\s*(\d*)\s*\]\s*=\s*\{(.*?)\}\s*;",
+                  code, re.S)
     if not m:
-        return None
-    return [e.strip() for e in m.group(1).split(",") if e.strip()]
+        return None, None
+    bound = int(m.group(1)) if m.group(1) else None
+    return bound, [e.strip() for e in m.group(2).split(",") if e.strip()]
+
+
+def declared(name, header):
+    """One #define from the generated header, as an int."""
+    m = re.search(r"#define\s+" + re.escape(name) + r"\s+(\d+)u?", header)
+    return int(m.group(1)) if m else None
 
 
 def main():
     raw = STARTUP.read_text(encoding="utf-8")
     code = strip_comments(raw)
     script = strip_comments(SCRIPT.read_text(encoding="utf-8"))
+    table_code = strip_comments(VECTORS.read_text(encoding="utf-8"))
+    header = VECTORS_H.read_text(encoding="utf-8")
 
-    entries = vector_entries(code)
+    bound, entries = vector_entries(table_code)
+    want_entries = declared("BOARD_ISR_ENTRIES", header)
+    want_align = declared("BOARD_ISR_ALIGN", header)
+    want_bytes = declared("BOARD_ISR_BYTES", header)
 
     # 1. THE FIRST WORD IS _estack, NOT _sstack. The stack grows down, so the
     # pointer starts at the end of the region. _sstack points at the bottom and
@@ -83,14 +108,28 @@ def main():
             fail("the first vector entry is &_sstack, the BOTTOM of the stack, "
                  "so the first push will underflow out of the region")
 
-        # 2. Sixteen core entries, no more and no fewer. Fewer and the core
-        # fetches a handler from past the end; more means device vectors have
-        # been added, which this chapter has not read from a source yet.
-        if len(entries) != CORE_VECTORS:
-            fail(f"the table has {len(entries)} entries and the sixteen core "
-                 f"vectors are {CORE_VECTORS}; adding device entries means "
-                 f"their positions were read from a checked source, which has "
-                 f"not happened")
+        # 2. AS MANY ENTRIES AS THE GENERATOR SAYS, no more and no fewer.
+        # Fewer and the core fetches a handler from past the end of the table.
+        #
+        # This rule used to be "exactly sixteen", which was the chapter's way
+        # of making the addition of device vectors deliberate rather than
+        # accidental. It was deliberate on Monday 9 November 2026: the 155
+        # device positions came from ST's IRQn_Type enum, corroborated against
+        # Zephyr's device tree, and the count now comes from the header the
+        # same generator writes rather than from a number typed here.
+        if want_entries is None:
+            fail("BOARD_ISR_ENTRIES is not in vectors.h, so there is nothing "
+                 "to check the table's length against")
+        elif len(entries) != want_entries:
+            fail(f"the table has {len(entries)} initialisers and the "
+                 f"generator declares {want_entries}; C zero fills the "
+                 f"difference and the image links")
+        if bound is None:
+            fail("g_isr_vector has no declared bound, so a short initialiser "
+                 "list is not a compile error anywhere")
+        elif want_entries is not None and bound != want_entries:
+            fail(f"g_isr_vector is declared [{bound}] and the generator says "
+                 f"{want_entries}")
 
         # 3. Every slot is either a reserved zero or a handler that exists.
         for n, e in enumerate(entries):
@@ -107,8 +146,9 @@ def main():
             # defect, which sends a reader looking for a missing function.
             if name.startswith("_"):
                 continue
-            if not re.search(r"\bvoid\s+" + re.escape(name) + r"\s*\(", code):
-                fail(f"vector {n} names {name} and nothing in this file "
+            if not re.search(r"\bvoid\s+" + re.escape(name) + r"\s*\(",
+                             table_code):
+                fail(f"vector {n} names {name} and nothing in vectors.c "
                      f"declares it, so the linker will take it from wherever "
                      f"it finds one")
 
@@ -155,12 +195,40 @@ def main():
 
     # 8. The table has to survive two separate passes: the compiler, which
     # discards an object nothing references, and the linker with --gc-sections.
-    if not re.search(r"section\s*\(\s*\"\.isr_vector\"\s*\)", code):
+    if not re.search(r"section\s*\(\s*\"\.isr_vector\"\s*\)", table_code):
         fail("the table is not placed in .isr_vector, so the script's rule "
              "about where it goes does not apply to it")
-    if not re.search(r"\bused\b", code):
+    if not re.search(r"\bused\b", table_code):
         fail("the table is not marked used, so the compiler may discard it "
              "before the linker ever sees it")
+
+    # 8c. THE SCRIPT'S ALIGN MUST BE THE ONE THE TABLE'S LENGTH REQUIRES, and
+    # this is the rule that could not have existed while the table was sixteen
+    # entries long, because 512 was then generous rather than wrong.
+    #
+    # A linker script cannot read a C header, so the number cannot be generated
+    # into it the way the MEMORY block is generated from the map. Two files hold
+    # it and this is what stops them drifting. It bit immediately: the script
+    # said ALIGN(512), which was correct for 64 bytes of table and is too small
+    # for 684.
+    m = re.search(r"\.isr_vector\s*:\s*ALIGN\s*\(\s*(\d+)\s*\)", script)
+    if not m:
+        fail("the .isr_vector section has no ALIGN, so its base is whatever "
+             "the previous section left and VTOR cannot express it")
+    elif want_align is None:
+        fail("BOARD_ISR_ALIGN is not in vectors.h, so the script's ALIGN has "
+             "nothing to agree with")
+    else:
+        got = int(m.group(1))
+        if got != want_align:
+            fail(f"the script aligns .isr_vector to {got} and the table's "
+                 f"{want_bytes} bytes need {want_align}; the alignment "
+                 f"depends on the length and these are two separate files")
+        if got & (got - 1):
+            fail(f"the alignment {got} is not a power of two")
+        if got < 128:
+            fail(f"the alignment {got} is below VTOR's 128 byte floor, which "
+                 f"is CMSIS core_cm7.h putting SCB_VTOR_TBLOFF at bit 7")
     if not re.search(r"KEEP\s*\(\s*\*\s*\(\s*\.isr_vector\s*\)\s*\)", script):
         fail("the script does not KEEP .isr_vector, so --gc-sections discards "
              "the table and the image still links")
@@ -199,9 +267,9 @@ def main():
     if failures:
         print(f"test_startup: {len(failures)} failure(s)")
         return 1
-    print(f"ok  {CORE_VECTORS} core vectors, the stack pointer at the end of "
-          f"its region, the copy from where it is stored, no library call "
-          f"before the memory exists")
+    print(f"ok  {want_entries} vectors aligned to {want_align}, the stack "
+          f"pointer at the end of its region, the copy from where it is "
+          f"stored, no library call before the memory exists")
     return 0
 
 

@@ -38,8 +38,20 @@ ENTRY(Reset_Handler)
 
 SECTIONS
 {
-    /* The vector table first, so that it lands on the boot address. */
-    .isr_vector : ALIGN(512)
+    /* The vector table first, so that it lands on the boot address.
+     *
+     * ALIGN IS 1024 BECAUSE THE TABLE IS 684 BYTES, and that is a dependency
+     * rather than a round number. `[vendor]` VTOR's own floor is 128: CMSIS
+     * core_cm7.h puts SCB_VTOR_TBLOFF at bit 7, so the register cannot express
+     * a finer base. `[unconfirmed]` above that floor the core wants the base
+     * aligned to a power of two at least as large as the table, which is 1024
+     * for 171 entries and was 128 for the 16 this file carried until Monday
+     * 9 November 2026. 512 was correct then and is not now.
+     *
+     * A linker script cannot read a C header, so this number cannot be
+     * generated from BOARD_ISR_ALIGN the way the MEMORY block is generated from
+     * the map. test_startup.py reads both and refuses a mismatch instead. */
+    .isr_vector : ALIGN(1024)
     {
         _sisr_vector = .;
         KEEP(*(.isr_vector))
