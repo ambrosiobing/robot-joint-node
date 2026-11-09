@@ -51,7 +51,7 @@ python test/test_initplan.py              # the order, and its seven rules
 python tools/gen_planrun.py               # regenerate the executor's scenarios
 python tools/gen_planrun.py --check       # for the build
 python tools/gen_planrun.py --table       # the table in doc/node-order.md
-python test/test_planrun.py               # six register models, five verdicts
+python test/test_planrun.py               # eight register models, seven verdicts
 
 python tools/gen_element.py               # regenerate the element vectors
 python tools/gen_element.py --check       # for the build
@@ -221,10 +221,20 @@ write does not announce it, which is the entire problem. So the hardware is a
 generator and once in the C test, and both are compared against the recorded
 sequence of bus accesses rather than against each other.
 
-Six scenarios, six distinct outcomes, five distinct verdicts. The one that
+Eight scenarios, eight distinct outcomes, seven distinct verdicts. The one that
 justifies the read-back rule is `test declines`: it needs loopback, because in
 normal mode `TEST` is written with zero and reads zero, so a declined write there
 is indistinguishable from an obeyed one. In loopback only the read-back notices.
+
+**Two of the eight were added on Monday 9 November 2026 by asking which declared
+verdict nothing produced.** `clear declines` became possible when
+`fdcan_clear_fn` started returning a `bool`; `init reverts` reaches
+`wait-clear-timeout`, which was declared, written into the vector header,
+switched on in the C, and produced by no scenario at all, because the only
+scenario that touches INIT is refused one step earlier by a read-back. The
+generator now refuses to write its vectors when a declared verdict has no case,
+and `test/test_planrun.py` derives that list from the generator instead of
+keeping a second copy, which is how the gap survived.
 
 Three more mutations, each removing one rule and each with the vectors regenerated
 to agree, and all three turned the test red. The instructive one is removing
@@ -232,8 +242,8 @@ modify verification: the run does not then succeed, it reaches the final wait an
 fails there instead, four steps late and pointing at the wrong register. A test
 that only asked whether the run failed would have passed it.
 
-The sequence, the three steps that are not obvious from it, the six scenarios and
-the list of what `src/bsp/` still has to contain are in
+The sequence, the three steps that are not obvious from it, the eight scenarios
+and the list of what `src/bsp/` still has to contain are in
 [`doc/node-order.md`](doc/node-order.md).
 
 The addresses, the full register map, the `CCCR` gate, the message RAM
@@ -398,13 +408,27 @@ The two are `0x800` apart with another controller instance's window in between,
 so an offset past `0x400` reaches FDCAN2 and the configuration takes, on the
 wrong controller.
 
-**The clear is the one step in the plan that cannot fail.** `planrun.c` calls
-`clear_ram` and records it as having worked, unconditionally, where every other
-step is read back. And `fdcan_clear_fn` returns void, so a range check has
-nowhere to report to. So the accessors carry a sticky fault that must be asked
-for afterwards, and the clear proves itself first: a pattern into the first and
-last word of the range, read back, and only then the zeroing. Writing zeroes and
-reading zeroes back is not evidence, because a wrong base does exactly that.
+**The clear was the one step in the plan that could not fail, until Monday
+9 November 2026.** `planrun.c` called `clear_ram` and recorded it as having
+worked, unconditionally, where every other step is read back, because
+`fdcan_clear_fn` returned void and a range check had nowhere to report to. A
+refusal an implementation can detect and cannot report is a signature to change
+rather than a case to work around, so the callback returns a `bool` now and the
+executor stops on it with the verdict `clear-refused`.
+
+**`fdcan_write_fn` still returns void, and that is the decision rather than the
+leftover.** A refused write is already expressible: every write is read back, so
+one that did not take is caught by the comparison that follows it. The clear had
+no read-back and so no channel at all.
+
+The clear still proves itself first: a pattern into the first and last word of
+the range, read back, and only then the zeroing. Writing zeroes and reading
+zeroes back is not evidence, because a wrong base does exactly that. The two
+words carry different patterns so that a window which aliases fails the second
+check. That probe is what gives the new return value something to say no about.
+
+The sticky fault stays, because a `bool` says no and cannot say WHICH offset and
+WHY. The executor names the step; `fdcan_mmio_fault` names the cause.
 
 **The control arm is a block of zeroes.** That is what a wrong base looks like
 from outside, and the plan must stop at step 2 of 23, the endianness register,

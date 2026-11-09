@@ -131,13 +131,40 @@ symptom.
 | cce stuck | refused | 6 of 23 | 10 | `modify-refused` | 37 | CCE never sets, which is what happens when INIT is not really set: ten attempts, then a named refusal |
 | cce reverts | refused | 7 of 23 | 50 | `wait-set-timeout` | 60 | CCE reads back correctly once and is gone by the next read, so the modify succeeds and the wait does not |
 | init stuck | refused | 22 of 23 | 10 | `modify-refused` | 71 | INIT never clears, so the controller cannot be started and the last modify is the one that says so |
+| init reverts | refused | 23 of 23 | 50 | `wait-clear-timeout` | 94 | INIT reads clear once and the part sets it again, which is bus-off or a protocol exception at start-up: the last modify is satisfied and the wait after it is the only step that can notice |
 | test declines | refused | 19 of 23 | 1 | `write-not-read-back` | 36 | TEST ignores the write, as it does while CCCR.TEST is clear: only the read-back notices, and only in a mode where TEST is non-zero |
+| clear declines | refused | 5 of 23 | 0 | `clear-refused` | 7 | the message memory does not hold the pattern written to it, which is what a wrong message RAM base looks like: the clear refuses and the plan stops before any register points at that memory |
 
-Six scenarios, six distinct outcomes, five distinct verdicts. The rule is on the
-pair of verdict and step rather than the verdict alone, because `cce stuck` and
-`init stuck` legitimately share `modify-refused`: a bit that never sets and a bit
-that never clears are the same kind of failure at opposite ends of the sequence,
-and collapsing them would hide that one is caught at step 6 and the other at 22.
+Eight scenarios, eight distinct outcomes, seven distinct verdicts. The rule is
+on the pair of verdict and step rather than the verdict alone, because `cce
+stuck` and `init stuck` legitimately share `modify-refused`: a bit that never
+sets and a bit that never clears are the same kind of failure at opposite ends of
+the sequence, and collapsing them would hide that one is caught at step 6 and the
+other at 22.
+
+The eighth verdict is `io-unusable`, which no register model can produce because
+it is what `fdcan_run` returns when it is handed a null callback or a zero spin
+limit. It is named in `UNREACHABLE_BECAUSE` in the generator with that reason
+written out, and `test_planrun.c` reaches it directly.
+
+**Two of the eight were added on Monday 9 November 2026, and both came from the
+same question: which declared verdict does nothing produce?**
+
+`clear declines` exists because `fdcan_clear_fn` now returns a `bool`. While it
+returned void the clear could not fail, so the scenario would have produced a
+plan that completed. It stops at step 5, which is before any register is pointed
+at the message memory, and that order is the point: carrying on would configure
+the controller to read elements out of memory that was never proven to answer,
+and every one of those writes would succeed.
+
+`init reverts` exists because `wait-clear-timeout` was declared, written into the
+vector header, switched on in the C, and produced by nothing at all. Step 23 is
+the plan's only `wait clear`, and `init stuck` never reaches it: the modify at
+step 22 reads INIT back and is refused there first. Only a bit that reads clear
+ONCE gets past the modify and into the wait, which is what the part does on
+bus-off and on a protocol exception, both of which set INIT in hardware. The
+generator now refuses to write its vectors when a declared verdict has no
+scenario, which is how this was found.
 
 **`test declines` is the one that justifies the whole read-back rule.** It needs
 loopback, because in normal mode `TEST` is written with zero and reads zero, so a

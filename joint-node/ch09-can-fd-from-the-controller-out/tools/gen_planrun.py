@@ -25,7 +25,10 @@ rather than the symptom.
   - a read returns the stored word
   - a write stores the word, except that CCCR's CSR and CSA bits are forced to
     zero, because they are a request and its acknowledgement rather than settings
-  - clearing the message RAM is recorded as one access and changes no register
+  - clearing the message RAM is recorded as one access and changes no
+    register, and it ANSWERS: the callback returns a bool as of Monday
+    9 November 2026, so the model can decline the way a wrong message memory
+    base does
 
 and then one deviation per scenario, each chosen so that exactly one of the
 executor's failure paths is the one that fires.
@@ -51,11 +54,24 @@ SPIN_LIMIT = 50
 
 # The scenarios, as a name the C switches on too.
 SCENARIOS = ["cooperative", "endn wrong", "cce stuck", "cce reverts",
-             "init stuck", "test declines"]
+             "init stuck", "init reverts", "test declines", "clear declines"]
 SCENARIO = {name: i for i, name in enumerate(SCENARIOS)}
 
 VERDICTS = ["ok", "expect-mismatch", "modify-refused", "wait-set-timeout",
-            "wait-clear-timeout", "write-not-read-back", "io-unusable"]
+            "wait-clear-timeout", "write-not-read-back", "clear-refused",
+            "io-unusable"]
+
+# A VERDICT NO SCENARIO PRODUCES IS A CLAIM RATHER THAN A BEHAVIOUR, so the
+# check below requires each one above to come out of some case, and a verdict
+# that genuinely cannot carries its reason here. A reason rather than a boolean
+# flag, because a boolean certifies itself: this way the exemption has to say
+# something that can be read and disagreed with.
+UNREACHABLE_BECAUSE = {
+    "io-unusable": "produced only when fdcan_run is handed a null callback or a "
+                   "zero spin limit, which is a C calling mistake and not a "
+                   "behaviour of any register model. test_planrun.c reaches it "
+                   "directly instead, which is why it is declared here at all.",
+}
 
 
 class Model:
@@ -79,6 +95,14 @@ class Model:
         # modify that succeeds into a wait that never finishes.
         if self.scenario == "cce reverts" and reg == REG["CCCR"]:
             self.mem[reg] = v & ~CCCR["CCE"]
+        # The same shape for INIT, and the reason it has to be this shape: the
+        # plan's last modify reads INIT back, so a bit that is simply stuck
+        # (the "init stuck" scenario) is caught at step 22 and the wait at step
+        # 23 is never entered. Only a bit that reads clear ONCE gets past the
+        # modify and into the wait. The part does this on bus-off and on a
+        # protocol exception, both of which set INIT in hardware.
+        if self.scenario == "init reverts" and reg == REG["CCCR"]:
+            self.mem[reg] = v | CCCR["INIT"]
         return v
 
     def write(self, reg, value):
@@ -97,7 +121,13 @@ class Model:
         self.mem[reg] = value
 
     def clear_ram(self, start, end):
+        # The access is logged either way. A message memory that does not hold
+        # a pattern was still written to, and the log is the bus traffic rather
+        # than the list of things that worked.
         self.log.append({"kind": "clear", "reg": start, "value": end})
+        if self.scenario == "clear declines":
+            return False
+        return True
 
 
 def run(steps, model, retries=RETRIES, spin_limit=SPIN_LIMIT):
@@ -176,8 +206,11 @@ def run(steps, model, retries=RETRIES, spin_limit=SPIN_LIMIT):
                 return result
 
         elif op == "clear ram":
-            model.clear_ram(st["reg"], st["mask"])
-            finish(n, st, 0, 0, 0, True, "ok")
+            cleared = model.clear_ram(st["reg"], st["mask"])
+            finish(n, st, 0, 0, 0, cleared,
+                   "ok" if cleared else "clear-refused")
+            if not cleared:
+                return result
 
         else:
             finish(n, st, 0, 0, 0, False, "failed")
@@ -211,6 +244,12 @@ CASES = [
     ("init stuck", FIRST_IMAGE,
      "INIT never clears, so the controller cannot be started and the last "
      "modify is the one that says so"),
+    # Added on Monday 9 November 2026, when a reachability check found that
+    # wait-clear-timeout was a verdict no scenario produced.
+    ("init reverts", FIRST_IMAGE,
+     "INIT reads clear once and the part sets it again, which is bus-off or a "
+     "protocol exception at start-up: the last modify is satisfied and the "
+     "wait after it is the only step that can notice"),
     # This one is the silent failure the documentation names, caught. TEST is
     # writable only while CCCR.TEST is set, and a sequence that writes it too
     # early gets no complaint from the hardware at all. It needs loopback,
@@ -219,6 +258,15 @@ CASES = [
     ("test declines", LOOPBACK,
      "TEST ignores the write, as it does while CCCR.TEST is clear: only the "
      "read-back notices, and only in a mode where TEST is non-zero"),
+    # The clear's own refusal, which until Monday 9 November 2026 could not be
+    # expressed: the callback returned void, so this scenario would have
+    # produced a plan that completed. What declines here is the message memory,
+    # not a register, which is why it stops the plan at a step that writes no
+    # register at all.
+    ("clear declines", FIRST_IMAGE,
+     "the message memory does not hold the pattern written to it, which is "
+     "what a wrong message RAM base looks like: the clear refuses and the "
+     "plan stops before any register points at that memory"),
 ]
 
 
@@ -347,6 +395,24 @@ def main(argv):
         print(table(doc))
         return 0
 
+    produced = {c["result"]["verdict"] for c in doc["cases"]}
+    for v in VERDICTS:
+        if v in produced:
+            continue
+        if v in UNREACHABLE_BECAUSE:
+            continue
+        print(f"verdict '{v}' is declared and no scenario produces it; add a "
+              f"case that reaches it, or a reason in UNREACHABLE_BECAUSE")
+        return 1
+    for v in UNREACHABLE_BECAUSE:
+        if v in produced:
+            print(f"verdict '{v}' is excused as unreachable and a scenario "
+                  f"reaches it; delete the excuse")
+            return 1
+        if v not in VERDICTS:
+            print(f"verdict '{v}' is excused and is not declared at all")
+            return 1
+
     if a.check:
         bad = 0
         for path, want in ((VECTORS_JSON, js), (VECTORS_H, hd)):
@@ -359,7 +425,8 @@ def main(argv):
             return 1
         failed = sum(1 for c in doc["cases"] if not c["result"]["ok"])
         print(f"planrun vectors match the generator ({len(doc['cases'])} "
-              f"scenarios, {failed} of them refusals)")
+              f"scenarios, {failed} of them refusals, "
+              f"{len(produced)} of {len(VERDICTS)} verdicts reached here)")
         return 0
 
     VECTORS_JSON.write_text(js, encoding="utf-8")

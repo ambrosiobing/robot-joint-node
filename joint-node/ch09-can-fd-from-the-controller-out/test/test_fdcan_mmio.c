@@ -296,7 +296,11 @@ int main(void)
                 msgram[w] = 0xDEADBEEFu;
             }
             const uint32_t used = MSGRAM_LAYOUT_BYTES;
-            io.clear_ram(io.ctx, 0u, used);
+            if (!io.clear_ram(io.ctx, 0u, used)) {
+                printf("  FAIL clearing 0 to %u refused a range it should "
+                       "accept\n", (unsigned) used);
+                failures++;
+            }
 
             if (!fdcan_mmio_ok(&m)) {
                 uint32_t where = 0u;
@@ -377,8 +381,12 @@ int main(void)
                 fail("a misaligned register offset was not recorded");
             }
 
-            /* Clear ranges. The signature returns void, so each of these is
-             * detectable only through the sticky count. */
+            /* Clear ranges. Since Monday 9 November 2026 the clear
+             * returns a bool, so each of these is checked TWICE: the return,
+             * which is what stops the executor, and the sticky fault, which is
+             * what names the offset and the reason afterwards. Either can be
+             * right while the other is wrong, so neither stands in for the
+             * other. */
             const struct { uint32_t from, to; const char *why; } bad[] = {
                 { 0u, 0u, "an empty range" },
                 { 64u, 32u, "a range that runs backwards" },
@@ -388,7 +396,12 @@ int main(void)
             };
             for (unsigned i = 0u; i < sizeof bad / sizeof bad[0]; i++) {
                 const uint32_t before = m.faults;
-                io.clear_ram(io.ctx, bad[i].from, bad[i].to);
+                if (io.clear_ram(io.ctx, bad[i].from, bad[i].to)) {
+                    printf("  FAIL %s, %u to %u, was accepted by the "
+                           "return\n", bad[i].why, (unsigned) bad[i].from,
+                           (unsigned) bad[i].to);
+                    failures++;
+                }
                 if (m.faults == before) {
                     printf("  FAIL %s, %u to %u, was not recorded as a "
                            "fault\n", bad[i].why, (unsigned) bad[i].from,

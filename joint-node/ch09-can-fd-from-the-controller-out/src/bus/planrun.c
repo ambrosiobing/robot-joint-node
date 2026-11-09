@@ -64,6 +64,7 @@ const char *fdcan_run_verdict(const fdcan_run_t *out)
     case FDCAN_OP_WAIT_SET:   return "wait-set-timeout";
     case FDCAN_OP_WAIT_CLEAR: return "wait-clear-timeout";
     case FDCAN_OP_WRITE:      return "write-not-read-back";
+    case FDCAN_OP_CLEAR_RAM:  return "clear-refused";
     default:                  return "failed";
     }
 }
@@ -175,8 +176,20 @@ bool fdcan_run(const fdcan_step_t *steps, uint32_t count,
             /* `reg` is the first byte and `mask` is one past the last, which is
              * how initplan emits it. The caller owns the walk because the stride
              * and the access width belong to the bus, not to the plan. */
-            io->clear_ram(io->ctx, s->reg, s->mask);
-            record(out, n, s, 0u, 0u, 0u, true);
+            const bool cleared = io->clear_ram(io->ctx, s->reg, s->mask);
+            /* `wrote` and `read_back` stay zero. `out->reg` already carries the
+             * first byte, and the end of the range would have to go in a field
+             * named for a read-back to be reported here at all. WHICH offset
+             * inside the range refused, and why, is the accessor's to tell:
+             * fdcan_mmio_fault answers it after this names the step. */
+            record(out, n, s, 0u, 0u, 0u, cleared);
+            if (!cleared) {
+                /* Until Monday 9 November 2026 this step was recorded as
+                 * having worked whatever happened, because the callback
+                 * returned void and had no way to say otherwise. It was the
+                 * only step in the plan that could not fail. */
+                return false;
+            }
             break;
         }
 

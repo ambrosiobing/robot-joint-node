@@ -8,7 +8,9 @@
     "cce stuck",
     "cce reverts",
     "init stuck",
-    "test declines"
+    "init reverts",
+    "test declines",
+    "clear declines"
   ],
   "verdicts": [
     "ok",
@@ -17,6 +19,7 @@
     "wait-set-timeout",
     "wait-clear-timeout",
     "write-not-read-back",
+    "clear-refused",
     "io-unusable"
   ],
   "cases": [
@@ -1216,8 +1219,502 @@
       ]
     },
     {
-      "scenario": "test declines",
+      "scenario": "init reverts",
       "scenario_code": 5,
+      "mode": "normal",
+      "mode_code": 0,
+      "one_shot": false,
+      "why": "INIT reads clear once and the part sets it again, which is bus-off or a protocol exception at start-up: the last modify is satisfied and the wait after it is the only step that can notice",
+      "plan_steps": 23,
+      "result": {
+        "step": 23,
+        "steps_done": 22,
+        "name": "wait until it is running",
+        "op": 4,
+        "reg": 24,
+        "wrote": 0,
+        "read_back": 1,
+        "spins": 50,
+        "ok": false,
+        "verdict": "wait-clear-timeout"
+      },
+      "accesses": 94,
+      "log": [
+        {
+          "kind": "read",
+          "reg": 0,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 4,
+          "value": 2271560481
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "clear",
+          "reg": 0,
+          "value": 2432
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "write",
+          "reg": 188,
+          "value": 1911
+        },
+        {
+          "kind": "read",
+          "reg": 188,
+          "value": 1911
+        },
+        {
+          "kind": "write",
+          "reg": 200,
+          "value": 7
+        },
+        {
+          "kind": "read",
+          "reg": 200,
+          "value": 7
+        },
+        {
+          "kind": "write",
+          "reg": 128,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 128,
+          "value": 0
+        },
+        {
+          "kind": "write",
+          "reg": 132,
+          "value": 524288
+        },
+        {
+          "kind": "read",
+          "reg": 132,
+          "value": 524288
+        },
+        {
+          "kind": "write",
+          "reg": 136,
+          "value": 262176
+        },
+        {
+          "kind": "read",
+          "reg": 136,
+          "value": 262176
+        },
+        {
+          "kind": "write",
+          "reg": 160,
+          "value": 1048640
+        },
+        {
+          "kind": "read",
+          "reg": 160,
+          "value": 1048640
+        },
+        {
+          "kind": "write",
+          "reg": 176,
+          "value": 525504
+        },
+        {
+          "kind": "read",
+          "reg": 176,
+          "value": 525504
+        },
+        {
+          "kind": "write",
+          "reg": 172,
+          "value": 1792
+        },
+        {
+          "kind": "read",
+          "reg": 172,
+          "value": 1792
+        },
+        {
+          "kind": "write",
+          "reg": 240,
+          "value": 526080
+        },
+        {
+          "kind": "read",
+          "reg": 240,
+          "value": 526080
+        },
+        {
+          "kind": "write",
+          "reg": 192,
+          "value": 134219584
+        },
+        {
+          "kind": "read",
+          "reg": 192,
+          "value": 134219584
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "write",
+          "reg": 16,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 16,
+          "value": 0
+        },
+        {
+          "kind": "write",
+          "reg": 28,
+          "value": 67111682
+        },
+        {
+          "kind": "read",
+          "reg": 28,
+          "value": 67111682
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 3
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        }
+      ]
+    },
+    {
+      "scenario": "test declines",
+      "scenario_code": 6,
       "mode": "loopback internal",
       "mode_code": 1,
       "one_shot": false,
@@ -1416,6 +1913,65 @@
           "kind": "read",
           "reg": 16,
           "value": 0
+        }
+      ]
+    },
+    {
+      "scenario": "clear declines",
+      "scenario_code": 7,
+      "mode": "normal",
+      "mode_code": 0,
+      "one_shot": false,
+      "why": "the message memory does not hold the pattern written to it, which is what a wrong message RAM base looks like: the clear refuses and the plan stops before any register points at that memory",
+      "plan_steps": 23,
+      "result": {
+        "step": 5,
+        "steps_done": 4,
+        "name": "clear every word of the message RAM in use",
+        "op": 5,
+        "reg": 0,
+        "wrote": 0,
+        "read_back": 0,
+        "spins": 0,
+        "ok": false,
+        "verdict": "clear-refused"
+      },
+      "accesses": 7,
+      "log": [
+        {
+          "kind": "read",
+          "reg": 0,
+          "value": 0
+        },
+        {
+          "kind": "read",
+          "reg": 4,
+          "value": 2271560481
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "write",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "read",
+          "reg": 24,
+          "value": 1
+        },
+        {
+          "kind": "clear",
+          "reg": 0,
+          "value": 2432
         }
       ]
     }

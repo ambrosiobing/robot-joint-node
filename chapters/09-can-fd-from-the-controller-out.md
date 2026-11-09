@@ -171,7 +171,7 @@ joint-node/
     test_element.c    test_element.py     # + the element layout
     test_fifo.c       test_fifo.py        # + the queue protocol
     test_initplan.c   test_initplan.py    # + the order and its rules
-    test_planrun.c    test_planrun.py     # + the executor, six register models
+    test_planrun.c    test_planrun.py     # + the executor, eight register models
     test_fdcan_mmio.c                     # + the accessors, against arrays
   host/  tools/  README.md
 ```

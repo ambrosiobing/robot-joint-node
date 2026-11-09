@@ -1,4 +1,7 @@
-/* fdcan_mmio.c: volatile accesses, range checks, and a clear that can fail.
+/* fdcan_mmio.c: volatile accesses, range checks, and a clear that can refuse.
+ *
+ * The clear returns a bool as of Monday 9 November 2026 and the executor stops
+ * on it. The sticky fault remains for the detail a bool cannot carry.
  *
  * Every access is 32 bits wide. The message memory is written word by word
  * rather than with memset, because memset is free to use byte stores and
@@ -57,11 +60,11 @@ static void mmio_write(void *ctx, uint32_t reg, uint32_t value)
     m->regs[reg / 4u] = value;
 }
 
-static void mmio_clear_ram(void *ctx, uint32_t from, uint32_t to)
+static bool mmio_clear_ram(void *ctx, uint32_t from, uint32_t to)
 {
     fdcan_mmio_t *m = (fdcan_mmio_t *) ctx;
     if (m == 0) {
-        return;
+        return false;
     }
     /* `from` is the first byte and `to` is one past the last, which is how
      * initplan.c emits it. An empty range is refused rather than ignored: the
@@ -69,11 +72,11 @@ static void mmio_clear_ram(void *ctx, uint32_t from, uint32_t to)
      * arrived wrong and clearing nothing would leave the memory as found. */
     if ((from % 4u) != 0u || (to % 4u) != 0u) {
         fault(m, "clear-range-misaligned", from);
-        return;
+        return false;
     }
     if (to <= from || to > m->msgram_bytes) {
         fault(m, "clear-range-out-of-memory", to);
-        return;
+        return false;
     }
 
     const uint32_t first = from / 4u;
@@ -88,25 +91,28 @@ static void mmio_clear_ram(void *ctx, uint32_t from, uint32_t to)
     m->msgram[last] = ~FDCAN_MMIO_PROBE;
     if (m->msgram[first] != FDCAN_MMIO_PROBE) {
         fault(m, "msgram-does-not-hold-a-pattern", from);
-        return;
+        return false;
     }
     if (m->msgram[last] != ~FDCAN_MMIO_PROBE) {
         /* The two ends carry different patterns on purpose. A window that
          * aliases, so that every address answers with the same word, passes the
          * first check and fails this one. */
         fault(m, "msgram-aliases-or-is-shorter-than-claimed", to - 4u);
-        return;
+        return false;
     }
 
     for (uint32_t w = first; w <= last; w++) {
         m->msgram[w] = 0u;
     }
 
-    /* And read back the two ends again, because the clear itself is the step
-     * the executor records as having worked whatever happened. */
+    /* And read back the two ends again. The executor stops on the return below
+     * now, so this is what decides what that return says: without it a clear
+     * that wrote nothing would still report success. */
     if (m->msgram[first] != 0u || m->msgram[last] != 0u) {
         fault(m, "msgram-did-not-clear", from);
+        return false;
     }
+    return true;
 }
 
 bool fdcan_mmio_init(fdcan_mmio_t *m,

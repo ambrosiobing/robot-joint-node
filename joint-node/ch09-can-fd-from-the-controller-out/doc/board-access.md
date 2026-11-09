@@ -35,17 +35,33 @@ trusted: the window is `0x400`, so an offset of `0x400` or more reaches FDCAN2.
 The configuration then appears to take, because it does take, on the wrong
 controller.
 
-## Two of the three callbacks cannot refuse
+## The clear can refuse, and the write deliberately cannot
 
-`fdcan_write_fn` and `fdcan_clear_fn` return void, so a range check here has
-nowhere to report to. A refusal is recorded as a sticky fault and
-`fdcan_mmio_ok` must be asked after a run.
+Until Monday 9 November 2026 both `fdcan_write_fn` and `fdcan_clear_fn` returned
+void, so a range check here had nowhere to report to. A refusal was recorded only
+as a sticky fault that a caller had to remember to ask about through
+`fdcan_mmio_ok`, and **the clear was the one step in the whole plan that could
+not fail:** `planrun.c` called `clear_ram` and recorded the step as having
+worked, unconditionally.
 
-This matters most for the clear, because **the clear is the one step in the whole
-plan that cannot fail.** `planrun.c` calls `clear_ram` and records the step as
-having worked, unconditionally. Every other step is read back; this one is not.
-So a caller that checks only `fdcan_run`'s return value has not checked the
-clear, and the chapter's own executor cannot tell it otherwise.
+`fdcan_clear_fn` returns a `bool` now, and `fdcan_run` stops on it with the
+verdict `clear-refused`.
+
+**The write still returns void, and that is a decision rather than an
+oversight.** A refused write is ALREADY expressible: the executor reads every
+write back, so one that did not take is caught by the comparison that follows it.
+The clear had no read-back and so no way to say no at all. The asymmetry in the
+two signatures is the difference between a refusal that has a channel and one
+that does not.
+
+The sticky fault stays, because a `bool` says no and cannot say WHICH offset and
+WHY. The division is that the executor names the step and `fdcan_mmio_fault`
+names the cause.
+
+The scenario that exercises this is `clear declines` in
+[`doc/node-order.md`](node-order.md), and it could not have existed before the
+signature changed: a model that declined would have produced a plan that
+completed.
 
 ## Which is why the clear proves itself before it clears
 

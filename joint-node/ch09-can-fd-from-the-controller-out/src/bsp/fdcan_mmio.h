@@ -31,21 +31,31 @@
  * take, because it does take, on the wrong controller. Both offsets are
  * therefore range checked here rather than trusted.
  *
- * TWO OF THE THREE CALLBACKS CANNOT REFUSE. `fdcan_write_fn` and
- * `fdcan_clear_fn` return void, so a range check here has nowhere to report to.
- * A refusal is recorded as a sticky fault instead, and `fdcan_mmio_ok` must be
- * asked after a run. A caller that checks only `fdcan_run`'s return value will
- * not hear about a refused clear, because the executor records every clear as
- * having worked: it is the one step in the whole plan that cannot fail.
+ * THE CLEAR CAN NOW REFUSE, AND THE WRITE STILL CANNOT. Until Monday
+ * 9 November 2026 both `fdcan_write_fn` and `fdcan_clear_fn` returned void, a
+ * range check here had nowhere to report to, and a refusal was recorded only as
+ * a sticky fault that a caller had to remember to ask about. That made the
+ * clear the one step in the whole plan that could not fail.
+ *
+ * `fdcan_clear_fn` returns a bool now and the executor stops on it. The write
+ * deliberately still returns void, because its refusal is ALREADY expressible:
+ * the executor reads every write back, so one that did not take is caught by
+ * the comparison that follows. The clear had no read-back and so no way to say
+ * no at all, which is the difference between an asymmetry and an oversight.
+ *
+ * The sticky fault stays, because a bool says no and cannot say WHICH offset
+ * and WHY. `fdcan_mmio_ok` and `fdcan_mmio_fault` are how a console line names
+ * the cause after the executor has named the step.
  *
  * WHICH IS WHY THE CLEAR PROVES ITSELF FIRST. Writing zeroes and reading zeroes
  * back is not evidence, because a wrong base accepts every write and reads back
  * zeroes, which is the same picture as a perfect clear. So the clear writes a
  * pattern to the first and last word of the range, reads both back, and records
- * a fault if either disagrees, BEFORE zeroing anything. That makes the one
- * unfalsifiable step in the plan falsifiable, and it is safe at that point in
- * the sequence because the plan clears the message memory before any register
- * points at it.
+ * a fault if either disagrees, BEFORE zeroing anything. The signature change
+ * above lets the clear say no; this is what gives it something to say no
+ * about, because a range check alone would pass on a window that accepts every
+ * write and returns zeroes. It is safe at that point in the sequence because
+ * the plan clears the message memory before any register points at it.
  */
 #ifndef JOINT_FDCAN_MMIO_H
 #define JOINT_FDCAN_MMIO_H
@@ -73,10 +83,11 @@ typedef struct {
     uint32_t regs_bytes;
     uint32_t msgram_bytes;
 
-    /* Sticky, because two of the three callbacks return void. Counted rather
-     * than flagged so that a console line can say how many accesses were
-     * refused, and the first one's offset and reason are kept because the first
-     * is the one that explains the rest. */
+    /* Sticky, because a bool says no and cannot say WHICH offset and WHY, and
+     * because `fdcan_write_fn` still returns void by the reasoning above.
+     * Counted rather than flagged so that a console line can say how many
+     * accesses were refused, and the first one's offset and reason are kept
+     * because the first is the one that explains the rest. */
     uint32_t faults;
     uint32_t fault_offset;
     const char *fault_what;
@@ -102,8 +113,12 @@ bool fdcan_mmio_io(fdcan_mmio_t *m, fdcan_io_t *io,
                    uint32_t retries, uint32_t spin_limit);
 
 /* Whether every access was in range and the message memory answered its probe.
- * ASK THIS AFTER A RUN. fdcan_run can return true while this is false, because
- * a clear is recorded as having worked whatever happened. */
+ *
+ * Since Monday 9 November 2026 a refused CLEAR also stops the executor, so
+ * `fdcan_run` returning true no longer hides one. This is still worth asking
+ * after a run for the two things the executor cannot report: a refused WRITE,
+ * whose void callback leaves the read-back comparison to catch it, and WHICH
+ * offset and reason lay behind a step the executor could only name. */
 bool fdcan_mmio_ok(const fdcan_mmio_t *m);
 
 /* The first fault's reason as a short stable token, and its offset through

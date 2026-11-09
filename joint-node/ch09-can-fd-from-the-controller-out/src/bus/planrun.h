@@ -36,7 +36,22 @@
  * test can hang a register model off it and src/bsp/ can hang a base address. */
 typedef uint32_t (*fdcan_read_fn)(void *ctx, uint32_t reg);
 typedef void     (*fdcan_write_fn)(void *ctx, uint32_t reg, uint32_t value);
-typedef void     (*fdcan_clear_fn)(void *ctx, uint32_t from, uint32_t to);
+/* The clear RETURNS A BOOL where the other two do not, and the asymmetry is
+ * deliberate rather than untidy.
+ *
+ * A refused WRITE is already expressible: the executor reads every write back,
+ * so a write that did not take is caught by the comparison that follows it. A
+ * refused CLEAR had nowhere to go at all. This callback returned void, so an
+ * implementation that found the range misaligned, backwards or past the end of
+ * the memory could do nothing but ignore it, and the executor recorded the step
+ * as having worked. That made the clear THE ONE STEP IN THE WHOLE PLAN THAT
+ * COULD NOT FAIL, and the board layer had to carry a sticky fault that a caller
+ * was expected to remember to ask about afterwards.
+ *
+ * Changed on Monday 9 November 2026. A refusal that an implementation can
+ * detect and cannot report is a signature to change, not a case to work
+ * around. */
+typedef bool     (*fdcan_clear_fn)(void *ctx, uint32_t from, uint32_t to);
 
 typedef struct {
     fdcan_read_fn  read;

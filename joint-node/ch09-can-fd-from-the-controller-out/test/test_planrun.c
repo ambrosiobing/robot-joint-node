@@ -34,14 +34,27 @@ static int failures;
 #define MODEL_WORDS 256u
 #define LOG_MAX     256u
 
+/* THE ORDER IS THE GENERATOR'S. These are positions in SCENARIOS in
+ * tools/gen_planrun.py, and the vectors carry the code rather than the name, so
+ * inserting one in the middle here without inserting it there would silently
+ * give every later scenario the wrong deviation. SC_NAMES below is checked
+ * against the vector's own name so that mistake names itself. */
 typedef enum {
     SC_COOPERATIVE = 0,
     SC_ENDN_WRONG,
     SC_CCE_STUCK,
     SC_CCE_REVERTS,
     SC_INIT_STUCK,
+    SC_INIT_REVERTS,
     SC_TEST_DECLINES,
+    SC_CLEAR_DECLINES,
+    SC_COUNT,
 } scenario_t;
+
+static const char *const SC_NAMES[SC_COUNT] = {
+    "cooperative", "endn wrong", "cce stuck", "cce reverts",
+    "init stuck", "init reverts", "test declines", "clear declines",
+};
 
 typedef struct {
     scenario_t scenario;
@@ -83,6 +96,15 @@ static uint32_t model_read(void *ctx, uint32_t reg)
     if (m->scenario == SC_CCE_REVERTS && reg == FDCAN_CCCR) {
         m->mem[reg / 4u] = v & ~FDCAN_CCCR_CCE;
     }
+    /* The same shape for INIT, and it has to be this shape: the plan's last
+     * modify reads INIT back, so a bit that is merely stuck is caught there and
+     * the wait after it is never entered. Only a bit that reads clear ONCE gets
+     * past the modify, which is why this is the only scenario that reaches
+     * wait-clear-timeout. The part does it on bus-off and on a protocol
+     * exception, both of which set INIT in hardware. */
+    if (m->scenario == SC_INIT_REVERTS && reg == FDCAN_CCCR) {
+        m->mem[reg / 4u] = v | FDCAN_CCCR_INIT;
+    }
     return v;
 }
 
@@ -110,9 +132,16 @@ static void model_write(void *ctx, uint32_t reg, uint32_t value)
     }
 }
 
-static void model_clear(void *ctx, uint32_t from, uint32_t to)
+static bool model_clear(void *ctx, uint32_t from, uint32_t to)
 {
-    note((model_t *) ctx, 2u, from, to);
+    model_t *m = (model_t *) ctx;
+    /* The access is logged either way. A message memory that did not hold the
+     * pattern was still written to, and the log is the bus traffic rather than
+     * the list of things that worked. */
+    note(m, 2u, from, to);
+    /* Until Monday 9 November 2026 this returned void, so this scenario could
+     * not have existed: the executor recorded every clear as having worked. */
+    return m->scenario != SC_CLEAR_DECLINES;
 }
 
 /* ---------------------------------------------------------------- the test */
@@ -160,6 +189,23 @@ int main(void)
         if (count != v->plan_steps) {
             printf("  FAIL %s: planned %u steps, the vectors say %u\n",
                    v->scenario, (unsigned) count, (unsigned) v->plan_steps);
+            failures++;
+            continue;
+        }
+
+        /* The vector's code indexes this file's enum, so check that the
+         * two still mean the same scenario before trusting the deviation. */
+        if (v->scenario_code >= (uint32_t) SC_COUNT) {
+            printf("  FAIL %s: scenario code %u is past this file's enum\n",
+                   v->scenario, (unsigned) v->scenario_code);
+            failures++;
+            continue;
+        }
+        if (strcmp(SC_NAMES[v->scenario_code], v->scenario) != 0) {
+            printf("  FAIL %s: code %u is \"%s\" here; the enum and "
+                   "SCENARIOS in gen_planrun.py have drifted\n",
+                   v->scenario, (unsigned) v->scenario_code,
+                   SC_NAMES[v->scenario_code]);
             failures++;
             continue;
         }

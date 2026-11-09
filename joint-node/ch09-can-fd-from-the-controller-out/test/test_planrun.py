@@ -3,10 +3,10 @@
 
     python test/test_planrun.py
 
-The comparison against the vector file is the cheap half. The point of the file is
-the five scenarios, and what makes them worth having is that each one fires a
+The comparison against the vector file is the cheap half. The point of the file
+is the eight scenarios, and what makes them worth having is that each one fires a
 different failure path, which is asserted below rather than hoped for. A test
-suite in which every case fails the same way has tested one thing five times.
+suite in which every case fails the same way has tested one thing eight times.
 """
 import json
 import sys
@@ -64,9 +64,21 @@ def main():
         # configuration change would write the rest of the configuration into a
         # peripheral that is not listening, and every one of those writes would
         # appear to succeed.
-        if not result["ok"] and result["step"] >= len(steps):
+        #
+        # TWO SEPARATE CLAIMS, and they were one until Monday 9 November 2026,
+        # when `step >= len(steps)` was read as "stopped nothing". A refusal at
+        # the LAST step stops nothing downstream because there is nothing
+        # downstream, and it is still a refusal worth having: the plan's last
+        # step is the wait for INIT to clear, and what it stops is the caller,
+        # which gets false and does not transmit on a controller that never
+        # started. What must never happen is a step number past the plan, or a
+        # refusal that nonetheless counts every step as done.
+        if not result["ok"] and result["step"] > len(steps):
             fail(f"{c['scenario']}: refused at step {result['step']} of "
-                 f"{len(steps)}, which is not a refusal that stopped anything")
+                 f"{len(steps)}, which is past the end of the plan")
+        if not result["ok"] and result["steps_done"] >= len(steps):
+            fail(f"{c['scenario']}: refused and counted {result['steps_done']} "
+                 f"of {len(steps)} steps done, so the refusal changed nothing")
 
         # A refusal must name the step it failed at.
         if not result["ok"] and not result["name"]:
@@ -85,7 +97,7 @@ def main():
                      f"{doc['retries']}")
 
     # Each scenario has to fail in its own place, or the suite has tested one
-    # thing six times. The test is on the pair of verdict and step, not on the
+    # thing eight times. The test is on the pair of verdict and step, not on the
     # verdict alone: two scenarios legitimately share "modify-refused", because a
     # bit that never sets and a bit that never clears are the same kind of
     # failure at opposite ends of the sequence, and collapsing them would hide
@@ -98,8 +110,16 @@ def main():
 
     # And every verdict the executor can reach for a step has to be reached by
     # something, or a branch of it is written and never run.
-    for needed in ("ok", "expect-mismatch", "modify-refused",
-                   "wait-set-timeout", "write-not-read-back"):
+    #
+    # DERIVED FROM THE GENERATOR, not restated here. This was a hand written
+    # tuple of five until Monday 9 November 2026, and the generator declared
+    # eight; the two it did not name were wait-clear-timeout, which no scenario
+    # produced at all, and clear-refused, which could not exist while the clear
+    # returned void. A list copied into a second file is a second list to
+    # forget.
+    for needed in g.VERDICTS:
+        if needed in g.UNREACHABLE_BECAUSE:
+            continue
         if needed not in verdicts:
             fail(f"no scenario produces {needed}, so that path of the executor "
                  f"is written and never run")
@@ -131,6 +151,27 @@ def main():
     elif decl["result"]["read_back"] == decl["result"]["wrote"]:
         fail("a declined write read back what was written, so the model is not "
              "declining anything")
+
+    # A refused clear must stop the plan where it stands, and the reason this
+    # matters more than the other refusals is the order: the clear comes before
+    # any register is pointed at the message memory. Continuing past it would
+    # configure the controller to read elements out of memory that was never
+    # proven to answer, and every one of those writes would succeed.
+    cl = next(c for c in doc["cases"] if c["scenario"] == "clear declines")
+    if cl["result"]["verdict"] != "clear-refused":
+        fail(f"a refused clear reported {cl['result']['verdict']}")
+    else:
+        # Chained, because each of these is only meaningful once the one above
+        # it holds. Reporting all three would name a cause the first already
+        # explained: under a mutation that ignored the clear's answer entirely,
+        # the step check below truthfully said the clear was the last step of
+        # the plan, which is not why anything was wrong.
+        if cl["log"][-1]["kind"] != "clear":
+            fail("the plan carried on past a refused clear, so a register was "
+                 f"pointed at unproven memory: {cl['log'][-1]}")
+        elif cl["result"]["step"] >= cl["plan_steps"]:
+            fail("the refused clear is the last step of the plan, so stopping "
+                 "at it stops nothing and this scenario proves nothing")
 
     if failures:
         print(f"test_planrun: {len(failures)} failure(s)")
