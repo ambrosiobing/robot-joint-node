@@ -125,6 +125,28 @@ def main():
                     fail(f"{d.name}/{sub}/{c.name} exists and "
                          f"{d.name}/README.md does not name it")
 
+    # The published Markdown edition is a different surface from the chapter
+    # directories above, and until Sunday 8 November 2026 nothing checked it.
+    # chapters/21-appendix.md was published and linked from neither README.md
+    # nor CONTENTS.md, so it was reachable from no page at all. A dead link at
+    # least still reads as a link; an orphan reads as nothing.
+    front = ROOT / "README.md"
+    front_text = front.read_text(encoding="utf-8") if front.exists() else ""
+    contents = ROOT / "CONTENTS.md"
+    reachable = front_text + (
+        contents.read_text(encoding="utf-8") if contents.exists() else "")
+    for page in sorted((ROOT / "chapters").glob("*.md")):
+        if page.name not in reachable:
+            fail(f"chapters/{page.name} is published and linked from no page")
+
+    # And every link on the front page has to point at something that exists.
+    for target in re.findall(r"\]\(([^)\s]+)\)", front_text):
+        if target.startswith(("http://", "https://", "#", "mailto:")):
+            continue
+        head = target.split("#", 1)[0]
+        if head and not (ROOT / head).exists():
+            fail(f"README.md: dead link {target}")
+
     if failures:
         print(f"check_readmes: {len(failures)} failure(s)")
         return 1

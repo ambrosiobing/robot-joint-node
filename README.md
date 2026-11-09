@@ -88,6 +88,9 @@ matter draws the parts that are not.
 | 19 | [Update over the bus: a node you can reach but not touch](chapters/19-update-over-the-bus.md) | Maintainability | 5/5 | Four evenings |
 | 20 | [The rig: injected faults, tracking error, and a build that fails](chapters/20-the-rig.md) | Proof | 5/5 | Five evenings |
 
+And [the appendix](chapters/21-appendix.md), which puts the twenty on one page
+so a chapter can be chosen by what it gives rather than by its title.
+
 Every chapter has the same twenty-one sections: why it exists, the prior art and
 what is taken from it, what the node gains, the parts it uses, a system
 architecture figure, the peripheral configuration, the wiring, a memory and
