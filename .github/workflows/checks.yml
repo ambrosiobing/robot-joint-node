@@ -250,7 +250,14 @@ jobs:
       # Walking the plan, against a register model rather than a controller.
       # Neither of the executor's two rules can be exercised on hardware: a
       # register that declines a write does not announce it, which is the entire
-      # reason the rule exists. Six scenarios, five distinct verdicts.
+      # reason the rule exists. Eight scenarios, eight distinct outcomes, seven
+      # of eight verdicts reached and the eighth excused in writing.
+      #
+      # The generator refuses to write its vectors when a declared verdict has
+      # no scenario, which is why this step is worth more than a vector
+      # comparison: on Monday 9 November 2026 that check found
+      # wait-clear-timeout declared, written into the vector header, switched on
+      # in planrun.c and produced by nothing at all.
       - name: Chapter 9, the executor against a register model
         working-directory: joint-node/ch09-can-fd-from-the-controller-out
         run: |
