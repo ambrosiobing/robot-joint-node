@@ -539,6 +539,16 @@ def as_source():
         " * name and the linker prefers the strong definition. Nothing in this",
         " * volume defines one yet.",
         " *",
+        " * THE ALIAS TARGET IS DEFINED IN THIS FILE, AND IT HAS TO BE. GCC",
+        " * resolves an alias attribute WITHIN a translation unit, so a weak",
+        " * alias to a symbol that is merely declared here is not a link time",
+        " * question: it is `aliased to undefined symbol` at compile time. That",
+        " * is what this file did on Monday 9 November 2026 the first time it",
+        " * met a compiler, 134 times over, having passed every text based rule",
+        " * written about it. So the trampoline below is local and what a",
+        " * default handler actually DOES stays in startup.c, reached by an",
+        " * ordinary call that needs no alias.",
+        " *",
         " * THE RESERVED POSITIONS HOLD A ZERO, both the architecture's five and",
         " * the part's twenty one, which is what ST's own startup file does. The",
         " * zero is not laziness and it is not a handler that was forgotten: a",
@@ -565,6 +575,16 @@ def as_source():
         "/* Defined in startup.c, which owns the core handlers and the reset. */",
         "void Reset_Handler(void);",
         "void Default_Handler_alias(void);",
+        "",
+        "/* The alias target for every device handler below, defined HERE",
+        " * because GCC resolves an alias within one translation unit. It does",
+        " * nothing but call startup.c's default, so there is still one place",
+        " * that decides what a default handler does. */",
+        "void Vector_Default_Handler(void);",
+        "void Vector_Default_Handler(void)",
+        "{",
+        "    Default_Handler_alias();",
+        "}",
     ]
     for _p, n, _c in CORE[2:]:
         if n:
@@ -576,7 +596,7 @@ def as_source():
     ]
     for _p, n, _c in DEVICE:
         L.append(f"void {handler(n)}(void)")
-        L.append('    __attribute__((weak, alias("Default_Handler_alias")));')
+        L.append('    __attribute__((weak, alias("Vector_Default_Handler")));')
     L += [
         "",
         "/* uintptr_t and not a function pointer array, because entry 0 is the",

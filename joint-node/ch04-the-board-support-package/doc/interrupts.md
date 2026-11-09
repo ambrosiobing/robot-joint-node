@@ -120,7 +120,7 @@ example in the argument above about omitting the holes.
 
 ## How a chapter uses one
 
-Every device handler is a **weak alias** to `Default_Handler_alias`, under the
+Every device handler is a **weak alias** to `Vector_Default_Handler`, under the
 vendor's own name, so a chapter defines one by defining it:
 
 ```c
@@ -132,6 +132,25 @@ void FDCAN1_IT0_IRQHandler(void)
 
 The weakness is load bearing and `test_vectors.py` checks it: a strong definition
 here would turn that override into a duplicate symbol error.
+
+**The alias target is defined in `vectors.c` itself, and it has to be.** GCC
+resolves an alias attribute WITHIN a translation unit, so a weak alias to a
+symbol that is only declared in the file is not a link time question: it is
+`aliased to undefined symbol` at compile time. The first version of this file
+aliased every handler to `Default_Handler_alias`, which `startup.c` defines, and
+all 134 failed the first time it met a compiler.
+
+`Vector_Default_Handler` is therefore local to `vectors.c` and does nothing but
+call `startup.c`'s default, which is an ordinary cross file call and needs no
+alias. That keeps one place deciding what a default handler does: the infinite
+loop rather than a reset, and the note about where the fault record goes once
+there is a console and a region that survives one.
+
+`test_vectors.py` now requires a DEFINITION rather than a declaration, and
+requires the trampoline to call through. It is the only rule in that file that
+exists because a compiler found what the text could not: checking that an alias
+is weak and names the right target is checking the form, and whether the target
+is in the same translation unit is the fact.
 
 `vectors.h` also carries `BOARD_IRQ_<name>` for every named position, which is
 what goes to the NVIC to enable one. A wrong constant there enables the wrong

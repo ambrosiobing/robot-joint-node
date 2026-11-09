@@ -164,8 +164,8 @@ core exceptions and the 155 device positions, `[vendor]` from ST's own
 positions this volume uses. The full reasoning and the table are in
 [`doc/interrupts.md`](doc/interrupts.md).
 
-Three things about that table fail silently and all three are checked by
-`test/test_vectors.py`:
+Four things about that table fail silently, three of them checked by
+`test/test_vectors.py` from the text and the fourth only by a compiler:
 
 - **The device positions start at vector 16.** Off by one puts every handler one
   slot out, the image links, and nothing shows it until an interrupt fires. The
@@ -181,6 +181,18 @@ Three things about that table fail silently and all three are checked by
   `ALIGN(512)`, correct for 64 bytes and too small for 684. A linker script
   cannot read a C header, so `test_startup.py` reads both numbers and refuses a
   mismatch.
+
+The fourth is the one the text could not reach. **An alias target must be
+defined in the same translation unit.** Every device handler is a weak alias so
+that a chapter can override it by defining its own, and the first version aliased
+all 134 to `Default_Handler_alias`, which `startup.c` defines and `vectors.c`
+only declared. GCC resolves an alias within the file, so that is not a link time
+question but `aliased to undefined symbol` at compile time, 134 times, after
+every text based rule about those aliases had passed. `vectors.c` now defines a
+local `Vector_Default_Handler` that calls through, and the rule checks for a
+definition rather than a declaration. Checking that an alias is weak and names
+the right target is the form; whether the target is in the same translation unit
+is the fact, and `make linkcheck` is the only thing here that can tell.
 
 It also gates a claim this chapter already made. `BOARD_HAS_ETHERNET` is 0 and
 the proof cited is the vector table; positions 61 and 62 are reserved here and

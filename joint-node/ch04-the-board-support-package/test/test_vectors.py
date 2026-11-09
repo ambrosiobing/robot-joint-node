@@ -21,8 +21,17 @@ the generator and its output agreed perfectly:
     USART3_IRQHandler would get a duplicate symbol error rather than the
     override the weak alias is there to allow.
 
-  - THE ALIAS TARGET EXISTS AND IS NOT STATIC. 134 weak aliases pointing at a
-    symbol with internal linkage do not link.
+  - THE ALIAS TARGET IS DEFINED IN THIS SAME FILE. GCC resolves an alias
+    attribute within a translation unit, so a weak alias to a symbol that is
+    only declared here does not compile at all: `aliased to undefined symbol`.
+    This file originally aliased to `Default_Handler_alias`, which startup.c
+    defines, and every handler failed. The rule below checks for a DEFINITION
+    in vectors.c and not merely a declaration.
+
+    That is the one rule here that was added because a compiler found what the
+    text rules could not. Checking that an alias is weak and names the default
+    is checking the form; whether the target is in the same translation unit is
+    the fact.
 
 There is no C compiler on the win11 aquamarine authoring laptop, so none of this
 is built where it is written. Every rule here is therefore about the text.
@@ -135,18 +144,39 @@ def main():
             fail(f"{h} is not declared as a weak alias, so a chapter defining "
                  f"its own would collide with it instead of overriding it")
             break
-        if m.group(1) != "Default_Handler_alias":
-            fail(f"{h} aliases {m.group(1)!r} rather than the default")
+        if m.group(1) != "Vector_Default_Handler":
+            fail(f"{h} aliases {m.group(1)!r} rather than the local default")
             break
 
-    # 5. The alias target has external linkage, in the file that defines it.
+    # 5. THE ALIAS TARGET IS DEFINED IN vectors.c, not merely declared there.
+    # A DECLARATION is what this file had on Monday 9 November 2026 and GCC
+    # refused all 134 aliases, because it resolves an alias within the
+    # translation unit rather than leaving it to the linker. The body is what
+    # makes this a definition, so the pattern requires the brace.
+    if not re.search(r"\bvoid\s+Vector_Default_Handler\s*\(\s*void\s*\)\s*\{",
+                     code):
+        fail("vectors.c declares but does not DEFINE Vector_Default_Handler; "
+             "GCC resolves an alias inside one translation unit, so every "
+             "device handler would fail with 'aliased to undefined symbol'")
+    if re.search(r"\bstatic\s+void\s+Vector_Default_Handler\b", code):
+        fail("Vector_Default_Handler is static, and a global weak alias "
+             "should not point at a symbol with internal linkage")
+
+    # And it must reach the one place that decides what a default handler does,
+    # rather than quietly becoming a second empty loop nobody maintains.
+    m = re.search(r"void\s+Vector_Default_Handler\s*\(\s*void\s*\)\s*\{"
+                  r"(.*?)\}", code, re.S)
+    if m and "Default_Handler_alias" not in m.group(1):
+        fail("Vector_Default_Handler does not call through to startup.c's "
+             "default, so there are now two defaults and one of them has no "
+             "fault record and no comment explaining it")
+
     if not re.search(r"\bvoid\s+Default_Handler_alias\s*\(\s*void\s*\)\s*\{",
                      startup):
-        fail("startup.c does not define Default_Handler_alias, which every "
-             "device handler aliases")
+        fail("startup.c does not define Default_Handler_alias, which the "
+             "trampoline in vectors.c calls")
     if re.search(r"\bstatic\s+void\s+Default_Handler_alias\b", startup):
-        fail("Default_Handler_alias is static, and 134 weak aliases cannot "
-             "point at a symbol with internal linkage")
+        fail("Default_Handler_alias is static, so vectors.c cannot call it")
 
     # 6. The alignment, from its own two rules rather than from the number.
     if g.ALIGN_BYTES & (g.ALIGN_BYTES - 1):
