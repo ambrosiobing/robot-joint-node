@@ -261,9 +261,46 @@ with field names rather than bare numbers so a capture found later is
 attributable, and with a monotonic count so a foreign reflash shows up as the
 banner reappearing and the count restarting.
 
-**Still missing: a capture.** The image is built and linked. Nothing in this
-volume has yet run on the part, and that is what the four board questions all
-wait on.
+### It printed, and that answered the chapter's open question
+
+**Thursday 12 November 2026.** The capture:
+
+    # jn-firstlight ch04: the first image in this volume that prints
+    # built Thursday 12 November 2026, 13:58:55 from 97f5241af2dd tree clean
+    console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556,
+             BRR 0x0000022C, rate 115108, error 1 per thousand
+    jn-firstlight tick 1 bytes 459 worst-spins 457 verdict ok
+    ...
+    jn-firstlight tick 78 bytes 5213 worst-spins 1002 verdict ok
+
+The stamp on the console is the stamp `make firstlight` printed, character for
+character, so the capture is attributable to that build and not to whatever the
+other volume last flashed. That is the whole reason the stamp exists.
+
+`[measured]` **The kernel clock is bounded, and the prescaler chain is 1:1.**
+5247 bytes arrived legibly at 115200 8N1 with the divisor at 556 and the
+prescaler at 1, so the actual rate is `F_kernel / 556` and the receiver decoded
+it. At a conservative two per cent receiver tolerance that puts `F_kernel`
+between 62.77 and 65.33 MHz; even at the theoretical limit, half a bit time of
+accumulated error at the stop bit of a ten bit frame, between 60.68 and
+67.42 MHz. **32 MHz and 128 MHz are each excluded by about a factor of two**,
+which was the question: whether a divider or multiplier sat between the 64 MHz
+oscillator and this peripheral. The full reasoning is in
+[`doc/console.md`](doc/console.md).
+
+What is NOT established is that the clock is exactly 64.000 MHz, or anything
+about the oscillator's trim. A ratio was bounded; no frequency was measured.
+
+`[measured]` One figure came free. The transmit wait never exceeded 1002 reads
+against a bound of 100000, steady from the third line on, so that bound carries
+about a hundredfold margin at this clock. It was chosen by argument and is now
+confirmed by a run.
+
+**Still missing: the other three board questions**, which this image does not
+ask because it only prints. The stack high-water mark, `CREL` for the
+controller's core version, whether one `RXF0A` write releases a whole run of
+elements, and the loopback. They are now reachable rather than blocked: there is
+a console, and it has been seen to work.
 
 ## What chapter 9 established was missing, for the record
 

@@ -63,11 +63,26 @@ computed.** Legible output then confirms the assumption. Illegible output says
 which assumption to doubt, and without those numbers printed it says nothing at
 all.
 
-## The kernel clock is not known, and the table does not pretend
+## The kernel clock, bounded on Thursday 12 November 2026
 
-`[unconfirmed]` USART3's kernel clock comes from a selector whose reset value is
-the APB1 peripheral clock, and what that is after reset on this part has not
+`[measured]` USART3's kernel clock comes from a selector whose reset value is
+the APB1 peripheral clock, and what that is after reset on this part had not
 been read. The sibling's reset values are not evidence, for the reason above.
+
+**It is now bounded, by the first image that prints.** 5247 bytes arrived
+legibly at 115200 8N1, with the divisor at 556 and the prescaler at 1. The
+actual rate is therefore `F_kernel / 556` and the receiver decoded it, so at a
+conservative two per cent receiver tolerance `F_kernel` lies between 62.77 and
+65.33 MHz, and even at the theoretical limit of half a bit time of accumulated
+error at the stop bit of a ten bit frame it lies between 60.68 and 67.42 MHz.
+
+**The prescaler chain is 1:1 after reset:** 32 MHz and 128 MHz are both excluded
+by roughly a factor of two, and that was the whole question. What is NOT
+established is that the clock is exactly 64.000 MHz, nor anything about the
+oscillator's trim. A ratio was bounded; no frequency was measured.
+
+The table below therefore still solves every plausible rate, and the 64 MHz row
+is now the one with evidence behind it rather than the one that was assumed.
 
 So the table solves **every plausible rate** rather than picking one. Whichever
 the board turns out to run at, the row is already computed and the error is
@@ -172,14 +187,25 @@ unreachable.
 
 ## What is still not answered
 
-`[unconfirmed]` Which clock USART3 actually takes. Nothing here measures it and
-nothing can: that is why `console_report` prints the assumed clock, the
-prescaler, the divisor, the register word, the achieved rate and the error, and
-then says in as many words that a legible line confirms the assumption. The link
-probe passes 64 MHz, the HSI this family comes out of reset on, because a value
-had to be chosen for something that links rather than runs.
+`[measured]` Which clock USART3 takes is answered to within a ratio, above.
+`console_report` prints the assumed clock, the prescaler, the divisor, the
+register word, the achieved rate and the error, and then says in as many words
+that a legible line confirms the assumption. On Thursday 12 November 2026 that
+line was legible, which is why the section above exists.
 
-And the first image that prints is still not written. When it is, four questions
-become answerable that are `[unconfirmed]` in two chapters today: the stack
-high-water mark, `CREL` for the controller's core version, whether one `RXF0A`
-write releases a whole run of elements, and the loopback itself.
+`[unconfirmed]` What the oscillator's actual frequency is, as opposed to the
+ratio between it and this peripheral. Bounding that needs a second clock to
+compare against, and nothing on this bench is wired to provide one yet.
+
+`[unconfirmed]` Three of the four questions the first image was supposed to
+unlock are still open, because that image prints and does nothing else: the
+stack high-water mark, `CREL` for the controller's core version, whether one
+`RXF0A` write releases a whole run of elements, and the loopback itself. What
+has changed is that they are now reachable rather than blocked: there is a
+console, and it has been seen to work.
+
+One figure did come free with the capture. `[measured]` The console's transmit
+wait never exceeded 1002 reads against a bound of 100000, steady from the third
+line onwards, so that bound carries about a hundredfold margin at this clock.
+The bound was chosen by argument; it is now chosen by argument and confirmed by
+a run.

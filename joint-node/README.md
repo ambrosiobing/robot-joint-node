@@ -30,8 +30,12 @@ read from its sources on Monday 9 November 2026, all 171 entries. **The first
 image that prints was built on Thursday 12 November 2026**, `src/app/first_light.c`,
 which runs at the part's reset clock so that it needs no clock configuration and
 carries a generated build stamp so that a capture can name the image that
-produced it. What is still missing is a capture: nothing in this volume has run
-on the part, and that is what every remaining board question waits on.
+produced it. **It printed on the same day**, which is the first time anything in
+this volume has run on the part: 5247 bytes legible at 115200, the console's
+stamp matching the build's character for character, and `[measured]` the USART
+kernel clock bounded between 62.77 and 65.33 MHz, which excludes any factor of
+two in the prescaler chain. What is still missing is the other three board
+questions, which that image does not ask because it only prints.
 
 Chapter 17 contains **no code at all**, and that is the chapter rather than an
 omission. Its subject is the boundary this volume stops at, so its deliverable

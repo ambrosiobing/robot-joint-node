@@ -13,21 +13,34 @@
  * placement are all simultaneously right. None of them can be confirmed from
  * the host.
  *
- * `[unconfirmed]` AND IT ASSUMES A CLOCK IT CANNOT MEASURE. The console is told
- * 64 MHz. Two vendors agree that this is the reset state: ST's own
- * system_stm32h7xx.c initialises SystemCoreClock and SystemD2Clock to 64000000
- * before any configuration runs, and Zephyr's device tree for this family says
- * `hsi-div = <1>` with the comment `HSI RC: 64MHz, hsi_clk = 64MHz`. What
- * neither settles is which clock USART3's kernel input actually takes after
- * reset, because that depends on prescalers nothing here has read back.
+ * `[measured]` AND THE CLOCK IT ASSUMES IS NOW BOUNDED, BY THIS IMAGE. The
+ * console is told 64 MHz. Two vendors already agreed that this is the reset
+ * state: ST's own system_stm32h7xx.c initialises SystemCoreClock and
+ * SystemD2Clock to 64000000 before any configuration runs, and Zephyr's device
+ * tree says `hsi-div = <1>` with the comment `HSI RC: 64MHz`. What neither
+ * settled is which clock USART3's kernel input actually takes after reset,
+ * because that depends on prescalers nothing had read back.
  *
- * SO READABLE TEXT IS THE MEASUREMENT. A console cannot check its own baud; the
- * terminal is the instrument. If the lines below arrive legibly then the
- * assumption printed in them was close enough, and if they arrive as rubbish
- * then the assumption is wrong and the report line names what was assumed. That
- * is why console_report is printed FIRST and why the assumed figure is in it:
- * a garbled capture is still evidence, provided the thing being tested was
- * written down before it was tested.
+ * READABLE TEXT IS THE MEASUREMENT, and on Thursday 12 November 2026 it was
+ * taken: 5247 bytes arrived legibly at 115200 8N1 with no corruption. The
+ * divisor in use was 556 with the prescaler at 1, so the actual rate is
+ * F_kernel / 556, and the receiver decoded it. Taking a deliberately
+ * conservative two per cent receiver tolerance that puts F_kernel between
+ * 62.77 and 65.33 MHz; even at the theoretical limit, half a bit time of
+ * accumulated error at the stop bit of a ten bit frame, it is between 60.68
+ * and 67.42 MHz.
+ *
+ * SO THE PRESCALER CHAIN IS 1:1 AFTER RESET. 32 MHz and 128 MHz are both
+ * excluded by about a factor of two, which is what the question was: whether
+ * some divider or multiplier sat between the 64 MHz oscillator and this
+ * peripheral. What is NOT established is that the clock is exactly 64.000 MHz,
+ * nor anything about how well the internal oscillator is trimmed. A ratio was
+ * bounded, not a frequency measured.
+ *
+ * A console still cannot check its own baud; the terminal is the instrument.
+ * That is why console_report is printed FIRST and why the assumed figure is in
+ * it: a garbled capture would have been evidence too, because the thing being
+ * tested was written down before it was tested.
  *
  * This image configures no clock tree. It deliberately runs at whatever the
  * part comes out of reset on, because the clock configuration is a chapter 4
@@ -98,10 +111,22 @@ int main(void)
     line("\r\n# " FL_TAG " ch04: the first image in this volume that prints\r\n");
     line("# ");
     line(build_stamp());
-    line("\r\n# ");
+    line("\r\n");
+
+    /* NO `# ` PREFIX IN FRONT OF THIS CALL. The first capture, on Thursday
+     * 12 November 2026, printed `# console: assumed kernel clock ...` followed
+     * by a bare `console: IF THIS LINE IS LEGIBLE ...`, because a prefix
+     * written before a call only reaches that call's FIRST line and
+     * console_report prints two. Both of its lines already begin with
+     * `console: `, which is the field name that identifies them, so there was
+     * nothing to add and one line to get wrong. */
     (void) console_report(&g_console);
-    line("# this text being legible IS the test: the clock above was assumed, "
-         "never measured\r\n");
+    /* This line said "the clock above was assumed, never measured" until the
+     * capture of Thursday 12 November 2026 made that false. As far as this code
+     * knows the figure is still an assumption; what changed is that a reader of
+     * the output now has somewhere to look for what it bounds. */
+    line("# legible text here IS the measurement: it bounds the clock above to "
+         "within a ratio, see doc/console.md\r\n");
 
     /* Then one line per heartbeat, with field names rather than bare numbers so
      * that a capture found later can be attributed to this image.
