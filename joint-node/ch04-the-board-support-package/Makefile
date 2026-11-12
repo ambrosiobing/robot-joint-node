@@ -6,6 +6,8 @@
 #     make ctest      needs a host C compiler: the divisor against its vectors
 #     make linkcheck  needs arm-none-eabi-gcc: links a real image and reads
 #                     its first two words back
+#     make firstlight needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS, as an
+#                     .elf and the .bin that gets copied to the board
 #     make table      the tables in doc/memory-map.md, doc/console.md and
 #                     doc/interrupts.md
 #
@@ -17,10 +19,11 @@ PYTHON  ?= python3
 BUILD    = build
 
 CROSS      ?= arm-none-eabi-gcc
+OBJCOPY    ?= arm-none-eabi-objcopy
 CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
 CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding -fno-common
 
-.PHONY: all generated layers pytest ctest linkcheck table clean
+.PHONY: all generated layers pytest ctest linkcheck firstlight stamp table clean
 
 all: generated layers pytest
 	@echo
@@ -43,6 +46,7 @@ pytest:
 	@$(PYTHON) test/test_memmap.py
 	@$(PYTHON) test/test_startup.py
 	@$(PYTHON) test/test_vectors.py
+	@$(PYTHON) test/test_firstlight.py
 	@$(PYTHON) test/test_baud.py
 	@$(PYTHON) test/test_console.py
 
@@ -80,6 +84,40 @@ linkcheck: $(BUILD) generated pytest
 	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/image.map -T src/bsp/stm32h7a3.ld $(BUILD)/startup.o $(BUILD)/vectors.o $(BUILD)/baud.o $(BUILD)/console.o $(BUILD)/link_probe.o -o $(BUILD)/image.elf
 	@arm-none-eabi-size $(BUILD)/image.elf
 	@$(PYTHON) tools/check_image.py $(BUILD)/image.elf
+
+# THE IMAGE THAT PRINTS. Everything under it has been checked without a part
+# for weeks; this is the first thing in the volume whose correctness can only be
+# seen on the board, because readable text at 115200 is the first evidence that
+# the assumed clock, the computed divisor, the pin configuration, the startup's
+# copy and zero, and the vector table's placement are all right at once.
+#
+# `stamp` is a prerequisite and is PHONY, so the stamp is rewritten on every
+# build and that one translation unit always recompiles. That is deliberate and
+# it is why this target never builds as a no-op: a stamp that does not move
+# cannot tell a new image from the one the previous session flashed, and the
+# board is shared.
+#
+# link_probe.c is NOT linked here. It carries its own `main` for linkcheck, and
+# two definitions of main is a link error rather than a silent choice.
+stamp:
+	@$(PYTHON) tools/gen_stamp.py $(BUILD)/stamp.c
+
+firstlight: $(BUILD) generated pytest stamp
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/fl_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/fl_vectors.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/fl_baud.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/fl_console.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/app/first_light.c -o $(BUILD)/fl_first_light.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c $(BUILD)/stamp.c -o $(BUILD)/fl_stamp.o
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/first_light.map -T src/bsp/stm32h7a3.ld $(BUILD)/fl_startup.o $(BUILD)/fl_vectors.o $(BUILD)/fl_baud.o $(BUILD)/fl_console.o $(BUILD)/fl_first_light.o $(BUILD)/fl_stamp.o -o $(BUILD)/first_light.elf
+	@$(OBJCOPY) -O binary $(BUILD)/first_light.elf $(BUILD)/first_light.bin
+	@arm-none-eabi-size $(BUILD)/first_light.elf
+	@$(PYTHON) tools/check_image.py $(BUILD)/first_light.elf
+	@$(PYTHON) tools/gen_stamp.py --check $(BUILD)/stamp.c
+	@echo
+	@echo "first_light.bin is ready to copy to the board. The stamp above is what"
+	@echo "the banner will print, so read it back off the console before reading"
+	@echo "any number: the part is shared and a skipped flash prints the old image."
 
 table:
 	@$(PYTHON) tools/gen_memmap.py --table

@@ -119,11 +119,18 @@ def main():
 
         # And the shipping C, which is what the chapter actually is. A module
         # added without a word in the README is a module nobody finds.
-        for sub in ("src/bus", "src/bsp"):
-            for c in sorted((d / sub).glob("*.c")):
-                if c.name not in own_text:
-                    fail(f"{d.name}/{sub}/{c.name} exists and "
-                         f"{d.name}/README.md does not name it")
+        #
+        # EVERY DIRECTORY UNDER src/, FOUND BY LOOKING. This read `src/bus` and
+        # `src/bsp` from a tuple until Thursday 12 November 2026, which were the
+        # only two that existed when it was written. Chapter 4 then gained
+        # `src/app/` for the first image that prints, and this gate welcomed it
+        # in silence: the exact drift it was built to catch, in the thing built
+        # to catch it. A gate that knows a list of names cannot see a name
+        # nobody has added to the list yet.
+        for c in sorted((d / "src").glob("*/*.c")):
+            if c.name not in own_text:
+                fail(f"{d.name}/{c.relative_to(d).as_posix()} exists and "
+                     f"{d.name}/README.md does not name it")
 
     # The published Markdown edition is a different surface from the chapter
     # directories above, and until Sunday 8 November 2026 nothing checked it.
@@ -154,9 +161,7 @@ def main():
     scripts = sum(len(list((d / "tools").glob("*.py")))
                   + len(list((d / "test").glob("*.py")))
                   + len(list(d.glob("*.py"))) for d in chapters)
-    sources = sum(len(list((d / "src" / "bus").glob("*.c")))
-                  + len(list((d / "src" / "bsp").glob("*.c")))
-                  for d in chapters)
+    sources = sum(len(list((d / "src").glob("*/*.c"))) for d in chapters)
     print(f"ok  {len(chapters)} chapters, each with a README and a row in the "
           f"state table, {scripts} generators and tests and {sources} shipping "
           f"C files all named in the prose that indexes them")

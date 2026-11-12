@@ -126,6 +126,7 @@ jobs:
           python test/test_memmap.py
           python test/test_startup.py
           python test/test_vectors.py
+          python test/test_firstlight.py
           python test/test_baud.py
           python test/test_console.py
 
@@ -136,6 +137,13 @@ jobs:
       # image that links and reports a sensible size. This one links a real
       # image, with --gc-sections on deliberately so the script's KEEP is under
       # test, and reads the first two words back out of the .elf.
+      # `make firstlight` builds the image that prints, which is the one
+      # artefact here that a host cannot judge: readable text at 115200 is the
+      # evidence and only the board produces it. What CI can still establish is
+      # that it compiles under -Werror, links against the real script, and
+      # passes check_image.py, so a bench session is never spent discovering a
+      # compile error. The build stamp also means this target never builds as a
+      # no-op, by design.
       - name: Chapter 4, link a real image and read its first two words
         working-directory: joint-node/ch04-the-board-support-package
         run: |
@@ -144,6 +152,7 @@ jobs:
           arm-none-eabi-gcc --version | head -1
           make ctest
           make linkcheck
+          make firstlight
 
       # Deliberately placed ahead of the virtual interface step below, which
       # can sit for ten minutes on a kernel module download. This one needs

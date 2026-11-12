@@ -10,6 +10,7 @@ make                        # everything that needs no toolchain
 make layers                 # chapter 4's rule over the whole joint-node tree
 make pytest                 # the map, the startup, the vectors, by construct
 make linkcheck              # needs arm-none-eabi-gcc: links a real image
+make firstlight             # needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS
 make table                  # the tables in doc/memory-map.md, doc/console.md
                             # and doc/interrupts.md
 
@@ -21,6 +22,8 @@ python test/test_memmap.py  # the map, the script, and their agreement
 python test/test_startup.py # src/bsp/startup.c's four silent mistakes
 python tools/gen_vectors.py # regenerate src/bsp/vectors.c and vectors.h
 python test/test_vectors.py # the 171 vectors, the offset, the reserved holes
+python tools/gen_stamp.py --print            # the build stamp, as it will print
+python test/test_firstlight.py               # the banner, the tag, the stamp
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -199,10 +202,68 @@ the proof cited is the vector table; positions 61 and 62 are reserved here and
 are `ETH` and `ETH_WKUP` on the STM32H743, so the generator refuses if either
 ever acquires a name.
 
-**Still missing: the first image that prints.** `[vendor]` The board's own device
-tree settles what the console is, USART3 on PD8 and PD9 at 115200, and the
-console and its divisor are written and compiled. What has not happened is an
-image running on the part, which is what the four board questions all wait on.
+## The image that prints, `src/app/first_light.c`
+
+Built on Thursday 12 November 2026, once the floor under it was complete. It is
+the first thing in this volume whose correctness cannot be seen from the host at
+all.
+
+**What it is for is one readable line.** That is a smaller claim than it sounds
+and a larger one than anything here has made before, because readable text at
+115200 is the first evidence that the assumed clock, the computed divisor, the
+pin configuration, the startup's copy and zero, and the vector table's placement
+are all simultaneously right. Not one of them can be confirmed from a laptop.
+
+**It configures no clock tree, deliberately.** `[vendor]` The part comes out of
+reset on its internal oscillator at 64 MHz: ST's own `system_stm32h7xx.c`
+initialises `SystemCoreClock` and `SystemD2Clock` to `64000000` before any
+configuration runs, and Zephyr's device tree for this family says
+`hsi-div = <1>` with the comment `HSI RC: 64MHz, hsi_clk = 64MHz`. That is the
+figure the console was already written to assume, so an image can print before
+the clock configuration exists, and the clock configuration is a chapter 4
+deliverable that is not started.
+
+`[unconfirmed]` What neither vendor settles is which clock USART3's kernel input
+actually takes after reset, because that depends on prescalers nothing here has
+read back. **So readable text is the measurement.** A console cannot check its
+own baud and the terminal is the instrument: `console_report` is printed FIRST
+and carries the assumed figure, so a garbled capture is still evidence, provided
+what was being tested was written down before it was tested.
+
+### The banner has to name the image, because the board is shared
+
+Two volumes work the same NUCLEO-H7A3ZI-Q, so whatever was flashed last is what
+is on the part. Elsewhere on this bench a skipped flash printed a banner
+identical to the expected one, character for character, twice in one evening,
+because the banner carried only a name.
+
+So the first line carries a tag no other project prints, `jn-firstlight`, and
+`tools/gen_stamp.py` generates a build stamp into a translation unit that is
+rewritten at every build:
+
+    built Thursday 12 November 2026, 13:47:48 from ce3681e78085 tree 2 untracked
+
+**Generated rather than `__DATE__`,** because those macros are fixed when their
+own translation unit is compiled and not when the image is linked, so a build
+whose only edit is elsewhere keeps an old stamp. That has reported a good image
+as stale three times on this bench, and a guard with false alarms is worse than
+no guard because what it throws away is real.
+
+**And the dirty marker is computed rather than taken from `git describe
+--dirty`,** which reads tracked modifications against the index and calls a tree
+holding a brand new file clean. Every file in a new chapter starts untracked,
+which is exactly when it matters. `test/test_firstlight.py` builds that state on
+purpose and watches it detected, because a guard whose failing state nobody has
+constructed is a guard nobody has seen work.
+
+The heartbeat then prints `jn-firstlight tick N bytes M worst-spins W verdict V`,
+with field names rather than bare numbers so a capture found later is
+attributable, and with a monotonic count so a foreign reflash shows up as the
+banner reappearing and the count restarting.
+
+**Still missing: a capture.** The image is built and linked. Nothing in this
+volume has yet run on the part, and that is what the four board questions all
+wait on.
 
 ## What chapter 9 established was missing, for the record
 
