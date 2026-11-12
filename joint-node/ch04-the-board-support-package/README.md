@@ -13,6 +13,7 @@ make linkcheck              # needs arm-none-eabi-gcc: links a real image
 make firstlight             # needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS
 make fdcanprobe-a           # the register map probe, writing ONLY 0x0EC
 make fdcanprobe-b           # the same probe, writing ONLY 0x14C
+make addrmap                # reads first, writes once, announces each address
 make table                  # the tables in doc/memory-map.md, doc/console.md
                             # and doc/interrupts.md
 
@@ -27,6 +28,7 @@ python test/test_vectors.py # the 171 vectors, the offset, the reserved holes
 python tools/gen_stamp.py --print            # the build stamp, as it will print
 python test/test_firstlight.py               # the banner, the tag, the stamp
 python test/test_fdcanprobe.py               # one write, and the boundary round it
+python test/test_addrmap.py                  # the offsets, the flush order, the faults
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -379,6 +381,37 @@ header's contradiction stands as a documentation question and has no consequence
 for these three registers. `[unconfirmed]` The mechanism is not established, and
 one observation is not a mechanism; the next experiment and the design gap it
 closes are named in [`doc/register-map.md`](doc/register-map.md).
+
+### The follow-up, `src/app/addrmap.c`
+
+Built the same day, and it exists for two reasons that are both mine to fix.
+
+**It reads `CREL` and `ENDN` BEFORE any enable is written**, which the previous
+probe did not, so it can say whether the enable was necessary at all rather than
+only that FDCAN answers once the bit is set. The report ends in one line:
+`enable-necessary no`, `yes`, or `unknown`, with a branch for the surprise where
+the controller does not answer even afterwards.
+
+**It reads five pairs 0x60 apart instead of three**, to test whether the
+mirroring is periodic or confined: 0x000 against 0x060 where `CR`'s value is
+already known, 0x050 against 0x0B0, 0x0B0 against 0x110, 0x14C against 0x1AC,
+and 0x0E0 against 0x140 as the **known positive**.
+
+**Every read is announced and flushed before the access**, because this probe
+touches addresses whose meaning is unknown and `[inferred]` only the one
+kilobyte slot bounds them. If a read faults, the part stops and the capture
+ends; a line assembled in memory and printed at the end would print nothing and
+name nothing. `HardFault_Handler` and `BusFault_Handler` are overridden here,
+the first use in this volume of the weak aliases the vector table was generated
+to allow, and they print the last announced offset. A capture that ends mid-list
+is a result, not a mishap.
+
+Six mutations were run against `test/test_addrmap.py` and all six objected,
+including an offset moved past the slot and the flush moved after the
+dereference. One rule of mine had to be re-formed first: it counted dereference
+casts and allowed "exactly one" on the strength of the write, but the write goes
+through a pointer variable and is not a dereference cast, so the rule demanded
+an access that does not exist and failed on correct code.
 
 **Still missing: three board questions.** The stack high-water mark, whether one
 `RXF0A` write releases a whole run of elements, and the loopback. The last two

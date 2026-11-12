@@ -10,6 +10,8 @@
 #                     .elf and the .bin that gets copied to the board
 #     make fdcanprobe-a   the register map probe, writing ONLY offset 0x0EC
 #     make fdcanprobe-b   the same probe, writing ONLY offset 0x14C
+#     make addrmap        reads first, writes once, names every address before
+#                     touching it
 #     make table      the tables in doc/memory-map.md, doc/console.md and
 #                     doc/interrupts.md
 #
@@ -25,7 +27,7 @@ OBJCOPY    ?= arm-none-eabi-objcopy
 CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
 CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding -fno-common
 
-.PHONY: all generated layers pytest ctest linkcheck firstlight fdcanprobe-a fdcanprobe-b stamp table clean
+.PHONY: all generated layers pytest ctest linkcheck firstlight fdcanprobe-a fdcanprobe-b addrmap stamp table clean
 
 all: generated layers pytest
 	@echo
@@ -50,6 +52,7 @@ pytest:
 	@$(PYTHON) test/test_vectors.py
 	@$(PYTHON) test/test_firstlight.py
 	@$(PYTHON) test/test_fdcanprobe.py
+	@$(PYTHON) test/test_addrmap.py
 	@$(PYTHON) test/test_baud.py
 	@$(PYTHON) test/test_console.py
 
@@ -164,6 +167,30 @@ fdcanprobe-a fdcanprobe-b: $(BUILD) generated pytest stamp
 	@echo "$(FP_NAME).bin is ready. Read the stamp off the console before any"
 	@echo "number, and read the tag: an a image and a b image differ in one"
 	@echo "write and nothing else, so the tag is how a capture is attributed."
+
+# READS FIRST, WRITES ONCE. It closes a gap in fdcanprobe, which read FDCAN
+# only AFTER the enable and so could not say whether the enable was needed, and
+# it tests whether the 0x60 mirroring that capture found is periodic or confined
+# to three pairs. Every read is announced and flushed before the access, so a
+# truncated capture names the read that stopped the part.
+AM_OBJS = $(BUILD)/am_startup.o $(BUILD)/am_vectors.o $(BUILD)/am_baud.o \
+          $(BUILD)/am_console.o $(BUILD)/am_addrmap.o $(BUILD)/am_stamp.o
+
+addrmap: $(BUILD) generated pytest stamp
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/am_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/am_vectors.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/am_baud.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/am_console.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/app/addrmap.c -o $(BUILD)/am_addrmap.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c $(BUILD)/stamp.c -o $(BUILD)/am_stamp.o
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/addrmap.map -T src/bsp/stm32h7a3.ld $(AM_OBJS) -o $(BUILD)/addrmap.elf
+	@$(OBJCOPY) -O binary $(BUILD)/addrmap.elf $(BUILD)/addrmap.bin
+	@arm-none-eabi-size $(BUILD)/addrmap.elf
+	@$(PYTHON) tools/check_image.py $(BUILD)/addrmap.elf
+	@echo
+	@echo "addrmap.bin is ready. If the capture stops partway, the LAST offset"
+	@echo "printed is the read that stopped it, and the fault handler should say"
+	@echo "so itself. A capture that ends mid-list is a result, not a mishap."
 
 table:
 	@$(PYTHON) tools/gen_memmap.py --table

@@ -128,6 +128,7 @@ jobs:
           python test/test_vectors.py
           python test/test_firstlight.py
           python test/test_fdcanprobe.py
+          python test/test_addrmap.py
           python test/test_baud.py
           python test/test_console.py
 
@@ -156,6 +157,7 @@ jobs:
           make firstlight
           make fdcanprobe-a
           make fdcanprobe-b
+          make addrmap
 
       # Deliberately placed ahead of the virtual interface step below, which
       # can sit for ten minutes on a kernel module download. This one needs

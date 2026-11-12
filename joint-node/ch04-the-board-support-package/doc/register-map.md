@@ -202,9 +202,10 @@ the design and it is mine: the probe reads `CREL` and `ENDN` only AFTER the
 write, so it shows that FDCAN answers once the bit is set and not that the bit
 is what made it answer.
 
-### The next experiment, which is cheap
+### The next experiment, built on Thursday 12 November 2026
 
-One image, read only first, then one write:
+`src/app/addrmap.c`, and it is written. One image, read only first, then one
+write:
 
 1. Read `CREL` and `ENDN` BEFORE any enable is written. That closes the gap
    above: if they already answer, the enable is not what grants access.
@@ -216,6 +217,34 @@ One image, read only first, then one write:
 Reading 0x000 against 0x060 is the sharpest of those, because `CR` is at 0x000
 and its value is known from this capture, so a mirror at 0x060 would be
 unmistakable.
+
+**It reads five pairs, and 0x0E0 against 0x140 is among them as the KNOWN
+POSITIVE.** A capture in which the pair that already mirrored stops mirroring is
+a capture to distrust before reading anything else in it.
+
+**And a hazard the previous probe did not face.** This one reads addresses whose
+meaning is unknown. `[inferred]` All of them lie inside base plus 0x3FF, the one
+kilobyte slot this peripheral is allocated, so a read is expected to return zero
+rather than to fault; that is an inference and not a source. If it is wrong, a
+bus error escalates to a hard fault, the part stops, and the capture simply
+ENDS.
+
+A line assembled in memory and printed at the end prints nothing when the access
+halfway through it never returns. So **every offset is printed AND FLUSHED
+before the read that follows it**, which costs output and makes the last line of
+a truncated capture the culprit. `test_addrmap.py` checks that the flush precedes
+the dereference, collects every offset from the source and compares it against
+the bound, and refuses any dereference outside the one announcing function.
+
+`HardFault_Handler` and `BusFault_Handler` are overridden in that file, which is
+the first use in this volume of the weak aliases the generated vector table was
+built to allow: a strong definition under the vendor's own name wins. They print
+the last announced offset and stop. `[unconfirmed]` Printing from a fault
+handler is not generally sound, and it is acceptable here only because the one
+fault this probe can plausibly raise is a bus error on a read, which leaves the
+console untouched.
+
+So a capture that ends mid-list is a result rather than a mishap.
 
 ## What the capture did settle
 
