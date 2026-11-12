@@ -8,6 +8,8 @@
 #                     its first two words back
 #     make firstlight needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS, as an
 #                     .elf and the .bin that gets copied to the board
+#     make fdcanprobe-a   the register map probe, writing ONLY offset 0x0EC
+#     make fdcanprobe-b   the same probe, writing ONLY offset 0x14C
 #     make table      the tables in doc/memory-map.md, doc/console.md and
 #                     doc/interrupts.md
 #
@@ -23,7 +25,7 @@ OBJCOPY    ?= arm-none-eabi-objcopy
 CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
 CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding -fno-common
 
-.PHONY: all generated layers pytest ctest linkcheck firstlight stamp table clean
+.PHONY: all generated layers pytest ctest linkcheck firstlight fdcanprobe-a fdcanprobe-b stamp table clean
 
 all: generated layers pytest
 	@echo
@@ -47,6 +49,7 @@ pytest:
 	@$(PYTHON) test/test_startup.py
 	@$(PYTHON) test/test_vectors.py
 	@$(PYTHON) test/test_firstlight.py
+	@$(PYTHON) test/test_fdcanprobe.py
 	@$(PYTHON) test/test_baud.py
 	@$(PYTHON) test/test_console.py
 
@@ -118,6 +121,49 @@ firstlight: $(BUILD) generated pytest stamp
 	@echo "first_light.bin is ready to copy to the board. The stamp above is what"
 	@echo "the banner will print, so read it back off the console before reading"
 	@echo "any number: the part is shared and a skipped flash prints the old image."
+
+# TWO IMAGES, ONE SOURCE FILE, ONE -D EACH.
+#
+# The read-only baseline has to be identical in both, and the way to guarantee
+# that is to compile the same translation unit twice rather than to maintain two
+# files that could drift. The only difference is which single RCC offset is
+# written, and a build with neither -D is a compile error in the source.
+#
+# Joseph's decision, Thursday 12 November 2026: the competing candidate is not
+# written, because its meaning for this silicon is exactly what the experiment
+# is to determine, and writing to it would move the subject.
+FP_OBJS = $(BUILD)/fp_startup.o $(BUILD)/fp_vectors.o $(BUILD)/fp_baud.o \
+          $(BUILD)/fp_console.o $(BUILD)/fp_probe.o $(BUILD)/fp_stamp.o
+
+fdcanprobe-a: FP_DEF  = -DFP_VARIANT_A
+fdcanprobe-a: FP_NAME = fdcan_probe_a
+fdcanprobe-b: FP_DEF  = -DFP_VARIANT_B
+fdcanprobe-b: FP_NAME = fdcan_probe_b
+
+fdcanprobe-a fdcanprobe-b: $(BUILD) generated pytest stamp
+	@echo "checking that a build with NEITHER variant refuses, which only a compiler can say:"
+	@if $(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -fsyntax-only src/app/fdcan_probe.c >/dev/null 2>&1; then \
+		echo "  FAIL fdcan_probe.c compiles with neither FP_VARIANT_A nor FP_VARIANT_B,"; \
+		echo "       so an image that cannot name the candidate it wrote can be built,"; \
+		echo "       and the board is shared so such a capture is unattributable."; \
+		exit 1; \
+	else \
+		echo "  ok   it refuses, so every image names its one write"; \
+	fi
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/fp_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/fp_vectors.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/fp_baud.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/fp_console.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app $(FP_DEF) -ffunction-sections -fdata-sections -c src/app/fdcan_probe.c -o $(BUILD)/fp_probe.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c $(BUILD)/stamp.c -o $(BUILD)/fp_stamp.o
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/$(FP_NAME).map -T src/bsp/stm32h7a3.ld $(FP_OBJS) -o $(BUILD)/$(FP_NAME).elf
+	@$(OBJCOPY) -O binary $(BUILD)/$(FP_NAME).elf $(BUILD)/$(FP_NAME).bin
+	@arm-none-eabi-size $(BUILD)/$(FP_NAME).elf
+	@$(PYTHON) tools/check_image.py $(BUILD)/$(FP_NAME).elf
+	@echo
+	@echo "$(FP_NAME).bin is ready. Read the stamp off the console before any"
+	@echo "number, and read the tag: an a image and a b image differ in one"
+	@echo "write and nothing else, so the tag is how a capture is attributed."
 
 table:
 	@$(PYTHON) tools/gen_memmap.py --table

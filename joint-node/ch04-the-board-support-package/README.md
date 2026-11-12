@@ -11,6 +11,8 @@ make layers                 # chapter 4's rule over the whole joint-node tree
 make pytest                 # the map, the startup, the vectors, by construct
 make linkcheck              # needs arm-none-eabi-gcc: links a real image
 make firstlight             # needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS
+make fdcanprobe-a           # the register map probe, writing ONLY 0x0EC
+make fdcanprobe-b           # the same probe, writing ONLY 0x14C
 make table                  # the tables in doc/memory-map.md, doc/console.md
                             # and doc/interrupts.md
 
@@ -24,6 +26,7 @@ python tools/gen_vectors.py # regenerate src/bsp/vectors.c and vectors.h
 python test/test_vectors.py # the 171 vectors, the offset, the reserved holes
 python tools/gen_stamp.py --print            # the build stamp, as it will print
 python test/test_firstlight.py               # the banner, the tag, the stamp
+python test/test_fdcanprobe.py               # one write, and the boundary round it
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -296,8 +299,60 @@ against a bound of 100000, steady from the third line on, so that bound carries
 about a hundredfold margin at this clock. It was chosen by argument and is now
 confirmed by a run.
 
-**Still missing: the other three board questions**, which this image does not
-ask because it only prints. The stack high-water mark, `CREL` for the
+## Which RCC register map this silicon has, `src/app/fdcan_probe.c`
+
+**Opened on Thursday 12 November 2026 while sourcing one bit.** The probe was
+meant to read two FDCAN registers; it needs a clock enable, and there turn out
+to be two candidate addresses for it, because **ST's own header contradicts
+itself.**
+
+Parsing `RCC_TypeDef` and comparing each field's computed offset against the
+`Address offset:` in that field's own comment:
+
+| Header | Fields | Agree | Differ |
+|---|---|---|---|
+| `stm32h743xx.h` | 65 | 65 | **0** |
+| `stm32h7a3xx.h` | 67 | 45 | **22** |
+
+The first divergence is `RESERVED10`, declared `[31]` with a comment copied
+verbatim from `RESERVED9`. Everything after it is displaced by 0x60, including
+`AHB4ENR` (struct 0x140, comment 0x0E0), `APB1LENR` (0x148 against 0x0E8) and
+`APB1HENR` (0x14C against 0x0EC).
+
+`[measured]` **The console already uses the comments' offsets and works**, which
+is behaviour on this part. `[inferred]` **Against that**, Zephyr supports this
+board through that same struct, and a struct displaced by 0x60 ought to break
+every clock enable on it. Both cannot hold, and arguing further is the error
+this volume exists to avoid, so the part decides.
+
+**Two images, one source file, one `-D` each, and exactly one write.** An
+address whose meaning for this silicon is unsettled must not be written to
+merely because it would have to be reserved under the competing hypothesis: that
+assumes the conclusion, and writing there moves the subject. Image A writes only
+offset 0x0EC, image B only 0x14C, and neither touches the other. The read-only
+baseline is identical by construction because it is the same translation unit.
+
+The report keeps three things apart, because a set enable bit does not prove the
+controller's core has a usable clock: the clock tree at undisputed offsets
+including `HSIDIV`, which states whether the oscillator is undivided **without
+depending on the terminal**; the peripheral enable at the disputed offsets, all
+six addresses read before and after; and the two FDCAN reads.
+
+The contradiction, the evidence on both sides, what has not been ruled out, and
+what each outcome will mean are in [`doc/register-map.md`](doc/register-map.md),
+written before the run.
+
+`test/test_fdcanprobe.py` imports chapter 9's own generator and compares `CREL`,
+`ENDN` and the expected `0x87654321` against it rather than keeping a second
+copy, so the two chapters cannot drift apart about the register map. Five
+mutations were run against its rules and one survived: checking that `#error`
+appears in the file is the form, and whether a build with neither `-D` actually
+fails is the fact. The form check now tests the condition, and the fact is
+checked by the Makefile, which compiles the file without a variant and requires
+a non-zero exit before building anything.
+
+**Still missing: the other three board questions**, which the printing image
+does not ask because it only prints. The stack high-water mark, `CREL` for the
 controller's core version, whether one `RXF0A` write releases a whole run of
 elements, and the loopback. They are now reachable rather than blocked: there is
 a console, and it has been seen to work.
