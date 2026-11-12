@@ -16,9 +16,12 @@ controller answering, which turned out to be most of it: the bit timing, the
 message memory layout and the arithmetic that addresses an element inside it,
 the frame length code, the element format, the queue protocol, the
 configuration order as data, the executor that walks it, and the accessors that
-point that executor at a real address. What still needs the Nucleo is whether a
-register answers at all, the loopback and the first frame. Its README says
-which is which.
+point that executor at a real address. `[measured]` **Two of its registers have
+now been read on the part**, out of sequence and by chapter 4: `CREL` is
+`0x32141218`, M_CAN core release 3.2.1 of 18 December 2014, and `ENDN` is
+`0x87654321`, which confirms the base address three vendor sources agreed on.
+What still needs the Nucleo is the loopback and the first frame, which need a
+configured controller and a transceiver. Its README says which is which.
 
 Chapter 4 carries the image floor the rest of the volume stands on, which
 chapter 9 established on Tuesday 20 October 2026 was missing: a memory map
@@ -37,12 +40,15 @@ kernel clock bounded between 62.77 and 65.33 MHz, which excludes any factor of
 two in the prescaler chain. What is still missing is the other three board
 questions, which that image does not ask because it only prints.
 
-**A contradiction in a vendor header is open as of Thursday 12 November 2026.**
-ST's CMSIS device file for this part disagrees with itself about where the RCC
-clock enable registers are: its `RCC_TypeDef` and its own per-field comments
-differ by 0x60 for 22 registers, and the console works at the comments'
-addresses while Zephyr supports this board through the struct. Chapter 4 carries
-two probe images, differing in exactly one write, to let the part settle it.
+**A contradiction in a vendor header was opened and partly disposed of on
+Thursday 12 November 2026.** ST's CMSIS device file for this part disagrees with
+itself about where the RCC clock enable registers are: its `RCC_TypeDef` and its
+own per-field comments differ by 0x60 for 22 registers. Two probe images,
+differing in exactly one write, put it to the part, and the answer was that the
+question was malformed: `[measured]` both candidate addresses reach the same
+register, three pairs 0x60 apart reading and writing identically in both images.
+The contradiction stands as a documentation question and has no consequence for
+those three registers. `[unconfirmed]` The mechanism is not established.
 See [`ch04/doc/register-map.md`](ch04-the-board-support-package/doc/register-map.md).
 
 Chapter 17 contains **no code at all**, and that is the chapter rather than an
@@ -136,9 +142,10 @@ either. The distinction matters because it decides what can be finished tonight.
   its bus and board layers for `cortex-m7`, and chapter 4's `make linkcheck`,
   which links a real image and reads its first two words back out of the `.elf`.
   Neither flashes anything.
-- **A board**: whether a register answers at all, the loopback, the first frame,
-  and every open question in chapter 9's register map. Nothing here claims
-  otherwise.
+- **A board**: the loopback, the first frame, and most of the open questions in
+  chapter 9's register map. `[measured]` Two of them are closed as of Thursday
+  12 November 2026: a register does answer, and the base address is the one three
+  vendor sources gave. Nothing here claims more than that.
 
 There is no C compiler on the win11 aquamarine authoring laptop, so no C in this
 tree is built there. It is built by the workflow in `.github/workflows/checks.yml`

@@ -197,12 +197,18 @@ line was legible, which is why the section above exists.
 ratio between it and this peripheral. Bounding that needs a second clock to
 compare against, and nothing on this bench is wired to provide one yet.
 
-`[unconfirmed]` Three of the four questions the first image was supposed to
-unlock are still open, because that image prints and does nothing else: the
-stack high-water mark, `CREL` for the controller's core version, whether one
-`RXF0A` write releases a whole run of elements, and the loopback itself. What
-has changed is that they are now reachable rather than blocked: there is a
-console, and it has been seen to work.
+`[measured]` **One of the four questions is answered.** `CREL` reads
+`0x32141218`, which is M_CAN core release 3.2.1 dated 18 December 2014, read on
+Thursday 12 November 2026 by the register map probe. `ENDN` read `0x87654321` in
+the same capture, confirming the FDCAN base address on silicon. See
+[`register-map.md`](register-map.md).
+
+`[unconfirmed]` **Three remain**, because the probe reads two registers and
+configures nothing: the stack high-water mark, whether one `RXF0A` write
+releases a whole run of elements, and the loopback itself. The last two need a
+configured controller, which needs a bit timing, a message memory layout and a
+transceiver. What has changed is that they are reachable rather than blocked:
+there is a console, it has been seen to work, and the controller answers.
 
 One figure did come free with the capture. `[measured]` The console's transmit
 wait never exceeded 1002 reads against a bound of 100000, steady from the third

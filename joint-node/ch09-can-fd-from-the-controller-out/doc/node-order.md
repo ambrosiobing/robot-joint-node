@@ -74,6 +74,15 @@ the bus rather than in loopback.
 
 ## Three steps that are not obvious from the table
 
+**Both steps ran on silicon on Thursday 12 November 2026**, out of sequence and
+without the rest of the plan, by chapter 4's register map probe. `[measured]`
+`CREL` read `0x32141218`, release 3.2.1 dated 18 December 2014, and `ENDN` read
+`0x87654321`, which confirms the base address. `[measured]` Both answered with
+the external oscillator off and `FDCANSEL` zero, so these two reads need the
+peripheral bus clock and nothing else: step 2 can refuse a wrong base before any
+kernel clock is arranged. See
+[`ch04/doc/register-map.md`](../../ch04-the-board-support-package/doc/register-map.md).
+
 **Step 1 and 2 write nothing.** `CREL` says which M_CAN core version this part
 carries, which is the last open question that can change code. `ENDN` is checked
 rather than merely read, because it has exactly one correct answer, `0x87654321`,

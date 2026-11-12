@@ -351,11 +351,38 @@ fails is the fact. The form check now tests the condition, and the fact is
 checked by the Makefile, which compiles the file without a variant and requires
 a non-zero exit before building anything.
 
-**Still missing: the other three board questions**, which the printing image
-does not ask because it only prints. The stack high-water mark, `CREL` for the
-controller's core version, whether one `RXF0A` write releases a whole run of
-elements, and the loopback. They are now reachable rather than blocked: there is
-a console, and it has been seen to work.
+### What the probe settled
+
+`[measured]` **The FDCAN1 base address, on silicon, for the first time in this
+volume.** `ENDN` reads `0x87654321`, the one value in chapter 9's whole
+configuration sequence that the part supplies rather than the software. Three
+vendor sources agreed on `0x4000A000`; the part now agrees with them.
+
+`[measured]` **`CREL` is `0x32141218`: M_CAN core release 3.2.1, dated
+18 December 2014.** One of the four board questions, answered.
+
+`[measured]` **`HSIDIV` reads 0**, so the oscillator is undivided, read from the
+part's own register rather than inferred from legible text. Part seven bounded
+that figure by legibility alone; this is a different kind of evidence for the
+same number.
+
+`[measured]` **The host interface answers with no core clock.** `HSEON` and
+`HSERDY` are both 0 and `CDCCIP1R` is entirely zero, yet `CREL` and `ENDN`
+answered, so reading them needs the peripheral bus clock and nothing else.
+Chapter 9's step 2 endianness check can therefore run before any kernel clock is
+arranged.
+
+**And the question the probe was built for was malformed.** Both candidate
+offsets reach the same register: three pairs exactly 0x60 apart read and write
+identically, in both images, and neither image wrote the other address. The
+header's contradiction stands as a documentation question and has no consequence
+for these three registers. `[unconfirmed]` The mechanism is not established, and
+one observation is not a mechanism; the next experiment and the design gap it
+closes are named in [`doc/register-map.md`](doc/register-map.md).
+
+**Still missing: three board questions.** The stack high-water mark, whether one
+`RXF0A` write releases a whole run of elements, and the loopback. The last two
+need a configured controller.
 
 ## What chapter 9 established was missing, for the record
 

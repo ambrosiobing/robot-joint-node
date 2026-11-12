@@ -6,8 +6,14 @@ building; this question has to be settled first, because the probe needs an
 enable and there are two candidate addresses for it.
 
 **This document records a contradiction inside one vendor file, says which side
-each piece of evidence favours, and designs the experiment that settles it. It
-does not conclude.**
+each piece of evidence favours, and designs the experiment that settles it.**
+
+**The experiment ran on Thursday 12 November 2026 and the question turned out to
+be malformed: both candidate addresses reach the same register on this part.**
+The contradiction stands as a documentation question and has no consequence for
+these three registers. The result, what it did settle, and what it did not, are
+in [the result section](#the-result-the-question-was-malformed-and-the-part-said-so)
+below. Everything above it was written before the run.
 
 ## The contradiction, located field by field
 
@@ -137,6 +143,132 @@ a reader can see whether the selected source is even running.
 
 Reading all six addresses in both images also means a single capture shows which
 triple the part implements, rather than only whether that image's own guess took.
+
+## The result: the question was malformed, and the part said so
+
+**Thursday 12 November 2026.** Both images ran. The two captures agree on every
+read, which is the control the design wanted, and they agree on something the
+design did not anticipate.
+
+    jn-fdcanprobe-a enable before 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000000 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000000
+    jn-fdcanprobe-a enable after  0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000100 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000100
+
+    jn-fdcanprobe-b enable before 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000000 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000000
+    jn-fdcanprobe-b enable after  0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000100 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000100
+
+`[measured]` **THE TWO CANDIDATE ADDRESSES REACH THE SAME REGISTER.** Three
+pairs, each exactly 0x60 apart, read and write identically:
+
+| Pair | Distance | Before | After A wrote 0x0EC | After B wrote 0x14C |
+|---|---|---|---|---|
+| 0x0E0 and 0x140 | 0x60 | both `0x00000008` | unchanged | unchanged |
+| 0x0E8 and 0x148 | 0x60 | both `0x00040000` | unchanged | unchanged |
+| 0x0EC and 0x14C | 0x60 | both `0x00000000` | **both** `0x00000100` | **both** `0x00000100` |
+
+Image A wrote 0x0EC and bit 8 appeared at 0x14C as well. Image B wrote 0x14C
+and bit 8 appeared at 0x0EC as well. Neither image wrote the other address, so
+this is the hardware and not the software.
+
+The first two rows say the same thing about the console, which had written only
+0x0E0 and 0x0E8: `0x00000008` is bit 3 at both ends of the first pair, and
+`0x00040000` is bit 18 at both ends of the second.
+
+**So the experiment cannot distinguish the two documented layouts, because on
+this part they are not two layouts.** The contradiction in the header is real
+and remains open AS A DOCUMENTATION QUESTION; it has no consequence for these
+three registers on this silicon. That is a better outcome than either hypothesis
+winning, and it is not the outcome the design was built to produce.
+
+It also answers the uncomfortable version of the question. The console has been
+enabling its clocks correctly all along, whichever half of that file one reads.
+
+### What has NOT been established
+
+`[unconfirmed]` **The mechanism.** One observation is not a mechanism. Three
+pairs 0x60 apart behave as one register each; that is a fact about three pairs,
+not a demonstrated mirroring of the whole block. A reader with a partial address
+decode in mind and a reader with a 0x60 periodic alias in mind are both
+consistent with this capture.
+
+It is NOT a bus that returns the previously read word, and that is worth saying
+because it is the cheap explanation. The reads happen in the order 0x0E0, 0x0E8,
+0x0EC, 0x140, 0x148, 0x14C. If an unimplemented address returned the last value
+on the bus, 0x140 would have returned 0x0EC's `0x00000000`. It returned
+`0x00000008`, which is 0x0E0's value, so the address is mapped rather than
+ignored.
+
+`[unconfirmed]` **Whether the enable was necessary at all.** This is a gap in
+the design and it is mine: the probe reads `CREL` and `ENDN` only AFTER the
+write, so it shows that FDCAN answers once the bit is set and not that the bit
+is what made it answer.
+
+### The next experiment, which is cheap
+
+One image, read only first, then one write:
+
+1. Read `CREL` and `ENDN` BEFORE any enable is written. That closes the gap
+   above: if they already answer, the enable is not what grants access.
+2. Read further pairs 0x60 apart to test whether the mirroring is periodic or
+   confined to these three: 0x000 against 0x060, 0x050 against 0x0B0, 0x0B0
+   against 0x110, and 0x14C against 0x1AC. All of these are reads.
+3. Only then write the enable, and read everything again.
+
+Reading 0x000 against 0x060 is the sharpest of those, because `CR` is at 0x000
+and its value is known from this capture, so a mirror at 0x060 would be
+unmistakable.
+
+## What the capture did settle
+
+`[measured]` **The FDCAN1 base address, on silicon, for the first time in this
+volume.**
+
+    jn-fdcanprobe-a fdcan1 crel 0x32141218 endn 0x87654321 endn-expected 0x87654321 verdict base-confirmed
+    jn-fdcanprobe-b fdcan1 crel 0x32141218 endn 0x87654321 endn-expected 0x87654321 verdict base-confirmed
+
+`ENDN` reads `0x87654321`, which is the value chapter 9's plan predicts and the
+only value in the whole configuration sequence that the part supplies rather
+than the software. Three vendor sources agreed on `0x4000A000`; the part now
+agrees with them.
+
+`[measured]` **The controller's core release.** `CREL` is `0x32141218`, which
+decodes by the field layout the mainline M_CAN driver uses:
+
+| Field | Bits | Value |
+|---|---|---|
+| `REL` | 31:28 | 3 |
+| `STEP` | 27:24 | 2 |
+| `SUBSTEP` | 23:20 | 1 |
+| `YEAR` | 19:16 | 4 |
+| `MON` | 15:8 | `0x12`, BCD, so 12 |
+| `DAY` | 7:0 | `0x18`, BCD, so 18 |
+
+**M_CAN core release 3.2.1, dated 18 December 2014.** That is one of the four
+questions this volume has been carrying since chapter 9 was written.
+`[unconfirmed]` Which of the mainline driver's version dependent paths that
+selects has not been read out of the driver yet, and is chapter 9's to source.
+
+`[measured]` **The clock tree, from the registers rather than from legibility.**
+
+    jn-fdcanprobe-a clocktree cr value 0x0000C025 hsion 1 hsirdy 1 hsidiv 0 hseon 0 hserdy 0
+    jn-fdcanprobe-a clocktree cdccip1r value 0x00000000 fdcansel 0
+
+`HSIDIV` reads 0, so the internal oscillator is undivided. ST's
+`system_stm32h7xx.c` computes the clock as
+`HSI_VALUE >> ((RCC->CR & RCC_CR_HSIDIV) >> 3)`, so this is a reading of the
+64 MHz figure **from the part's own register**, independent of the terminal.
+Part seven bounded that figure between 62.77 and 65.33 MHz by legibility alone;
+this is a second and different kind of evidence for the same number.
+
+`[measured]` **And the host interface answers without a core clock.** `HSEON`
+and `HSERDY` are both 0, so the external oscillator is not running, and
+`FDCANSEL` is 0 with `CDCCIP1R` entirely zero. `CREL` and `ENDN` answered
+anyway. So reading the M_CAN host registers needs the peripheral bus clock and
+nothing else, which means chapter 9's step 2 endianness check can run before any
+kernel clock has been arranged.
+
+`[unconfirmed]` What `FDCANSEL` 0 actually selects is still not sourced here. It
+does not matter for the two reads above, and it will matter for anything that
+makes the controller transmit.
 
 ## Why `ENDN` and not some other register
 
