@@ -84,7 +84,14 @@ jobs:
   software:
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth 0, because ch04's check_captures.py verifies that the
+      # commit each bench capture names is a real commit. The default depth of
+      # 1 leaves only the tip, so every capture naming an older build looks
+      # wrong. That turned the run on e7b9f87 red, which is the third time a
+      # history dependent check has met the default depth in this portfolio.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

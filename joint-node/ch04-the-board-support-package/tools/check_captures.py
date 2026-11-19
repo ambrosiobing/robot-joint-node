@@ -32,6 +32,12 @@ WHAT IT CHECKS
      commentary from the verbatim text.
   3. Each capture's `Commit:` is a real commit in this repository. A capture
      naming a build that never existed is worse than no capture.
+
+     THIS RULE IS HISTORY DEPENDENT, which cost a red run on Thursday
+     19 November 2026: `actions/checkout@v4` fetches depth 1 by default, so in
+     CI only the tip commit exists and all four captures looked wrong. The
+     workflow now sets `fetch-depth: 0`, and this script refuses outright on a
+     shallow clone rather than reporting four false diagnoses.
   4. Each capture's tag is defined by some `src/app/*.c`, and appears in the
      capture's own first line, so a capture is traceable to the image.
   5. A truncation line states how many lines it stands for, so a shortened
@@ -108,6 +114,25 @@ def main():
         print(f"check_captures: {len(failures)} failure(s)")
         return 1
 
+    # A SHALLOW CLONE CANNOT ANSWER THE COMMIT QUESTION, and must say so
+    # rather than answer it wrongly. `actions/checkout@v4` fetches depth 1 by
+    # default, so only the tip commit exists and every capture naming an older
+    # one would be reported as "this repository has no such commit". That
+    # sentence would be false: the repository has it, the clone does not.
+    #
+    # Refusing rather than skipping is deliberate. A checker that quietly drops
+    # a rule in CI is a checker that passes for the wrong reason, and this
+    # chapter has already had one of those.
+    shallow = subprocess.run(["git", "rev-parse", "--is-shallow-repository"],
+                             cwd=HERE, capture_output=True, text=True)
+    if shallow.stdout.strip() == "true":
+        fail("this is a SHALLOW clone, so the commit named by each capture "
+             "cannot be checked. That is a defect in the workflow and not in "
+             "the captures: add 'fetch-depth: 0' to the checkout step of the "
+             "job that runs this script.")
+        print(f"check_captures: {len(failures)} failure(s)")
+        return 1
+
     tags = tags_from_sources()
     if not tags:
         fail("no image tag is defined under src/app, so no capture can be "
@@ -155,8 +180,9 @@ def main():
             r = subprocess.run(["git", "cat-file", "-e", m.group(1) + "^{commit}"],
                                cwd=HERE, capture_output=True)
             if r.returncode != 0:
-                fail(f"{f.name} names commit {m.group(1)} and this repository "
-                     f"has no such commit")
+                fail(f"{f.name} names commit {m.group(1)} and this CLONE does "
+                     f"not contain it. In a full clone that means the capture "
+                     f"names a build that never existed.")
 
         for ln in lines:
             if ln.startswith("# ----"):

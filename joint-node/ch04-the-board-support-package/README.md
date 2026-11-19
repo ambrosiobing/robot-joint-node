@@ -498,6 +498,16 @@ What it cannot do is tell whether a sentence of prose is true. What it can do is
 stop a quotation from drifting from the thing it quotes, which is the move that
 went wrong.
 
+**And it turned CI red on its first run, for a reason in the workflow rather
+than in the captures.** The commit check is history dependent and
+`actions/checkout@v4` fetches depth 1 by default, so only the tip commit existed
+and all four captures were reported as naming commits that do not exist. That
+message was itself wrong: the repository has them, the clone did not. The job
+now checks out with `fetch-depth: 0`, and the script refuses outright on a
+shallow clone and names the fix, because skipping the rule there would be a
+checker passing for the wrong reason. Reproduced with `git clone --depth 1`
+locally rather than argued.
+
 ## What chapter 9 established was missing, for the record
 
 Found on Tuesday 20 October 2026 while trying to work out what chapter 9's first
