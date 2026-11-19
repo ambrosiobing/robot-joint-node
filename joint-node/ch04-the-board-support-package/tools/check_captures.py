@@ -45,6 +45,20 @@ WHAT IT CHECKS
   6. And it REPORTS, rather than refuses, which images have a capture on file
      and which have never produced one. That is this volume's honesty rule for
      images made mechanical: an image with no capture has never run.
+  7. And which captures PREDATE A CHANGE TO THEIR OWN IMAGE, because "has a
+     capture" and "has a capture of the image on the bench today" are different
+     facts and rule 6 alone cannot tell them apart. Reported rather than
+     refused: a capture that prompted the change to its own image is the
+     normal and desirable case, and two in this chapter are exactly that.
+
+     The staleness test asks git whether the source file differs between the
+     capture's commit and the working tree. It is guarded by a cat-file check
+     first, because `git diff --quiet` over a path that does not exist at that
+     commit answers NO CHANGE, which is indistinguishable from nothing having
+     happened. That guard fired immediately on the first attempt: `commit:path`
+     is root relative while `diff -- path` is relative to the working
+     directory, so the two forms named different files until both calls were
+     pinned to the repository root.
 """
 import re
 import subprocess
@@ -54,6 +68,16 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent.parent
 CAPTURES = HERE / "doc" / "captures"
 APPS = HERE / "src" / "app"
+
+# The repository root, and this chapter's path inside it. Both git calls that
+# name a file need the SAME root-relative path, and `commit:path` only accepts
+# that form, so the directory is pinned rather than inherited.
+TOP = Path(subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=HERE,
+                          capture_output=True, text=True,
+                          check=True).stdout.strip())
+PREFIX = subprocess.run(["git", "rev-parse", "--show-prefix"], cwd=HERE,
+                        capture_output=True, text=True,
+                        check=True).stdout.strip()
 
 # Prose this chapter owns. The published Markdown edition is generated from
 # sections/, so it is not read here: a quotation that is wrong there is wrong in
@@ -143,7 +167,8 @@ def main():
         fail("no capture files at all")
 
     # ---- the captures themselves -------------------------------------- #
-    verbatim = {}          # stripped line -> set of capture names
+    verbatim = {}
+    stale = []          # stripped line -> set of capture names
     have_capture = set()   # tags with a capture on file
     for f in files:
         text = f.read_text(encoding="utf-8")
@@ -183,6 +208,52 @@ def main():
                 fail(f"{f.name} names commit {m.group(1)} and this CLONE does "
                      f"not contain it. In a full clone that means the capture "
                      f"names a build that never existed.")
+            elif tag in tags:
+                # ---- AND HAS THE IMAGE CHANGED SINCE? ------------------- #
+                #
+                # A capture is evidence about the image that produced it, and
+                # nothing more. If its own source has changed since the commit
+                # the capture names, then the image on the bench today is not
+                # the image that printed these lines, and reporting the tag as
+                # "has run" would answer a question nobody asked.
+                #
+                # Two captures in this chapter are legitimately in that state:
+                # jn-firstlight and jn-stackdepth were both corrected BECAUSE
+                # of what their capture showed. That is the normal case and not
+                # a failure, so this is reported rather than refused. What
+                # would be a failure is a page claiming the current image was
+                # measured, and the quotation rule above already catches that:
+                # a changed console line is a quotation no capture contains.
+                # ROOT-RELATIVE, and both git calls below run from the repo
+                # root. `commit:path` is always root relative while
+                # `diff -- path` is relative to the working directory, so the
+                # two forms disagree unless the directory is pinned. They did
+                # disagree on the first attempt, and the cat-file guard below
+                # is what said so.
+                src = PREFIX + "src/app/" + tags[tag]
+
+                # THE PATH IS CHECKED BEFORE IT IS TRUSTED. `git diff --quiet`
+                # over a path that does not exist at that commit reports NO
+                # CHANGE, which is the same answer as "nothing happened". So
+                # ask first whether git knows the file there; a silent zero
+                # from a wrong path is the failure mode this whole file exists
+                # to prevent.
+                known = subprocess.run(
+                    ["git", "cat-file", "-e", f"{m.group(1)}:{src}"],
+                    cwd=TOP, capture_output=True)
+                if known.returncode != 0:
+                    fail(f"{f.name} names commit {m.group(1)[:7]}, and {src} "
+                         f"does not exist in that commit, so no staleness "
+                         f"check of this capture is possible")
+                else:
+                    d = subprocess.run(["git", "diff", "--quiet", m.group(1),
+                                        "--", src], cwd=TOP,
+                                       capture_output=True)
+                    if d.returncode == 1:
+                        stale.append((tag, f.name, m.group(1)[:7], src))
+                    elif d.returncode != 0:
+                        fail(f"git diff failed for {src} at {m.group(1)[:7]}, "
+                             f"so the capture's staleness is unknown")
 
         for ln in lines:
             if ln.startswith("# ----"):
@@ -218,6 +289,13 @@ def main():
           f"{len(have_capture)} of {len(tags)} images have run")
     if never:
         print(f"    never run, no capture on file: {', '.join(never)}")
+    if stale:
+        print(f"    {len(stale)} capture(s) predate a change to their own "
+              f"image, so they are evidence about an earlier build:")
+        for tag, name, sha, src in sorted(stale):
+            print(f"      {tag:18s} {name}  built at {sha}, {src} changed since")
+        print("    That is the normal case when a capture is what prompted the "
+              "change. A recapture is what closes it.")
     return 0
 
 

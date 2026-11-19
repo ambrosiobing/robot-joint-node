@@ -218,6 +218,88 @@ def main():
     if not re.search(r"volatile\s+uint32_t\s+deep\s*\[", app):
         fail("the consumed array is not volatile, so -O1 may remove it and "
              "the prediction would test an array that was never allocated")
+    # 9. THE VERDICT TESTS THE ABSOLUTE DEPTH, NOT A DIFFERENCE.
+    #
+    # The first version of this image predicted used(B) minus used(A) and the
+    # capture of Thursday 19 November 2026 reported METHOD SUSPECT at 900
+    # against 1024. The method was right and the statistic was wrong: mark A
+    # was clamped at the paint ceiling, so used(A) was the ceiling's depth
+    # rather than the stack's, and differencing a clamped figure against a real
+    # one underestimates by up to the invisible band. 900 plus 268 is 1168.
+    #
+    # So this rule exists to stop a return to the difference, which is the
+    # change a reader would naturally make while tidying.
+    verdict = re.search(r"verdict depth-at-b(.*?)console_flush", app, re.S)
+    if not verdict:
+        fail("the verdict does not report depth-at-b; a verdict on a "
+             "difference underestimates by the invisible band whenever mark-a "
+             "is clamped at the ceiling")
+    else:
+        body = verdict.group(1)
+        if not re.search(r"b\.used_bytes\s*<\s*SD_CONSUME_BYTES", body):
+            fail("the verdict does not compare b.used_bytes against "
+                 "SD_CONSUME_BYTES, so it is not testing the absolute depth")
+        if re.search(r"moved\w*\s*<\s*SD_CONSUME_BYTES", body):
+            fail("the verdict compares a MOVEMENT against the predicted size; "
+                 "that is the statistic the capture of Thursday "
+                 "19 November 2026 showed to be wrong")
+
+    # 10. The clamp is reported, and the movement comes as an interval.
+    #
+    # BOUND TO THE CONSTRUCTS, because two earlier versions of these rules
+    # stayed green under mutation. `if "clamped" in app` passed while the
+    # report had stopped branching on the flag, since the word still occurred
+    # in the message. And `if "at-most" in app` was satisfied by the unrelated
+    # `moved-at-most` field. Presence is not use, and a file-wide search cannot
+    # attribute what it finds.
+    for needed, why in (("moved-at-least", "the lower end of the interval"),
+                        ("moved-at-most", "the upper end, which the invisible "
+                                          "band sets when mark-a is clamped"),
+                        ("real-usage", "the figure the linker script asked "
+                                       "for, which excludes the test array")):
+        if needed not in app:
+            fail(f"the report has no {needed!r}, which is {why}")
+
+    # The report function must branch on the flag itself, not merely mention it.
+    rep = re.search(r"static void report\([^)]*\)\s*\{(.*?)\n\}", app, re.S)
+    if not rep:
+        fail("the per-mark report is not a function, so the clamp rule cannot "
+             "be bound to it")
+    elif not re.search(r"m->clamped\s*\?|if\s*\(\s*m->clamped\s*\)",
+                       rep.group(1)):
+        fail("the report does not branch on m->clamped, so it prints the same "
+             "words whether the figure is a measurement or a ceiling depth")
+
+    # And the real-usage block must put the bound wording in the clamped branch
+    # and the measurement wording in the other one. Checked inside that block,
+    # because `at-most` also occurs in the unrelated moved-at-most field.
+    ru = re.search(r"real-usage(.*?)console_flush", app, re.S)
+    if not ru:
+        fail("the real-usage block was not found")
+    else:
+        body = ru.group(1)
+        if not re.search(r"if\s*\(\s*a\.clamped\s*\)", body):
+            fail("real-usage does not branch on a.clamped, so it would present "
+                 "a ceiling depth as a measurement")
+            return 1 if failures else 0
+        head, _, tail = body.partition("} else {")
+        if "at-most" not in head:
+            fail("the clamped branch of real-usage does not say 'at-most', so "
+                 "a bound is reported as a measurement")
+        if "exactly" not in tail:
+            fail("the unclamped branch of real-usage does not say 'exactly'")
+        if "at-most" in tail:
+            fail("the UNCLAMPED branch says 'at-most', which understates a "
+                 "figure the method actually measured")
+
+    # 11. And the library must compute the clamp from the painted region
+    # rather than from anything the caller passes, so it cannot be set wrongly
+    # from outside.
+    if not re.search(r"clamped\s*=\s*\(run\s*==\s*out->painted_bytes\s*/\s*4u\)",
+                     lib):
+        fail("clamped is not 'run == painted_bytes / 4', so it does not mean "
+             "'the whole painted region is still intact'")
+
     # And the expected sum is computed, not typed.
     if re.search(r"expected\"?\s*,\s*32640", app):
         fail("the expected consume-sum is a literal; compute it from the word "

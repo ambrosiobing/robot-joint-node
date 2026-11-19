@@ -172,6 +172,23 @@ either. The distinction matters because it decides what can be finished tonight.
   12 November 2026: a register does answer, and the base address is the one three
   vendor sources gave. Nothing here claims more than that.
 
+`[measured]` **Chapter 4 has now put five images on the NUCLEO-H7A3ZI-Q**, and
+four figures came back that no amount of reading could have settled:
+
+| Question | Answer | Date |
+| --- | --- | --- |
+| Does the reset clock allow a console with no clock setup at all | Yes, and the kernel clock is in [62.77, 65.33] MHz with the prescaler chain 1:1 | Thursday 12 November 2026 |
+| Is FDCAN1 at `0x4000A000` | Yes, `ENDN` answered `0x87654321`, and `CREL` says M_CAN 3.2.1 of Thursday 18 December 2014 | Thursday 12 November 2026 |
+| Are the two candidate RCC enable offsets the same register | Yes, they alias, and the enable was never necessary for register access | Thursday 12 November 2026 |
+| What does the 8 KB stack actually use | At most 268 bytes, a factor of 30.6, and the bound is one sided because the stack never reached the paint ceiling | Thursday 19 November 2026 |
+
+The last of those also caught a defect in its own prediction and said so on the
+console: the first version differenced two marks, one of which was clamped at
+the ceiling, and the image's `METHOD SUSPECT` branch fired on the shortfall.
+The verdict tests the absolute depth now. `[unconfirmed]` `_stack_size` is
+unchanged at 8 KB, because one image on one run is evidence for revisiting a
+decision rather than the decision.
+
 There is no C compiler on the win11 aquamarine authoring laptop, so no C in this
 tree is built there. It is built by the workflow in `.github/workflows/checks.yml`
 and on the Pi 4, and the workflow is where the first information about a change

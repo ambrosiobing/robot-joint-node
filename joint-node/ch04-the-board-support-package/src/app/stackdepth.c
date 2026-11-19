@@ -19,7 +19,16 @@
  *   mark A        after the console is up
  *   consume       a function with a 1024 byte volatile local array, touched
  *   mark B        again
- *   the claim     used(B) - used(A) >= 1024
+ *   the claim     depth(B) >= 1024
+ *
+ * THE CLAIM WAS A DIFFERENCE AND IS NOW ABSOLUTE, corrected after the capture
+ * of Thursday 19 November 2026 reported METHOD SUSPECT at 900 against 1024.
+ * The method was right and the statistic was wrong: mark A was CLAMPED at the
+ * paint ceiling, because the stack had never gone that deep, so used(A) was the
+ * ceiling's depth rather than the stack's. Differencing a clamped figure
+ * against a real one underestimates the movement by up to the invisible band,
+ * which was 268 bytes, and 900 plus 268 is 1168. The absolute depth carries no
+ * such term.
  *
  * `[inferred]` The inequality rather than an equality, because the frame also
  * holds the loop counter, the saved registers and whatever alignment the
@@ -94,6 +103,11 @@ static void report(const char *which, const stackmark_t *m)
     field("run", m->intact_run);
     field("total", m->intact_total);
     line(m->trustworthy ? " trustworthy yes" : " trustworthy NO");
+    /* CLAMPED means the figures above are the ceiling's and not the stack's,
+     * and a reader who takes `used` as a measurement here is reading a bound. */
+    line(m->clamped ? " clamped YES, used is the ceiling depth and true usage "
+                      "is at most that"
+                    : " clamped no, used is the stack's own boundary");
     line("\r\n");
     (void) console_flush(&g_console);
 }
@@ -160,9 +174,22 @@ int main(void)
 
     report("mark-a", &a);
 
-    line(SD_TAG " predict used-b minus used-a at-least ");
+    /* THE PREDICTION IS ON THE ABSOLUTE DEPTH, not on a difference.
+     *
+     * The first version of this image predicted used(B) minus used(A) and the
+     * capture of Thursday 19 November 2026 reported METHOD SUSPECT at 900
+     * against 1024. The method was right and the statistic was wrong: mark A
+     * was CLAMPED at the ceiling, so used(A) was the ceiling's depth rather
+     * than the stack's, and differencing a clamped figure against a real one
+     * underestimates the movement by up to the invisible band.
+     *
+     * The absolute depth has no such term. consume() holds a 1024 byte array,
+     * so the deepest point must lie at least that far below the top whatever
+     * happened before it. */
+    line(SD_TAG " predict depth-at-b at-least ");
     (void) console_dec(&g_console, SD_CONSUME_BYTES);
-    line(" because consume() holds that many bytes of volatile locals\r\n");
+    line(" because consume() holds that many bytes of volatile locals, and the "
+         "movement only as an interval because mark-a may be clamped\r\n");
     (void) console_flush(&g_console);
 
     const uint32_t sum = consume();
@@ -171,18 +198,45 @@ int main(void)
     (void) stackmark_read(&b);
     report("mark-b", &b);
 
-    /* THE ONE LINE THIS IMAGE EXISTS FOR. */
-    const uint32_t moved = (b.used_bytes > a.used_bytes)
-                           ? (b.used_bytes - a.used_bytes) : 0u;
-    line(SD_TAG " verdict moved");
-    field("bytes", moved);
+    /* THE ONE LINE THIS IMAGE EXISTS FOR, and it tests the absolute depth. */
+    const uint32_t moved_low = (b.used_bytes > a.used_bytes)
+                               ? (b.used_bytes - a.used_bytes) : 0u;
+    const uint32_t invisible = a.region_bytes - a.painted_bytes;
+    const uint32_t moved_high = a.clamped ? moved_low + invisible : moved_low;
+
+    line(SD_TAG " verdict depth-at-b");
+    field("bytes", b.used_bytes);
     field("predicted-at-least", SD_CONSUME_BYTES);
-    if (moved == 0u) {
-        line(" METHOD BROKEN, the mark did not move at all\r\n");
-    } else if (moved < SD_CONSUME_BYTES) {
-        line(" METHOD SUSPECT, it moved less than the array it allocated\r\n");
+    field("moved-at-least", moved_low);
+    field("moved-at-most", moved_high);
+    if (b.clamped) {
+        line(" METHOD BROKEN, the stack never entered the painted region even "
+             "after allocating the array\r\n");
+    } else if (b.used_bytes < SD_CONSUME_BYTES) {
+        line(" METHOD SUSPECT, the deepest point is shallower than the array "
+             "it allocated\r\n");
     } else {
-        line(" method holds, so the figures above are the stack's\r\n");
+        line(" method holds, so depth-at-b is the stack's own figure\r\n");
+    }
+    (void) console_flush(&g_console);
+
+    /* AND THE FIGURE THE LINKER SCRIPT ASKED FOR, which is mark-a's and not
+     * mark-b's: mark-b includes a 1024 byte array that exists only to test the
+     * method. If mark-a was clamped, this image's real usage is at most the
+     * invisible band and no narrower statement is available from one run. */
+    line(SD_TAG " real-usage");
+    if (a.clamped) {
+        line(" at-most");
+        field("bytes", invisible);
+        line(" of");
+        field("region", a.region_bytes);
+        line(" because the stack never reached the paint ceiling\r\n");
+    } else {
+        line(" exactly");
+        field("bytes", a.used_bytes);
+        line(" of");
+        field("region", a.region_bytes);
+        line("\r\n");
     }
     (void) console_flush(&g_console);
 

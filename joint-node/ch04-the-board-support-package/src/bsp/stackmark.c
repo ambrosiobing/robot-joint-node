@@ -112,5 +112,12 @@ bool stackmark_read(stackmark_t *out)
     out->intact_run = run;
     out->intact_total = total;
     out->trustworthy = (run == total);
+
+    /* THE CLAMP. Every painted word still holds the pattern, so the stack never
+     * entered the painted region and `mark` above is the ceiling rather than
+     * anything the stack did. `used_bytes` is then the ceiling's depth and a
+     * caller must read it as an upper bound on nothing: true usage is somewhere
+     * in [0, region_bytes - painted_bytes]. */
+    out->clamped = (run == out->painted_bytes / 4u);
     return true;
 }

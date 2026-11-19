@@ -504,12 +504,50 @@ Nine mutations were run against `test/test_stackmark.py` and one survived: the
 rule that the scan starts at the bottom searched the whole file and was
 satisfied by the OTHER loop, which also starts there. It is bound to the run
 scan's own pointer now. `_stack_size` stays at 8 KB until a capture exists;
-`check_captures.py` reports `jn-stackdepth` as never run, which is the honest
-state.
+`check_captures.py` reports `jn-stackdepth` as never run, which was the honest
+state until the evening of Thursday 19 November 2026.
 
-**Still missing: two board questions and a capture for the third.** Whether one
-`RXF0A` write releases a whole run of elements, and the loopback, both of which
-need a configured controller.
+### It ran, and the verdict caught a defect in its own prediction
+
+**Thursday 19 November 2026.** `[measured]` **This image's stack usage is at
+most 268 bytes of the 8192 allocated**, a factor of 30.6. The bound is one sided
+because the stack never reached the paint ceiling: `run` was 1981 words, which
+is 7924 bytes, which is the whole painted region, so the boundary found was the
+ceiling itself and `used 268` is the ceiling's depth rather than the stack's.
+
+`[measured]` **With the 1024 byte test array consumed, the deepest point is 1168
+bytes below `_estack`**, and that one is exact because the mark lies inside the
+painted region. 1168 is at least 1024, which is what validates the method.
+`trustworthy yes` on both marks, so no coincidental pattern word widened a
+boundary.
+
+**And the verdict fired.** It reported `METHOD SUSPECT` at 900 against 1024, and
+it was right to: the prediction differenced `used(B)` against `used(A)`, and
+`used(A)` was clamped at the ceiling, so the difference underestimates the
+movement by up to the invisible band. 900 plus 268 is 1168. **The method was
+right and my statistic was wrong**, which is the one outcome the branch existed
+to distinguish from a shallow stack.
+
+Corrected: `stackmark_t` carries a `clamped` flag, the report says whether a
+figure is a measurement or a ceiling depth, the verdict tests the absolute
+depth, the movement is reported as an interval, and a separate `real-usage` line
+carries the figure the linker script asked for, which excludes the test array.
+Three further mutations were needed to make the new rules bite, and two of them
+stayed green at first: the clamp rule was satisfied by the word still occurring
+in a message, and the `at-most` rule was satisfied by the unrelated
+`moved-at-most` field. Both are bound to their constructs now.
+
+`[unconfirmed]` **`_stack_size` is unchanged at 8 KB.** The bound argues it
+could come down a long way, and it is one image on one run. That is evidence for
+revisiting a decision, not the decision.
+
+The capture is on file at
+[`doc/captures/2026-11-19-jn-stackdepth.txt`](doc/captures/2026-11-19-jn-stackdepth.txt),
+and it records the old wording because it is the evidence that changed it.
+
+**Still missing: two board questions.** Whether one `RXF0A` write releases a
+whole run of elements, and the loopback, both of which need a configured
+controller.
 
 ## The captures are on file, and a quotation is checked against them
 
@@ -522,7 +560,7 @@ carried the refuted sentence for seven days with every gate green**, because the
 claim was in the tree and its refutation was in a terminal transcript, and no
 checker in this volume had a bench capture as an input.
 
-`doc/captures/` now holds the four captures, each naming the image, the build
+`doc/captures/` now holds the five captures, each naming the image, the build
 stamp, the commit and the question it was taken to answer.
 `tools/check_captures.py` refuses a page that quotes a console line no capture
 contains, compared on the stripped line so indentation inside a Markdown block
@@ -536,7 +574,25 @@ record, so the prose was corrected and the wide lines stay wide.
 
 It also reports, rather than refuses, which images have a capture on file. That
 is this volume's honesty rule for images made mechanical: an image with no
-capture has never run. All four have one.
+capture has never run. All five have one.
+
+**And it reports which captures predate a change to their own image**, added on
+Thursday 19 November 2026, because "has a capture" and "has a capture of the
+image on the bench today" are different facts and the first rule cannot tell
+them apart. Two captures here are in that state, `jn-firstlight` and
+`jn-stackdepth`, and both for the same reason: the capture is what prompted the
+change. So this is reported rather than refused. What would be a failure is a
+page claiming the current image was measured, and the quotation rule catches
+that already, since a changed console line is a quotation no capture contains.
+
+The staleness test asks git whether the image's source differs between the
+capture's commit and the working tree, and it is guarded by a `cat-file` check
+first. `git diff --quiet` over a path that does not exist at that commit answers
+NO CHANGE, which is indistinguishable from nothing having happened. The guard
+fired on the first attempt, on all five captures at once: `commit:path` is root
+relative while `diff -- path` is relative to the working directory, so the two
+forms were naming different files. Both calls are pinned to the repository root
+now. A check whose wrong answer is silence needs a guard that is not.
 
 What it cannot do is tell whether a sentence of prose is true. What it can do is
 stop a quotation from drifting from the thing it quotes, which is the move that

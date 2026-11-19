@@ -1,0 +1,36 @@
+# Capture: jn-stackdepth
+# Taken on Thursday 19 November 2026, about 16:55 on the NUCLEO-H7A3ZI-Q beside
+# win11 skyhorizon, read from the ST-LINK virtual COM port at 115200 8N1.
+#
+# Image: src/app/stackdepth.c, make stackdepth
+# Commit: 86b4b7a00079
+# Asked: what the 8 KB stack actually uses, with a prediction to test the method
+#
+# Lines below the marker are VERBATIM from the console, except where a
+# truncation line says otherwise. This file exists so that a page quoting a
+# capture can be checked against the capture rather than against a transcript
+# nobody kept: tools/check_captures.py does that check.
+#
+# NOTE: this capture reported METHOD SUSPECT, and the image was corrected
+# because of it the same evening. The method was right and the STATISTIC was
+# wrong: mark-a was clamped at the paint ceiling, so its `used` was the
+# ceiling's depth rather than the stack's, and differencing a clamped figure
+# against a real one underestimates the movement by up to the invisible band.
+# 900 plus 268 is 1168. The verdict now tests the absolute depth, stackmark_t
+# carries a `clamped` flag, and a separate `real-usage` line reports the figure
+# the linker script asked for. A later capture will carry the new wording; this
+# one is the evidence that produced the change.
+# ---- capture ----
+# jn-stackdepth: what the 8 KB stack uses, with a prediction to test the method
+# built Thursday 19 November 2026, 16:51:42 from 86b4b7a00079 tree clean
+console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556, BRR 0x0000022C, rate 115108, error 1 per thousand
+console: IF THIS LINE IS LEGIBLE the assumed clock is right to within the error above
+jn-stackdepth region sstack 0x20000040 estack 0x20002040 ceiling 0x20001F34 region-bytes 8192 painted-bytes 7924 above-ceiling-invisible 268
+jn-stackdepth mark-a mark 0x20001F34 used 268 free 7924 run 1981 total 1981 trustworthy yes
+jn-stackdepth predict used-b minus used-a at-least 1024 because consume() holds that many bytes of volatile locals
+jn-stackdepth mark-b mark 0x20001BB0 used 1168 free 7024 run 1756 total 1756 trustworthy yes
+jn-stackdepth verdict moved bytes 900 predicted-at-least 1024 METHOD SUSPECT, it moved less than the array it allocated
+jn-stackdepth consume-sum got 32640 expected 32640 agree
+jn-stackdepth tick 1 bytes 1005
+# ---- 35 further tick lines, identical in form ----
+jn-stackdepth tick 36 bytes 2187

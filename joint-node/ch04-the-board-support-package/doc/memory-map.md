@@ -111,6 +111,61 @@ the report carries both the contiguous run of pattern words from the bottom and
 the total count anywhere in the region. A difference between them means a
 coincidence occurred and the boundary is suspect.
 
+### The measurement, Thursday 19 November 2026
+
+`[measured]` **This image's stack usage is at most 268 bytes of the 8192
+allocated**, a factor of 30.6, and the bound is one sided because the stack
+never reached the paint ceiling:
+
+    jn-stackdepth region sstack 0x20000040 estack 0x20002040 ceiling 0x20001F34 region-bytes 8192 painted-bytes 7924 above-ceiling-invisible 268
+    jn-stackdepth mark-a mark 0x20001F34 used 268 free 7924 run 1981 total 1981 trustworthy yes
+
+`run` is 1981 words, which is 7924 bytes, which is the whole painted region. So
+nothing painted was touched, the boundary found is the ceiling itself, and
+`used 268` is the ceiling's depth rather than the stack's. True usage lies
+somewhere in [0, 268] and one run cannot narrow it.
+
+`[measured]` **With a 1024 byte array deliberately consumed, the deepest point
+is 1168 bytes below `_estack`**, which is exact rather than a bound because the
+mark then lies inside the painted region:
+
+    jn-stackdepth mark-b mark 0x20001BB0 used 1168 free 7024 run 1756 total 1756 trustworthy yes
+
+**That figure is what validates the method**, since 1168 is at least the 1024
+bytes the array holds. `trustworthy yes` on both marks means every pattern word
+was inside the contiguous run, so no coincidence widened the boundary.
+
+`[unconfirmed]` **`_stack_size` is unchanged at 8 KB.** The measured bound
+argues it could come down a long way, and it is one image on one run: an image
+with a deeper call chain, or an interrupt handler of the kind nothing here
+enables yet, would report differently. The script's note says the figure is a
+decision, and this is the evidence for revisiting it rather than the decision
+itself.
+
+### And the verdict caught a defect in its own prediction
+
+The capture reported `METHOD SUSPECT`:
+
+    jn-stackdepth verdict moved bytes 900 predicted-at-least 1024 METHOD SUSPECT, it moved less than the array it allocated
+
+The method was right and the statistic was wrong. The prediction differenced
+`used(B)` against `used(A)`, and `used(A)` was clamped at the ceiling, so the
+difference underestimates the movement by up to the invisible band: 900 plus 268
+is 1168. The verdict now tests the absolute depth, `stackmark_t` carries a
+`clamped` flag, and the real usage is reported on its own line so a bound cannot
+be read as a measurement. The capture that produced the change is on file at
+[`captures/2026-11-19-jn-stackdepth.txt`](captures/2026-11-19-jn-stackdepth.txt).
+
+### A note on reading `size` for this chapter
+
+`[arithmetic]` `arm-none-eabi-size` reported `bss 8256` for that image, and
+8192 of it is the `.stack` region: `NOLOAD` still occupies, and `size` counts
+it. The real `.bss` content is 64 bytes. A prediction of 8260 was made here by
+treating 8256 as non-stack `.bss` and adding four bytes for stackmark's
+ceiling; it came back 8256, and the error was in the model rather than in the
+image. Two independent sources agree on the 8192: the capture's `region-bytes`
+and this subtraction.
+
 ## GNU ld does not concatenate adjacent string literals
 
 Found by the first link, Tuesday 20 October 2026, and it cost a round trip to

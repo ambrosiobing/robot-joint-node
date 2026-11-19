@@ -23,6 +23,13 @@
  * was out of reach. The result is a bound on usage below the ceiling, not a
  * measurement of the deepest excursion the image ever made.
  *
+ * AND `used_bytes` IS ONLY A MEASUREMENT WHEN `clamped` IS FALSE. If the stack
+ * never reached the ceiling, the whole painted region is intact, the boundary
+ * found is the ceiling itself, and the figure is the ceiling's depth rather
+ * than the stack's. A capture on Thursday 19 November 2026 differenced that
+ * clamped figure against a real one and underestimated a 1024 byte allocation
+ * as 900 bytes of movement, which the image's own verdict branch caught.
+ *
  * AND IT CAN BE FOOLED IN THE OPTIMISTIC DIRECTION. A stack word that happens
  * to equal the pattern looks untouched, which pushes the boundary UP, reports
  * more free space and less usage. That is the wrong direction for a safety
@@ -63,6 +70,20 @@ typedef struct {
     uint32_t intact_run;    /* pattern words contiguous from the bottom */
     uint32_t intact_total;  /* pattern words anywhere in the painted region */
     bool     trustworthy;   /* intact_run == intact_total */
+
+    /* THE WHOLE PAINTED REGION IS STILL INTACT, so the stack never entered it
+     * and `mark` is the CEILING rather than a boundary the stack made.
+     *
+     * When this is true, `used_bytes` is the depth of the ceiling and not a
+     * measurement of usage: the true depth lies somewhere in
+     * [0, region_bytes - painted_bytes] and nothing here can narrow it.
+     *
+     * Added on Thursday 19 November 2026, after a capture reported
+     * METHOD SUSPECT because a prediction differenced this clamped figure
+     * against a real one and so underestimated the movement by up to the
+     * invisible band. A bound presented as a measurement is the defect; this
+     * flag is how a caller can tell which it has. */
+    bool     clamped;
 } stackmark_t;
 
 /* Fill the unused stack with the pattern, from `_sstack` up to a margin below

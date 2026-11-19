@@ -230,6 +230,11 @@ stackdepth: $(BUILD) generated pytest stamp
 	@echo "stackdepth.bin is ready. Read the verdict line before the figures:"
 	@echo "a mark that did not move says the method is broken, not that the"
 	@echo "stack is shallow."
+	@echo
+	@echo "And read real-usage rather than mark-a's used field. If mark-a is"
+	@echo "clamped, used is the paint ceiling's depth and not a measurement:"
+	@echo "the capture of Thursday 19 November 2026 reported METHOD SUSPECT"
+	@echo "because a prediction differenced that figure against a real one."
 
 table:
 	@$(PYTHON) tools/gen_memmap.py --table

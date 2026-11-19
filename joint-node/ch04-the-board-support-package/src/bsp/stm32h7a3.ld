@@ -31,10 +31,17 @@
  * image carries the paint, so any of them can report its own figure rather
  * than one image deciding this number for all of them.
  *
- * The figure is still a guess: the image is built and has not been run, so no
- * capture exists and `_stack_size` stays at 8 KB until one does. What has
- * changed is that the replacement is a bench session rather than a piece of
- * software.
+ * `[measured]` AND IT HAS RUN, on Thursday 19 November 2026. This image's usage
+ * is AT MOST 268 bytes of the 8192 here, a factor of 30.6, and the bound is one
+ * sided because the stack never reached the paint ceiling. With a 1024 byte
+ * array deliberately consumed the deepest point was 1168 bytes below `_estack`,
+ * which is exact and is what validates the method.
+ *
+ * `_stack_size` IS UNCHANGED ANYWAY, deliberately. The bound argues it could
+ * come down a long way; it is one image on one run, nothing here enables an
+ * interrupt yet, and a deeper call chain would report differently. This is the
+ * evidence for revisiting a decision rather than the decision. See
+ * doc/memory-map.md and doc/captures/2026-11-19-jn-stackdepth.txt.
  */
 
 INCLUDE memory.ld
