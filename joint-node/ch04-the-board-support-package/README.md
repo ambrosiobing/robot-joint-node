@@ -14,6 +14,7 @@ make firstlight             # needs arm-none-eabi-gcc: THE IMAGE THAT PRINTS
 make fdcanprobe-a           # the register map probe, writing ONLY 0x0EC
 make fdcanprobe-b           # the same probe, writing ONLY 0x14C
 make addrmap                # reads first, writes once, announces each address
+make stackdepth             # the painted stack's mark, with a prediction
 make table                  # the tables in doc/memory-map.md, doc/console.md
                             # and doc/interrupts.md
 
@@ -29,6 +30,7 @@ python tools/gen_stamp.py --print            # the build stamp, as it will print
 python test/test_firstlight.py               # the banner, the tag, the stamp
 python test/test_fdcanprobe.py               # one write, and the boundary round it
 python test/test_addrmap.py                  # the offsets, the flush order, the faults
+python test/test_stackmark.py                 # the paint order, the scan direction
 python tools/check_captures.py               # every quoted console line, against the captures
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
@@ -463,8 +465,50 @@ a shape argument, not a measurement of any register's identity.
 The full table of every read against what both halves of the header expect is in
 [`doc/register-map.md`](doc/register-map.md).
 
-**Still missing: three board questions.** The stack high-water mark, whether one
-`RXF0A` write releases a whole run of elements, and the loopback. The last two
+### The stack high-water mark, `src/bsp/stackmark.c` and `src/app/stackdepth.c`
+
+**Thursday 19 November 2026.** The linker script has said since Tuesday
+20 October 2026, where it sets `_stack_size`, that 8 KB is a decision and not a
+measurement, and named the remedy: a mark read back from a painted stack on the
+board, which needs a console. The console exists and has been seen to work.
+
+**Every direction here is the opposite of the intuitive one.** The stack grows
+DOWN, so the deepest point ever reached is the LOWEST address, free space is
+BELOW it and usage is ABOVE it. The paint fills from `_sstack` upwards, stopping
+a margin below the caller's own frame, and the scan runs UPWARD from the bottom
+to the first word that is no longer the pattern. A scan from the top would read
+where the stack is NOW rather than where it has been, and both produce a number
+in the right range.
+
+**The paint runs after the .bss zeroing, necessarily.** stackmark keeps the
+ceiling it reached in a `.bss` variable so that zero means "never painted", and
+painting first would have the zeroing wipe it. That is a loud failure rather
+than a wrong number, and the order is checked.
+
+**A reading would not be an experiment.** An image that paints and prints one
+number produces a figure nothing can contradict: a broken paint, a reversed
+scan, or a pattern written somewhere else entirely would all give a plausible
+byte count. So `stackdepth.c` reads the mark twice with a 1024 byte volatile
+array consumed between, states the prediction before the result, and has verdict
+branches for `METHOD BROKEN` when the mark does not move at all and
+`METHOD SUSPECT` when it moves by less than the array it allocated.
+
+**What the figure is not.** It is a bound on usage below the paint ceiling,
+which the report prints along with how many bytes lay above it and out of reach.
+It is not the deepest excursion the image ever made. And it errs optimistically
+if a touched word happens to hold the pattern, so the report carries the
+contiguous run from the bottom AND the total count of pattern words; a
+difference between them means the boundary is suspect.
+
+Nine mutations were run against `test/test_stackmark.py` and one survived: the
+rule that the scan starts at the bottom searched the whole file and was
+satisfied by the OTHER loop, which also starts there. It is bound to the run
+scan's own pointer now. `_stack_size` stays at 8 KB until a capture exists;
+`check_captures.py` reports `jn-stackdepth` as never run, which is the honest
+state.
+
+**Still missing: two board questions and a capture for the third.** Whether one
+`RXF0A` write releases a whole run of elements, and the loopback, both of which
 need a configured controller.
 
 ## The captures are on file, and a quotation is checked against them

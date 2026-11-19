@@ -22,10 +22,19 @@
  *
  * `[unconfirmed]` THE STACK SIZE IS A DECISION, NOT A MEASUREMENT. 8 KB is
  * chosen because it is conventional and because this volume's deepest call
- * chain is shallow, not because anything has measured it. The number that would
- * settle it is a high-water mark read back from a painted stack on the board,
- * which needs a console, which is the piece after this one. Until then the
- * figure is a guess with a known method for replacing it.
+ * chain is shallow, not because anything has measured it.
+ *
+ * THE MECHANISM THIS NOTE ASKED FOR NOW EXISTS, as of Thursday
+ * 19 November 2026. `src/bsp/stackmark.c` paints the unused region from
+ * `_sstack` upwards and reads the mark back, the startup calls the paint after
+ * zeroing .bss and before main, and `src/app/stackdepth.c` reports it. Every
+ * image carries the paint, so any of them can report its own figure rather
+ * than one image deciding this number for all of them.
+ *
+ * The figure is still a guess: the image is built and has not been run, so no
+ * capture exists and `_stack_size` stays at 8 KB until one does. What has
+ * changed is that the replacement is a bench session rather than a piece of
+ * software.
  */
 
 INCLUDE memory.ld

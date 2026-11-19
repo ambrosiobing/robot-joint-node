@@ -91,7 +91,25 @@ with reading their positions.
 
 `[unconfirmed]` **The 8 KB stack is a decision, not a measurement.** The number
 that would settle it is a high-water mark read back from a painted stack on the
-board, which needs a console, which is the piece after this one.
+board.
+
+**That mechanism exists as of Thursday 19 November 2026** and the figure still
+stands at 8 KB, because the image is built and has not been run.
+`src/bsp/stackmark.c` paints the unused region and reads the mark back; the
+startup calls the paint after zeroing `.bss`, necessarily, since the ceiling it
+reached is kept in `.bss` and painting first would have the zeroing wipe it.
+Every image carries the paint, so each reports its own figure.
+
+What the mark is NOT: the deepest excursion an image ever made. Whatever the
+stack used before the paint is invisible, which is why the call sits in the
+startup, and the report prints how many bytes lay above the ceiling and so out
+of reach.
+
+And it can be fooled in the optimistic direction. A stack word that happens to
+hold the pattern looks untouched, reporting more free space than there is, so
+the report carries both the contiguous run of pattern words from the bottom and
+the total count anywhere in the region. A difference between them means a
+coincidence occurred and the boundary is suspect.
 
 ## GNU ld does not concatenate adjacent string literals
 

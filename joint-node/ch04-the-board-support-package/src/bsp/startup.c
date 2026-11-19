@@ -40,12 +40,18 @@
  * correct exactly as long as nothing enabled a device interrupt and would have
  * stopped being correct the moment something did.
  *
+ * AND THE STACK PAINT, which is here rather than in an application because
+ * whatever the stack used before it is invisible to the measurement. It comes
+ * after the .bss zeroing, necessarily: stackmark keeps its ceiling in .bss.
+ *
  * WHAT STAYS HERE is the reset, the handlers the core exceptions name, and the
  * default they all alias. Those are hand written because each one is a decision
  * rather than a row: the infinite loop rather than a reset, the copy before the
  * zero, and the order of the two.
  */
 #include <stdint.h>
+
+#include "stackmark.h"
 
 /* From the linker script. Addresses, not values: every one of these is a
  * symbol the script placed, and taking the address is the only correct way to
@@ -120,6 +126,19 @@ void Reset_Handler(void)
     for (uint32_t *p = &_sbss; p < &_ebss; p++) {
         *p = 0u;
     }
+
+    /* THE STACK PAINT, AND IT MUST COME AFTER THE ZEROING. stackmark keeps the
+     * ceiling it reached in a .bss variable, so painting first would have the
+     * zeroing above wipe it, and every later read would report an unpainted
+     * region. That is at least a loud failure rather than a wrong number, but
+     * the order is still part of the design and test_stackmark.py checks it.
+     *
+     * As early as this can be, and no earlier: whatever the stack used before
+     * this line is invisible to the measurement, which is why the call is in
+     * the startup and not in an application. `[unconfirmed]` The 8 KB in the
+     * linker script is a decision and not a measurement; this is the mechanism
+     * the script names for replacing it. */
+    (void) stackmark_paint();
 
     (void) main();
 

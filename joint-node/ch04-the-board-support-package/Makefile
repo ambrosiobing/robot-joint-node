@@ -13,6 +13,8 @@
 #     make fdcanprobe-b   the same probe, writing ONLY offset 0x14C
 #     make addrmap        reads first, writes once, names every address before
 #                     touching it
+#     make stackdepth     the painted stack's high-water mark, with a
+#                     prediction that tests the method
 #     make table      the tables in doc/memory-map.md, doc/console.md and
 #                     doc/interrupts.md
 #
@@ -28,7 +30,7 @@ OBJCOPY    ?= arm-none-eabi-objcopy
 CROSSARCH  ?= -mcpu=cortex-m7 -mfpu=fpv5-d16 -mfloat-abi=hard -mthumb
 CROSSFLAGS ?= -std=c11 -Wall -Wextra -Werror -O1 -g -ffreestanding -fno-common
 
-.PHONY: all generated layers pytest ctest linkcheck firstlight fdcanprobe-a fdcanprobe-b addrmap stamp table clean
+.PHONY: all generated layers pytest ctest linkcheck firstlight fdcanprobe-a fdcanprobe-b addrmap stackdepth stamp table clean
 
 all: generated layers pytest
 	@echo
@@ -54,6 +56,7 @@ pytest:
 	@$(PYTHON) test/test_firstlight.py
 	@$(PYTHON) test/test_fdcanprobe.py
 	@$(PYTHON) test/test_addrmap.py
+	@$(PYTHON) test/test_stackmark.py
 	@$(PYTHON) tools/check_captures.py
 	@$(PYTHON) test/test_baud.py
 	@$(PYTHON) test/test_console.py
@@ -85,11 +88,12 @@ ctest: $(BUILD)/test_baud
 # it would leave that pair untested.
 linkcheck: $(BUILD) generated pytest
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/stackmark.c -o $(BUILD)/stackmark.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/vectors.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/baud.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/console.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -ffunction-sections -fdata-sections -c test/link_probe.c -o $(BUILD)/link_probe.o
-	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/image.map -T src/bsp/stm32h7a3.ld $(BUILD)/startup.o $(BUILD)/vectors.o $(BUILD)/baud.o $(BUILD)/console.o $(BUILD)/link_probe.o -o $(BUILD)/image.elf
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/image.map -T src/bsp/stm32h7a3.ld $(BUILD)/startup.o $(BUILD)/stackmark.o $(BUILD)/vectors.o $(BUILD)/baud.o $(BUILD)/console.o $(BUILD)/link_probe.o -o $(BUILD)/image.elf
 	@arm-none-eabi-size $(BUILD)/image.elf
 	@$(PYTHON) tools/check_image.py $(BUILD)/image.elf
 
@@ -112,12 +116,13 @@ stamp:
 
 firstlight: $(BUILD) generated pytest stamp
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/fl_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/stackmark.c -o $(BUILD)/fl_stackmark.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/fl_vectors.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/fl_baud.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/fl_console.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/app/first_light.c -o $(BUILD)/fl_first_light.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c $(BUILD)/stamp.c -o $(BUILD)/fl_stamp.o
-	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/first_light.map -T src/bsp/stm32h7a3.ld $(BUILD)/fl_startup.o $(BUILD)/fl_vectors.o $(BUILD)/fl_baud.o $(BUILD)/fl_console.o $(BUILD)/fl_first_light.o $(BUILD)/fl_stamp.o -o $(BUILD)/first_light.elf
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/first_light.map -T src/bsp/stm32h7a3.ld $(BUILD)/fl_startup.o $(BUILD)/fl_stackmark.o $(BUILD)/fl_vectors.o $(BUILD)/fl_baud.o $(BUILD)/fl_console.o $(BUILD)/fl_first_light.o $(BUILD)/fl_stamp.o -o $(BUILD)/first_light.elf
 	@$(OBJCOPY) -O binary $(BUILD)/first_light.elf $(BUILD)/first_light.bin
 	@arm-none-eabi-size $(BUILD)/first_light.elf
 	@$(PYTHON) tools/check_image.py $(BUILD)/first_light.elf
@@ -137,7 +142,8 @@ firstlight: $(BUILD) generated pytest stamp
 # Joseph's decision, Thursday 12 November 2026: the competing candidate is not
 # written, because its meaning for this silicon is exactly what the experiment
 # is to determine, and writing to it would move the subject.
-FP_OBJS = $(BUILD)/fp_startup.o $(BUILD)/fp_vectors.o $(BUILD)/fp_baud.o \
+FP_OBJS = $(BUILD)/fp_startup.o $(BUILD)/fp_stackmark.o \
+          $(BUILD)/fp_vectors.o $(BUILD)/fp_baud.o \
           $(BUILD)/fp_console.o $(BUILD)/fp_probe.o $(BUILD)/fp_stamp.o
 
 fdcanprobe-a: FP_DEF  = -DFP_VARIANT_A
@@ -156,6 +162,7 @@ fdcanprobe-a fdcanprobe-b: $(BUILD) generated pytest stamp
 		echo "  ok   it refuses, so every image names its one write"; \
 	fi
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/fp_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/stackmark.c -o $(BUILD)/fp_stackmark.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/fp_vectors.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/fp_baud.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/fp_console.o
@@ -175,11 +182,13 @@ fdcanprobe-a fdcanprobe-b: $(BUILD) generated pytest stamp
 # it tests whether the 0x60 mirroring that capture found is periodic or confined
 # to three pairs. Every read is announced and flushed before the access, so a
 # truncated capture names the read that stopped the part.
-AM_OBJS = $(BUILD)/am_startup.o $(BUILD)/am_vectors.o $(BUILD)/am_baud.o \
+AM_OBJS = $(BUILD)/am_startup.o $(BUILD)/am_stackmark.o \
+          $(BUILD)/am_vectors.o $(BUILD)/am_baud.o \
           $(BUILD)/am_console.o $(BUILD)/am_addrmap.o $(BUILD)/am_stamp.o
 
 addrmap: $(BUILD) generated pytest stamp
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/am_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/stackmark.c -o $(BUILD)/am_stackmark.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/am_vectors.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/am_baud.o
 	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/am_console.o
@@ -193,6 +202,34 @@ addrmap: $(BUILD) generated pytest stamp
 	@echo "addrmap.bin is ready. If the capture stops partway, the LAST offset"
 	@echo "printed is the read that stopped it, and the fault handler should say"
 	@echo "so itself. A capture that ends mid-list is a result, not a mishap."
+
+# THE HIGH-WATER MARK, which the linker script asks for where it sets
+# _stack_size: 8 KB is a decision and not a measurement, and the remedy it
+# names is a mark read back from a painted stack on the board.
+#
+# The image reads the mark TWICE with a known consumption between and states
+# the prediction before the result, because an image printing one number
+# produces a figure nothing can contradict.
+SD_OBJS = $(BUILD)/sd_startup.o $(BUILD)/sd_stackmark.o \
+          $(BUILD)/sd_vectors.o $(BUILD)/sd_baud.o \
+          $(BUILD)/sd_console.o $(BUILD)/sd_stackdepth.o $(BUILD)/sd_stamp.o
+
+stackdepth: $(BUILD) generated pytest stamp
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/startup.c -o $(BUILD)/sd_startup.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/stackmark.c -o $(BUILD)/sd_stackmark.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/vectors.c -o $(BUILD)/sd_vectors.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/baud.c -o $(BUILD)/sd_baud.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/bsp/console.c -o $(BUILD)/sd_console.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c src/app/stackdepth.c -o $(BUILD)/sd_stackdepth.o
+	@$(CROSS) $(CROSSFLAGS) $(CROSSARCH) -Isrc/bsp -Isrc/app -ffunction-sections -fdata-sections -c $(BUILD)/stamp.c -o $(BUILD)/sd_stamp.o
+	@$(CROSS) $(CROSSARCH) -nostdlib -Wl,--gc-sections -Wl,-L,src/bsp -Wl,-Map=$(BUILD)/stackdepth.map -T src/bsp/stm32h7a3.ld $(SD_OBJS) -o $(BUILD)/stackdepth.elf
+	@$(OBJCOPY) -O binary $(BUILD)/stackdepth.elf $(BUILD)/stackdepth.bin
+	@arm-none-eabi-size $(BUILD)/stackdepth.elf
+	@$(PYTHON) tools/check_image.py $(BUILD)/stackdepth.elf
+	@echo
+	@echo "stackdepth.bin is ready. Read the verdict line before the figures:"
+	@echo "a mark that did not move says the method is broken, not that the"
+	@echo "stack is shallow."
 
 table:
 	@$(PYTHON) tools/gen_memmap.py --table
