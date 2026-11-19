@@ -370,9 +370,11 @@ same number.
 
 `[measured]` **The host interface answers with no core clock.** `HSEON` and
 `HSERDY` are both 0 and `CDCCIP1R` is entirely zero, yet `CREL` and `ENDN`
-answered, so reading them needs the peripheral bus clock and nothing else.
-Chapter 9's step 2 endianness check can therefore run before any kernel clock is
-arranged.
+answered. Chapter 9's step 2 endianness check can therefore run very early.
+
+`[unconfirmed]` What those reads DO require is not established. A sentence here
+said they need the peripheral bus clock and nothing else; the follow-up probe
+refuted it by finding the enable bit clear and the registers answering anyway.
 
 **And the question the probe was built for was malformed.** Both candidate
 offsets reach the same register: three pairs exactly 0x60 apart read and write
@@ -412,6 +414,54 @@ dereference. One rule of mine had to be re-formed first: it counted dereference
 casts and allowed "exactly one" on the strength of the write, but the write goes
 through a pointer variable and is not a dereference cast, so the rule demanded
 an access that does not exist and failed on correct code.
+
+### What addrmap answered, and one thing it took away
+
+**Thursday 12 November 2026, the same evening.** No read faulted, so the
+inference that every offset lies inside the peripheral's slot held, and the known
+positive still mirrored, so the capture is trustworthy.
+
+`[measured]` **The enable was never necessary.** `CREL` and `ENDN` answered
+BEFORE anything was written, with the enable bit reading `0x00000000` at both
+candidate addresses two lines later. **So the earlier probe established nothing
+about the enable at all**: it read FDCAN only afterwards, and sufficiency was
+never in question because the registers were already readable. That gap was mine
+and closing it removed a claim rather than adding one.
+
+`[unconfirmed]` And a consequence worth stating plainly: **neither probe ever
+demonstrated that the register they write is `APB1HENR`.** They demonstrated that
+two addresses share storage and that FDCAN answers regardless. The only evidence
+for that register's identity is the header, which is the document under
+suspicion.
+
+`[measured]` **The mirroring is confined, not periodic.** Three pairs beyond the
+enable block do not mirror:
+
+| Pair | Read | Mirrors |
+|---|---|---|
+| 0x000 and 0x060 | `0x0000C025` against `0x00000000` | no |
+| 0x0B0 and 0x110 | `0x00000000` against `0xE8FFC3FF` | no |
+| 0x14C and 0x1AC | both zero, then `0x00000100` against `0x00000000` after the write | no |
+
+The last row decides it: before the write both read zero, which proves nothing,
+and after bit 8 went in at 0x0EC, 0x14C took it and 0x1AC did not.
+
+`[measured]` **One pair of mine was useless by construction.** 0x050 and 0x0B0
+both read `0x00000000`, which is consistent with mirroring and with two distinct
+zero registers. I justified that pair with the claim that "CKGAENR at 0x0B0 is
+not zero", which was an assumption rather than a source, and it is false.
+
+`[inferred]` **0x110 is evidence for the comments.** It reads `0xE8FFC3FF`, so it
+is a real register with most bits set. The comments put `APB1LLPENR` there; the
+struct calls it reserved. A low-power enable register resetting with most enables
+set is the ordinary shape of one on this family. Taken with the enable block being
+reachable from both ranges, the tidiest reading is that the comments describe the
+real layout and the struct's addresses alias it, which would also dispose of the
+Zephyr argument that had looked decisive. That is an inference from one value and
+a shape argument, not a measurement of any register's identity.
+
+The full table of every read against what both halves of the header expect is in
+[`doc/register-map.md`](doc/register-map.md).
 
 **Still missing: three board questions.** The stack high-water mark, whether one
 `RXF0A` write releases a whole run of elements, and the loopback. The last two

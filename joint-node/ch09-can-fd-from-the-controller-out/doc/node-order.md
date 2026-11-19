@@ -77,10 +77,20 @@ the bus rather than in loopback.
 **Both steps ran on silicon on Thursday 12 November 2026**, out of sequence and
 without the rest of the plan, by chapter 4's register map probe. `[measured]`
 `CREL` read `0x32141218`, release 3.2.1 dated 18 December 2014, and `ENDN` read
-`0x87654321`, which confirms the base address. `[measured]` Both answered with
-the external oscillator off and `FDCANSEL` zero, so these two reads need the
-peripheral bus clock and nothing else: step 2 can refuse a wrong base before any
-kernel clock is arranged. See
+`0x87654321`, which confirms the base address.
+
+`[measured]` **Both answered with the external oscillator off, `FDCANSEL` zero,
+and the controller's own clock enable bit CLEAR.** A second image on the same day
+read them BEFORE writing any enable and got the same values, with the enable
+reading zero at both candidate addresses two lines later. So step 2 can refuse a
+wrong base very early indeed.
+
+`[unconfirmed]` **What those reads do require is not established.** An earlier
+note here said they need the peripheral bus clock and nothing else; that was an
+overstatement, because the capture that produced it had written an enable before
+reading and so could not distinguish the two. The peripheral may be clocked out
+of reset, or the host interface may not need its bus enable, or the bit being
+read may not be the one that gates it. See
 [`ch04/doc/register-map.md`](../../ch04-the-board-support-package/doc/register-map.md).
 
 **Step 1 and 2 write nothing.** `CREL` says which M_CAN core version this part

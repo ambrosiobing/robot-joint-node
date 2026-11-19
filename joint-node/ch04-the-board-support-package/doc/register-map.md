@@ -246,6 +246,113 @@ console untouched.
 
 So a capture that ends mid-list is a result rather than a mishap.
 
+## The addrmap capture, Thursday 12 November 2026
+
+    jn-addrmap fdcan-before 0x00000000=0x32141218 0x00000004=0x87654321 verdict answers-before-enable
+    jn-addrmap pair 0x000000E0=0x00000008 0x00000140=0x00000008 same
+    jn-addrmap pair 0x00000000=0x0000C025 0x00000060=0x00000000 differ
+    jn-addrmap pair 0x00000050=0x00000000 0x000000B0=0x00000000 same
+    jn-addrmap pair 0x000000B0=0x00000000 0x00000110=0xE8FFC3FF differ
+    jn-addrmap pair 0x0000014C=0x00000000 0x000001AC=0x00000000 same
+    jn-addrmap write offset 0x000000EC bit 8
+    jn-addrmap pair-after 0x0000014C=0x00000100 0x000001AC=0x00000000 differ
+    jn-addrmap fdcan-after 0x00000000=0x32141218 0x00000004=0x87654321
+    jn-addrmap enable-necessary no, the controller answered before the enable was written
+    jn-addrmap crel-stable yes
+
+No read faulted, so the inference that every offset lies inside the peripheral's
+slot held. The known positive, 0x0E0 against 0x140, still mirrors, so the
+capture is trustworthy before anything else in it is read.
+
+### The enable was never necessary, and that corrects the previous write-up
+
+`[measured]` `CREL` and `ENDN` answered **before anything was written**, and the
+baseline two lines later shows the enable bit CLEAR at both candidate addresses,
+`0x0EC` and `0x14C` reading `0x00000000`. So the reset did clear RCC and the
+controller answered anyway.
+
+**That means the earlier probe established nothing at all about the enable.** It
+read FDCAN only after writing, concluded "whichever enable this image wrote was
+sufficient", and sufficiency was never in question because the registers were
+already readable. The gap was mine and this closes it in the direction that
+removes a claim rather than adding one.
+
+`[unconfirmed]` **Why they answer is not established.** The peripheral clock may
+be enabled out of reset, or the M_CAN host interface may be reachable without
+its bus enable, or the bit written here may not be the one that gates it.
+
+And that last possibility has a consequence worth stating plainly: **this probe
+never demonstrated that the register it writes is `APB1HENR`.** It demonstrated
+that two addresses share storage and that FDCAN answers regardless. The only
+evidence for the register's identity is the header, which is the document under
+suspicion.
+
+### The mirroring is confined, not periodic
+
+`[measured]` Three pairs beyond the enable block do NOT mirror:
+
+| Pair | Read | Mirrors |
+|---|---|---|
+| 0x000 and 0x060 | `0x0000C025` against `0x00000000` | **no** |
+| 0x0B0 and 0x110 | `0x00000000` against `0xE8FFC3FF` | **no** |
+| 0x14C and 0x1AC | both `0x00000000`, then `0x00000100` against `0x00000000` after the write | **no** |
+
+The last row is the decisive one. Before the write both read zero, which proves
+nothing; after bit 8 was written at 0x0EC, 0x14C took it and **0x1AC did not**.
+So the 0x60 relationship does not repeat.
+
+`[measured]` The pair 0x050 and 0x0B0 both read `0x00000000` and is therefore
+**uninformative**: that is consistent with mirroring and with two distinct
+registers which both read zero. It was designed on the claim that "CKGAENR at
+0x0B0 is not zero", which was an assumption of mine and not a source, and it is
+false. A test pair justified by a guessed register value is not a test.
+
+### And 0x110 is evidence for the comments
+
+`[measured]` 0x110 reads `0xE8FFC3FF`, so it is a real register with most of its
+bits set.
+
+`[inferred]` The comments put `APB1LLPENR` at 0x110; the struct calls that
+address part of `RESERVED10`. A low-power enable register resetting with most
+enables set is the ordinary shape of such a register on this family, so a
+nonzero value here fits the comments' layout and does not fit "reserved".
+
+Taken with the enable block being reachable from both ranges, the tidiest
+reading is that **the comments describe the real layout and the struct's
+addresses are an alias of it.** That would also dispose of the argument that
+looked decisive the other way: another operating system reaching these registers
+through the struct works because the hardware answers at the struct's addresses
+too.
+
+`[unconfirmed]` That is an inference from one nonzero value and a shape
+argument, not a measurement of any register's identity. What is measured is
+which addresses share storage and which do not.
+
+### Each read, against what both halves of the header expect
+
+| Offset | Comments say | Struct says | Read |
+|---|---|---|---|
+| 0x000 | `CR` | `CR` | `0x0000C025`, HSI on and ready, `HSIDIV` 0 |
+| 0x050 | `CDCCIP1R` | `CDCCIP1R` | `0x00000000` |
+| 0x060 | `CIER` | `CIER` | `0x00000000`, no interrupts enabled |
+| 0x0B0 | `CKGAENR` | `CKGAENR` | `0x00000000` |
+| 0x0E0 | `AHB4ENR` | nothing | `0x00000008`, bit 3, GPIOD |
+| 0x0EC | `APB1HENR` | nothing | `0x00000000`, then bit 8 after the write |
+| 0x110 | `APB1LLPENR` | nothing | `0xE8FFC3FF` |
+| 0x140 | nothing | `AHB4ENR` | `0x00000008`, same as 0x0E0 |
+| 0x14C | nothing | `APB1HENR` | tracks 0x0EC |
+| 0x1AC | nothing | nothing | `0x00000000`, and takes no write |
+
+The four offsets both halves agree on all read values consistent with their
+documented reset state, which is the control for the rest of the table.
+
+### A side observation on the image
+
+`text` 4856, `data` 4, `bss` 8252, against the previous probe's 4248, 0 and
+8256. The four bytes moved from `.bss` to `.data` because `g_announced` has a
+non-zero initialiser, `0xFFFFFFFF`, so the startup must copy it rather than zero
+it. That is the whole difference and it is accounted for.
+
 ## What the capture did settle
 
 `[measured]` **The FDCAN1 base address, on silicon, for the first time in this
@@ -291,9 +398,14 @@ this is a second and different kind of evidence for the same number.
 `[measured]` **And the host interface answers without a core clock.** `HSEON`
 and `HSERDY` are both 0, so the external oscillator is not running, and
 `FDCANSEL` is 0 with `CDCCIP1R` entirely zero. `CREL` and `ENDN` answered
-anyway. So reading the M_CAN host registers needs the peripheral bus clock and
-nothing else, which means chapter 9's step 2 endianness check can run before any
-kernel clock has been arranged.
+anyway.
+
+The sentence that stood here said that reading them therefore needs the
+peripheral bus clock and nothing else. **That was an overstatement and the
+addrmap capture refuted it**: the enable bit was found CLEAR and the registers
+answered anyway, so what they do require is not established at all. What IS
+established is that chapter 9's step 2 endianness check can run very early. See
+[the addrmap section](#the-addrmap-capture-thursday-12-november-2026).
 
 `[unconfirmed]` What `FDCANSEL` 0 actually selects is still not sourced here. It
 does not matter for the two reads above, and it will matter for anything that

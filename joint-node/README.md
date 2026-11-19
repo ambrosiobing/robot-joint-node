@@ -40,15 +40,30 @@ kernel clock bounded between 62.77 and 65.33 MHz, which excludes any factor of
 two in the prescaler chain. What is still missing is the other three board
 questions, which that image does not ask because it only prints.
 
-**A contradiction in a vendor header was opened and partly disposed of on
-Thursday 12 November 2026.** ST's CMSIS device file for this part disagrees with
-itself about where the RCC clock enable registers are: its `RCC_TypeDef` and its
-own per-field comments differ by 0x60 for 22 registers. Two probe images,
-differing in exactly one write, put it to the part, and the answer was that the
-question was malformed: `[measured]` both candidate addresses reach the same
-register, three pairs 0x60 apart reading and writing identically in both images.
-The contradiction stands as a documentation question and has no consequence for
-those three registers. `[unconfirmed]` The mechanism is not established.
+**A contradiction in a vendor header was opened and disposed of on Thursday
+12 November 2026.** ST's CMSIS device file for this part disagrees with itself
+about where the RCC clock enable registers are: its `RCC_TypeDef` and its own
+per-field comments differ by 0x60 for 22 registers. Three probe images put it to
+the part.
+
+`[measured]` **The question was malformed.** Both candidate addresses reach the
+same register: three pairs 0x60 apart read and write identically, and in two
+images writing one address showed the bit at the other, which neither image had
+written. The contradiction stands as a documentation question and has no
+consequence for those three registers.
+
+`[measured]` **The mirroring is confined, not periodic.** A third image read five
+pairs instead of three. 0x000 against 0x060 differ, 0x0B0 against 0x110 differ,
+and 0x14C against 0x1AC differ once the bit is written: 0x14C takes it and 0x1AC
+does not. So the 0x60 relationship does not repeat beyond the enable block.
+
+`[measured]` **And the enable was never necessary.** That third image read
+`CREL` and `ENDN` BEFORE writing anything and they answered, with the enable bit
+reading zero at both candidates. So the first two probes established nothing
+about the enable, and `[unconfirmed]` nothing here has demonstrated that the
+register they write is `APB1HENR` at all: the only evidence for that identity is
+the header under suspicion.
+
 See [`ch04/doc/register-map.md`](ch04-the-board-support-package/doc/register-map.md).
 
 Chapter 17 contains **no code at all**, and that is the chapter rather than an
