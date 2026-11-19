@@ -66,6 +66,16 @@ the header under suspicion.
 
 See [`ch04/doc/register-map.md`](ch04-the-board-support-package/doc/register-map.md).
 
+**The captures are on file as of Thursday 19 November 2026**, in
+[`ch04/doc/captures/`](ch04-the-board-support-package/doc/captures), because the
+refuted sentence above survived seven days of green gates: the claim was in the
+tree and its refutation was in a terminal transcript, and no checker here had a
+bench capture as an input. `ch04/tools/check_captures.py` now refuses a page
+quoting a console line that no capture contains, and it convicted eight
+quotations of mine on its first run. It also reports which images have a capture
+and which have never produced one, which is this volume's honesty rule for
+images made mechanical.
+
 Chapter 17 contains **no code at all**, and that is the chapter rather than an
 omission. Its subject is the boundary this volume stops at, so its deliverable
 is a decision document: what a deterministic fieldbus would buy, what it would

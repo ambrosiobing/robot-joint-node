@@ -29,6 +29,7 @@ python tools/gen_stamp.py --print            # the build stamp, as it will print
 python test/test_firstlight.py               # the banner, the tag, the stamp
 python test/test_fdcanprobe.py               # one write, and the boundary round it
 python test/test_addrmap.py                  # the offsets, the flush order, the faults
+python tools/check_captures.py               # every quoted console line, against the captures
 python tools/gen_baud.py    # regenerate the baud vectors
 python test/test_baud.py    # the divisor, its error, and every refusal reached
 python test/test_console.py # the console's five silent mistakes, by construct
@@ -272,10 +273,9 @@ banner reappearing and the count restarting.
 
     # jn-firstlight ch04: the first image in this volume that prints
     # built Thursday 12 November 2026, 13:58:55 from 97f5241af2dd tree clean
-    console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556,
-             BRR 0x0000022C, rate 115108, error 1 per thousand
+    console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556, BRR 0x0000022C, rate 115108, error 1 per thousand
     jn-firstlight tick 1 bytes 459 worst-spins 457 verdict ok
-    ...
+    # ---- 76 further tick lines ----
     jn-firstlight tick 78 bytes 5213 worst-spins 1002 verdict ok
 
 The stamp on the console is the stamp `make firstlight` printed, character for
@@ -466,6 +466,37 @@ The full table of every read against what both halves of the header expect is in
 **Still missing: three board questions.** The stack high-water mark, whether one
 `RXF0A` write releases a whole run of elements, and the loopback. The last two
 need a configured controller.
+
+## The captures are on file, and a quotation is checked against them
+
+**Thursday 19 November 2026, and this gate exists because of a specific failure
+rather than a specific hazard.**
+
+Three pages here said that reading `CREL` and `ENDN` needs the peripheral bus
+clock and nothing else. A capture taken the same evening refuted it. **The tree
+carried the refuted sentence for seven days with every gate green**, because the
+claim was in the tree and its refutation was in a terminal transcript, and no
+checker in this volume had a bench capture as an input.
+
+`doc/captures/` now holds the four captures, each naming the image, the build
+stamp, the commit and the question it was taken to answer.
+`tools/check_captures.py` refuses a page that quotes a console line no capture
+contains, compared on the stripped line so indentation inside a Markdown block
+is free and internal spacing is not.
+
+**It convicted eight quotations of mine on its first run**, all three kinds of
+unfaithfulness and all mine: a console line WRAPPED across two lines to fit a
+column, a second space INSERTED so two lines would align under each other, and
+five lines whose tails I had DROPPED without saying so. The captures are the
+record, so the prose was corrected and the wide lines stay wide.
+
+It also reports, rather than refuses, which images have a capture on file. That
+is this volume's honesty rule for images made mechanical: an image with no
+capture has never run. All four have one.
+
+What it cannot do is tell whether a sentence of prose is true. What it can do is
+stop a quotation from drifting from the thing it quotes, which is the move that
+went wrong.
 
 ## What chapter 9 established was missing, for the record
 

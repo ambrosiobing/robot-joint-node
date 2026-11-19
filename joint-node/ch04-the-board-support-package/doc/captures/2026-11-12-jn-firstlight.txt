@@ -1,0 +1,28 @@
+# Capture: jn-firstlight
+# Taken on Thursday 12 November 2026, about 14:00 on the NUCLEO-H7A3ZI-Q beside win11 skyhorizon, read from
+# the ST-LINK virtual COM port at 115200 8N1.
+#
+# Image: src/app/first_light.c, make firstlight
+# Commit: 97f5241af2dd
+# Asked: whether the image prints at all, and what the assumed clock implies
+#
+# Lines below the marker are VERBATIM from the console, except where a
+# truncation line says otherwise. This file exists so that a page quoting a
+# capture can be checked against the capture rather than against a transcript
+# nobody kept: tools/check_captures.py does that check.
+#
+# NOTE: the fifth line below reads 'never measured'. The source was changed
+# later the same day, because this capture is what made that claim false:
+# legible text bounds the clock. first_light.c now says so instead.
+
+# ---- capture ----
+# jn-firstlight ch04: the first image in this volume that prints
+# built Thursday 12 November 2026, 13:58:55 from 97f5241af2dd tree clean
+console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556, BRR 0x0000022C, rate 115108, error 1 per thousand
+console: IF THIS LINE IS LEGIBLE the assumed clock is right to within the error above
+# this text being legible IS the test: the clock above was assumed, never measured
+jn-firstlight tick 1 bytes 459 worst-spins 457 verdict ok
+jn-firstlight tick 2 bytes 518 worst-spins 999 verdict ok
+jn-firstlight tick 3 bytes 577 worst-spins 1001 verdict ok
+# ---- 74 further tick lines, identical in form, worst-spins 1002 throughout ----
+jn-firstlight tick 78 bytes 5213 worst-spins 1002 verdict ok

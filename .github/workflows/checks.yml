@@ -129,6 +129,7 @@ jobs:
           python test/test_firstlight.py
           python test/test_fdcanprobe.py
           python test/test_addrmap.py
+          python tools/check_captures.py
           python test/test_baud.py
           python test/test_console.py
 

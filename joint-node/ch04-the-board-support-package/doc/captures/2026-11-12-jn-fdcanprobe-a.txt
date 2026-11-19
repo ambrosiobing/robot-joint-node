@@ -1,0 +1,28 @@
+# Capture: jn-fdcanprobe-a
+# Taken on Thursday 12 November 2026, about 15:35 on the NUCLEO-H7A3ZI-Q beside win11 skyhorizon, read from
+# the ST-LINK virtual COM port at 115200 8N1.
+#
+# Image: src/app/fdcan_probe.c with -DFP_VARIANT_A, make fdcanprobe-a
+# Commit: 131ee85427f1
+# Asked: which of two candidate RCC offsets is APB1HENR, by writing ONLY 0x0EC
+#
+# Lines below the marker are VERBATIM from the console, except where a
+# truncation line says otherwise. This file exists so that a page quoting a
+# capture can be checked against the capture rather than against a transcript
+# nobody kept: tools/check_captures.py does that check.
+
+# ---- capture ----
+# jn-fdcanprobe-a: which register map this silicon has, and whether the bus answers
+# built Thursday 12 November 2026, 15:33:41 from 131ee85427f1 tree clean
+console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556, BRR 0x0000022C, rate 115108, error 1 per thousand
+console: IF THIS LINE IS LEGIBLE the assumed clock is right to within the error above
+# this image writes ONE enable, at offset 0x000000EC, on the authority of ST's own register comments
+# it does not write the competing candidate, because that address's meaning is what is under test
+jn-fdcanprobe-a clocktree cr value 0x0000C025 hsion 1 hsirdy 1 hsidiv 0 hseon 0 hserdy 0
+jn-fdcanprobe-a clocktree cdccip1r value 0x00000000 fdcansel 0
+jn-fdcanprobe-a enable before 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000000 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000000
+jn-fdcanprobe-a enable after 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000100 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000100
+jn-fdcanprobe-a fdcan1 crel 0x32141218 endn 0x87654321 endn-expected 0x87654321 verdict base-confirmed
+jn-fdcanprobe-a tick 1 bytes 1111 worst-spins 1001 verdict ok
+# ---- 78 further tick lines, identical in form, worst-spins 1001 throughout ----
+jn-fdcanprobe-a tick 79 bytes 6095 worst-spins 1001 verdict ok

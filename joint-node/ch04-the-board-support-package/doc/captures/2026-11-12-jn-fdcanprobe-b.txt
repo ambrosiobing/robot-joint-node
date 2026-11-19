@@ -1,0 +1,32 @@
+# Capture: jn-fdcanprobe-b
+# Taken on Thursday 12 November 2026, about 15:40 on the NUCLEO-H7A3ZI-Q beside win11 skyhorizon, read from
+# the ST-LINK virtual COM port at 115200 8N1.
+#
+# Image: src/app/fdcan_probe.c with -DFP_VARIANT_B, make fdcanprobe-b
+# Commit: 131ee85427f1
+# Asked: the same question, by writing ONLY 0x14C and leaving 0x0EC untouched
+#
+# Lines below the marker are VERBATIM from the console, except where a
+# truncation line says otherwise. This file exists so that a page quoting a
+# capture can be checked against the capture rather than against a transcript
+# nobody kept: tools/check_captures.py does that check.
+#
+# The point of the pair: every read below is identical to variant A's, and
+# the enable bit appears at BOTH addresses in both images although each
+# wrote only one. That is the hardware, not the software.
+
+# ---- capture ----
+# jn-fdcanprobe-b: which register map this silicon has, and whether the bus answers
+# built Thursday 12 November 2026, 15:34:46 from 131ee85427f1 tree clean
+console: assumed kernel clock 64000000 Hz, presc 1, usartdiv 556, BRR 0x0000022C, rate 115108, error 1 per thousand
+console: IF THIS LINE IS LEGIBLE the assumed clock is right to within the error above
+# this image writes ONE enable, at offset 0x0000014C, on the authority of ST's RCC_TypeDef layout
+# it does not write the competing candidate, because that address's meaning is what is under test
+jn-fdcanprobe-b clocktree cr value 0x0000C025 hsion 1 hsirdy 1 hsidiv 0 hseon 0 hserdy 0
+jn-fdcanprobe-b clocktree cdccip1r value 0x00000000 fdcansel 0
+jn-fdcanprobe-b enable before 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000000 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000000
+jn-fdcanprobe-b enable after 0x0E0 0x00000008 0x0E8 0x00040000 0x0EC 0x00000100 0x140 0x00000008 0x148 0x00040000 0x14C 0x00000100
+jn-fdcanprobe-b fdcan1 crel 0x32141218 endn 0x87654321 endn-expected 0x87654321 verdict base-confirmed
+jn-fdcanprobe-b tick 1 bytes 1108 worst-spins 1001 verdict ok
+# ---- 13 further tick lines, identical in form ----
+jn-fdcanprobe-b tick 14 bytes 1932 worst-spins 1001 verdict ok

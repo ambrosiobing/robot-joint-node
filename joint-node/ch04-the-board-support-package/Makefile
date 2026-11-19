@@ -2,7 +2,8 @@
 #
 #     make            everything that needs no toolchain
 #     make layers     chapter 4's rule over the whole joint-node tree
-#     make pytest     the map, the startup, the divisor and the console
+#     make pytest     the map, the startup, the divisor, the console, and
+#                     every quoted console line against the captures on file
 #     make ctest      needs a host C compiler: the divisor against its vectors
 #     make linkcheck  needs arm-none-eabi-gcc: links a real image and reads
 #                     its first two words back
@@ -53,6 +54,7 @@ pytest:
 	@$(PYTHON) test/test_firstlight.py
 	@$(PYTHON) test/test_fdcanprobe.py
 	@$(PYTHON) test/test_addrmap.py
+	@$(PYTHON) tools/check_captures.py
 	@$(PYTHON) test/test_baud.py
 	@$(PYTHON) test/test_console.py
 
