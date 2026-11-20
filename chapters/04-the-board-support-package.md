@@ -96,11 +96,25 @@ This table is the peripheral budget for the entire volume, allocated once, here.
 | --- | --- | --- | --- |
 | Flash, this chapter | 2 kB, almost all of it tables | not measured | not measured |
 | Static memory, this chapter | 0 | computed | n/a |
-| Generated header, lines | under 300 | not measured | not measured |
+| Stack, reserved by the linker script | 8 kB, a decision | at most 268 bytes used, Friday 20 November 2026 | factor 30.6, one sided |
+| Generated header, lines | under 300 | 193 across two headers | 107 lines |
 | Handover: first light on a new machine | 30 minutes | not measured | not measured |
 | Handover: questions the reader had to ask | 0 | not measured | not measured |
 
 *Table 4.4. The budget for chapter 4. The last two rows are the only ones in this volume measured in minutes and questions rather than in bytes, and they are the ones that decide whether this chapter succeeded.*
+
+The stack row is measured and its margin is written as one sided on purpose. An image painted the whole free region with a pattern and read back how far the stack had reached into it, and the answer was that it had not reached the painted region at all: the contiguous run of intact pattern words was 1981, or 7924 bytes, which is the entire painted area. So the boundary found is the paint ceiling rather than anything the stack did, and the true figure lies somewhere between nothing and the 268 bytes above that ceiling. One run cannot narrow it.
+
+> [!NOTE]
+> **What validates a high-water mark, and what one reading does not**
+>
+> A number printed by an image that paints and reads back cannot be checked by looking at it. A broken paint, a scan running the wrong way, or a pattern written somewhere else entirely would each produce a believable byte count.
+>
+> So the image reads the mark twice with a 1024 byte array deliberately consumed in between, states its prediction on the console before the result, and carries verdicts for the two ways the method can fail rather than only for the way it can succeed. The deepest point with the array present was 1168 bytes, which is at least the 1024 the array holds, and that inequality is the whole validation.
+>
+> It earned its keep on the first run. The first version of the prediction compared the two marks by subtraction, which gave 900 against a predicted 1024, and the image printed `METHOD SUSPECT`. The method was sound and the statistic was not: the first mark was clamped at the ceiling, so subtracting it understates the movement by up to the invisible band, and 900 plus 268 is 1168. The verdict compares the absolute depth now, the library reports whether a figure is a measurement or a ceiling, and the movement is given as an interval. Every measured figure was identical across the two runs; only the claim about them changed.
+>
+> The reserved figure is unchanged at 8 kB. One image on one run, in a tree that enables no interrupt yet, is evidence for revisiting a decision rather than the decision itself, and both captures are in the repository so that the decision can be taken on them rather than on this paragraph.
 
 ## Firmware design (UML)
 
