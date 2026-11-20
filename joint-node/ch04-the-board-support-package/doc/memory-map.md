@@ -156,6 +156,36 @@ is 1168. The verdict now tests the absolute depth, `stackmark_t` carries a
 be read as a measurement. The capture that produced the change is on file at
 [`captures/2026-11-19-jn-stackdepth.txt`](captures/2026-11-19-jn-stackdepth.txt).
 
+### And the corrected image ran, on Friday 20 November 2026
+
+`[measured]` The verdict now reads `method holds`, from the image built at
+`9317dd2`:
+
+    jn-stackdepth verdict depth-at-b bytes 1168 predicted-at-least 1024 moved-at-least 900 moved-at-most 1168 method holds, so depth-at-b is the stack's own figure
+    jn-stackdepth real-usage at-most bytes 268 of region 8192 because the stack never reached the paint ceiling
+
+Both halves of the correction are visible in it. The movement comes as the
+interval [900, 1168] rather than as the single wrong figure 900, and the real
+usage is reported separately from the depth that includes the test array. The
+clamp is now stated where it is relevant rather than left for a reader to
+infer:
+
+    jn-stackdepth mark-a mark 0x20001F34 used 268 free 7924 run 1981 total 1981 trustworthy yes clamped YES, used is the ceiling depth and true usage is at most that
+
+`[measured]` **Every figure is identical to the earlier run.** Same marks, same
+run and total counts, same sum. Only the arithmetic over them and the words
+reporting it changed, which is the right outcome: the correction was to a claim
+about the measurement and never to the measurement.
+
+The confirming capture is at
+[`captures/2026-11-20-jn-stackdepth.txt`](captures/2026-11-20-jn-stackdepth.txt),
+and it carries one known defect in a note rather than silently: the `bytes`
+field of a `tick` line counts characters the console has printed, not stack
+depth, and in an image where `bytes` means depth everywhere else that name
+misleads. Renaming it costs a flash, and flashing would make the fresh capture
+stale for the sake of a heartbeat label, so the rename travels with the next
+change that needs the bench.
+
 ### A note on reading `size` for this chapter
 
 `[arithmetic]` `arm-none-eabi-size` reported `bss 8256` for that image, and

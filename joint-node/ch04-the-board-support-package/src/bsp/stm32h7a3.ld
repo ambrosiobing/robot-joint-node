@@ -42,6 +42,13 @@
  * interrupt yet, and a deeper call chain would report differently. This is the
  * evidence for revisiting a decision rather than the decision. See
  * doc/memory-map.md and doc/captures/2026-11-19-jn-stackdepth.txt.
+ *
+ * The first run of that image reported METHOD SUSPECT, because the prediction
+ * differenced a figure that was clamped at the paint ceiling. The corrected
+ * image ran on Friday 20 November 2026 and reports `method holds` at the same
+ * 1168 bytes, with the real usage on its own line as `at-most 268 of 8192`.
+ * Both captures are on file; the figures never changed, only the claim about
+ * them.
  */
 
 INCLUDE memory.ld

@@ -185,7 +185,10 @@ four figures came back that no amount of reading could have settled:
 The last of those also caught a defect in its own prediction and said so on the
 console: the first version differenced two marks, one of which was clamped at
 the ceiling, and the image's `METHOD SUSPECT` branch fired on the shortfall.
-The verdict tests the absolute depth now. `[unconfirmed]` `_stack_size` is
+The verdict tests the absolute depth now, and `[measured]` the corrected image
+ran on Friday 20 November 2026 and reports `method holds` at the same 1168
+bytes. Every figure was identical across the two runs; only the arithmetic over
+them changed. `[unconfirmed]` `_stack_size` is
 unchanged at 8 KB, because one image on one run is evidence for revisiting a
 decision rather than the decision.
 

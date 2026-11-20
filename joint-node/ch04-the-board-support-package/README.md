@@ -545,6 +545,26 @@ The capture is on file at
 [`doc/captures/2026-11-19-jn-stackdepth.txt`](doc/captures/2026-11-19-jn-stackdepth.txt),
 and it records the old wording because it is the evidence that changed it.
 
+**Friday 20 November 2026: the corrected image ran and the verdict reads
+`method holds`.**
+
+    jn-stackdepth verdict depth-at-b bytes 1168 predicted-at-least 1024 moved-at-least 900 moved-at-most 1168 method holds, so depth-at-b is the stack's own figure
+    jn-stackdepth real-usage at-most bytes 268 of region 8192 because the stack never reached the paint ceiling
+
+`[measured]` **Every figure is identical to the run that reported
+`METHOD SUSPECT`**: the same two marks, the same run and total counts, the same
+array sum. Only the arithmetic over them and the words reporting it changed,
+which is what a correction to a claim about a measurement should look like.
+
+One defect is left standing and said so in the capture's own header: the `bytes`
+field of a `tick` line counts characters the console has printed, read out of
+`g_console.bytes` rather than inferred, and in an image where `bytes` means
+stack depth everywhere else that name misleads. Renaming it costs a flash, and
+flashing would make this fresh capture stale for a heartbeat label, so the
+rename travels with the next change that needs the bench. The confirming capture
+is at
+[`doc/captures/2026-11-20-jn-stackdepth.txt`](doc/captures/2026-11-20-jn-stackdepth.txt).
+
 **Still missing: two board questions.** Whether one `RXF0A` write releases a
 whole run of elements, and the loopback, both of which need a configured
 controller.
