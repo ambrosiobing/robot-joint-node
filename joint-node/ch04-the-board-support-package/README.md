@@ -565,6 +565,34 @@ rename travels with the next change that needs the bench. The confirming capture
 is at
 [`doc/captures/2026-11-20-jn-stackdepth.txt`](doc/captures/2026-11-20-jn-stackdepth.txt).
 
+### And the chapter's own size, measured by linking exactly it
+
+`make linkcheck` links the board layer and nothing above it, so its size is the
+honest figure for what this chapter costs. `[measured]` Friday 20 November 2026:
+
+    text    data     bss     dec     hex filename
+    2700       4    8260   10964    2ad4 build/image.elf
+
+**Two budget rows in the chapter went from unmeasured to over budget.** Flash is
+2700 bytes against a stated 2 kB, so over by 652; static memory is 72 bytes
+outside the stack region against a stated nothing. `[arithmetic]` The `bss`
+figure contains the 8192 byte stack region, because `NOLOAD` still occupies and
+`size` counts it, which leaves 68 bytes of real `.bss` plus the 4 of `.data`.
+
+The budget was written when this chapter was a board description and some
+tables. It now also carries the 171 entry vector table, 684 bytes on its own, a
+startup that copies and zeroes, a baud divisor and a console. So the figure is
+reported and the budget is left standing: a budget wrong because the chapter did
+more than it planned is a budget to restate, and that is not a measurement.
+
+`[measured]` **And the initial stack pointer is not a constant of the board.**
+This image reports `_estack 0x20002048` where the application images report
+`0x20002040`. `[arithmetic]` The eight bytes are exactly the four of `.data` and
+four of `.bss` this image has and they do not, because the stack region sits
+above both and anything growing below it moves the top up. An address read off
+one capture is a fact about that image, which is worth knowing before reading
+two captures side by side.
+
 **Still missing: two board questions.** Whether one `RXF0A` write releases a
 whole run of elements, and the loopback, both of which need a configured
 controller.

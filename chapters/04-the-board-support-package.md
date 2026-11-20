@@ -94,8 +94,8 @@ This table is the peripheral budget for the entire volume, allocated once, here.
 
 | Quantity | Budget | Measured | Margin |
 | --- | --- | --- | --- |
-| Flash, this chapter | 2 kB, almost all of it tables | not measured | not measured |
-| Static memory, this chapter | 0 | computed | n/a |
+| Flash, this chapter | 2 kB, almost all of it tables | 2700 bytes, Friday 20 November 2026 | over by 652 bytes |
+| Static memory, this chapter | 0 | 72 bytes outside the stack region | over by 72 bytes |
 | Stack, reserved by the linker script | 8 kB, a decision | at most 268 bytes used, Friday 20 November 2026 | factor 30.6, one sided |
 | Generated header, lines | under 300 | 193 across two headers | 107 lines |
 | Handover: first light on a new machine | 30 minutes | not measured | not measured |
@@ -115,6 +115,12 @@ The stack row is measured and its margin is written as one sided on purpose. An 
 > It earned its keep on the first run. The first version of the prediction compared the two marks by subtraction, which gave 900 against a predicted 1024, and the image printed `METHOD SUSPECT`. The method was sound and the statistic was not: the first mark was clamped at the ceiling, so subtracting it understates the movement by up to the invisible band, and 900 plus 268 is 1168. The verdict compares the absolute depth now, the library reports whether a figure is a measurement or a ceiling, and the movement is given as an interval. Every measured figure was identical across the two runs; only the claim about them changed.
 >
 > The reserved figure is unchanged at 8 kB. One image on one run, in a tree that enables no interrupt yet, is evidence for revisiting a decision rather than the decision itself, and both captures are in the repository so that the decision can be taken on them rather than on this paragraph.
+
+Two rows went from unmeasured to over budget, and the reason is worth more than the figures. The 2 kB was written when this chapter was a board description and a handful of tables. It now also carries a 171 entry interrupt vector table, which is 684 bytes on its own, a startup that copies and zeroes, a baud divisor and a console. 2700 bytes is what the board layer links to, measured by linking exactly it and nothing above it, and the budget was never revised when the chapter grew. The static figure is the same story at a smaller scale: 72 bytes of initialised data and zeroed variables outside the stack region, against a budget of nothing at all.
+
+Neither number is reported as a problem. A budget that is wrong because the chapter did more than it planned to is a budget to restate, and restating it belongs to whoever decides what this chapter is for.
+
+One detail from the same measurement, because it catches people reading two captures side by side. The initial stack pointer is not a constant of the board: this image reports `_estack 0x20002048` where the application images report `0x20002040`, and the eight bytes are exactly the four of initialised data and four of zeroed data that this image has and they do not. The stack region sits above both, so anything that grows below it moves the top of the stack up. An address read off one capture is a fact about that image.
 
 ## Firmware design (UML)
 
