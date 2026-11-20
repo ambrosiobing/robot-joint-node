@@ -394,8 +394,21 @@ rather than typed.
 
 ## Reaching the registers, which is the first file below the board layer
 
-`src/bsp/fdcan_mmio.c` points `planrun.c`'s three function pointers at real
-memory. It is the first file in this volume that is allowed to name an address,
+**The accessor type is its own header, `src/bus/fdcan_io.h`, as of Friday
+20 November 2026.** It carried the three function pointers and their struct out
+of `planrun.h` unchanged, character for character, because a second module is
+about to ask somebody else to read a register: the transfer path, which moves
+one frame into or out of the message memory. A transfer does not run a plan, so
+a transfer including the plan executor's header to learn what an accessor looks
+like would be a dependency written the wrong way round and then excused in a
+comment.
+
+Nothing else moved, which is what makes the nine committed vector files a proof
+of the move rather than a hope. Every suite still compares against the same
+vectors and still passes.
+
+`src/bsp/fdcan_mmio.c` points the three function pointers of
+`src/bus/fdcan_io.h` at real memory. It is the first file in this volume that is allowed to name an address,
 and it needs no vendor header: a read, a write and a clear are volatile accesses
 at a base plus an offset, so including CMSIS would put a vendor dependency under
 the one file permitted to have one and not requiring it.

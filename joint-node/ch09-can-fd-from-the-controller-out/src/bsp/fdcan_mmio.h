@@ -63,7 +63,11 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include "planrun.h"
+/* The accessor type only. This file supplies the three callbacks and knows
+ * nothing about the plan that uses them; it included planrun.h until
+ * Friday 20 November 2026, which pulled the executor and the whole
+ * register map in behind it for the sake of one struct. */
+#include "fdcan_io.h"
 
 /* `[datasheet]` doc/node-registers.md. Passed to fdcan_mmio_init rather than
  * used directly, so the host test can point the same code at an array. */
